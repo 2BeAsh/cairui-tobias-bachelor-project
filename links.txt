@@ -1,0 +1,14 @@
+Applications for deep learning in ecology: (Mest NN, men stadig interessant)
+https://besjournals.onlinelibrary.wiley.com/doi/10.1111/2041-210X.13256
+
+Multi-species distribution (NN):
+https://arxiv.org/pdf/1609.09353.pdf
+
+Billede af hjernen (RL):
+https://www.sciencedirect.com/science/article/pii/S0042698920300997
+
+Conservation decisions (RL):
+https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.13954
+
+Individual identification birds (RL):
+https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.13436
