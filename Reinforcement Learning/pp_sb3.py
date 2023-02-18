@@ -54,7 +54,7 @@ class PredatorPreyEnv(gym.Env):
     def reset(self, seed=None):
         # Fix seed and reset values 
         super().reset(seed=seed)
-        self.reward = 0
+        reward = 0
 
         # Initial positions
         # Agent always starts one corner, target stats random location not within catch radius. 
@@ -88,10 +88,10 @@ class PredatorPreyEnv(gym.Env):
         # Reward
         dist = self._get_dist()
         if dist <= self.catch_radius:  # Catch target
-            self.reward += 100 * self.width * self.height  # Scale catch reward with size of playground
+            reward = 100 * self.width * self.height  # Scale catch reward with size of playground
             done = True
         else: 
-            self.reward -= dist  # Penalises for being far away - Might not be a good idea when flow is introduced. 
+            reward = - dist  # Penalises for being far away - Might not be a good idea when flow is introduced. 
             done = False
 
         # Truncation - Check if ends early 
@@ -106,8 +106,9 @@ class PredatorPreyEnv(gym.Env):
 
         if self.render_mode == "human":
             self._render_frame()
-
-        return observation, self.reward, done, info
+        print("REWARD = ", reward)
+        print("TYPE = ", type(reward))
+        return observation, reward.astype(np.float32), done, info
 
 
     def _render_to_file(self, filename="pp_render.txt"):
@@ -179,12 +180,15 @@ class PredatorPreyEnv(gym.Env):
             pygame.quit()
     
 
+def test_model():
+    env = PredatorPreyEnv(catch_radius=0.5)
+    print("SB3 CHECK ENV:")
+    print(check_env(env))
+
 
 def train(catch_radius, width, height, remaining_steps, train_total_steps):
-    # Get env and check is SB3 likes it
     env = PredatorPreyEnv(catch_radius, width, height, remaining_steps)    
     #env = FlattenObservation(env)  - Not necessary?
-    print("SB3 Check:", check_env(env))
 
     # Train with SB3
     log_path = os.path.join("Training", "Logs")
@@ -211,12 +215,14 @@ def show_result(catch_radius, width, height, remaining_steps, render_mode):
 
 # Run the code
 # Parameters
-catch_radius = 3
-width = 10
-height = 10
+catch_radius = 0.3
+width = 4
+height = 4
 remaining_steps = 1000
 train_total_steps = int(1e6) 
 
+#test_model()
 train(catch_radius, width, height, remaining_steps, train_total_steps)
-show_result(catch_radius, width, height, remaining_steps, render_mode="human")
+#show_result(catch_radius, width, height, remaining_steps, render_mode="human")
 
+print("xxx")
