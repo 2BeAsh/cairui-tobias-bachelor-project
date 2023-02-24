@@ -40,7 +40,7 @@ class PredatorPreyEnv(gym.Env):
         # -- Define action and observation space -- 
         # Actions: Angle to move
         # Observations: agent and target position        
-        self.action_space = spaces.Box(low=-1, high=1, shape=(1,))  # Angle 
+        self.action_space = spaces.Box(low=np.array([-1, -1]), high=np.array([1, 1]), shape=(2,))  # dx, dy
         self.observation_space = spaces.Dict({
             "agent": spaces.Box(low=np.array([0, 0]), high=np.array([self.width, self.height]), shape=(2,), dtype=np.float32),
             "target": spaces.Box(low=np.array([0, 0]), high=np.array([self.width, self.height]), shape=(2,), dtype=np.float32),
@@ -76,14 +76,15 @@ class PredatorPreyEnv(gym.Env):
 
     def step(self, action):
         # Do the move
-        move_x = np.cos(np.pi * action)
-        move_y = np.sin(np.pi * action)
-        agent_move = np.array([move_x, move_y]).reshape(2,)        
-        self._agent_position = np.clip(a=self._agent_position + agent_move, a_min=[0., 0.], a_max=[self.width, self.height])
+        max_speed = 1
+        move = self._agent_position + action * max_speed
+        self._agent_position = np.clip(a=move, a_min=[0., 0.], a_max=[self.width, self.height])
         self._agent_position = self._agent_position.reshape(2,).astype(np.float32)
+        
         # In the future:
         # Calculate the fluid velocity field and add that to the move. 
         # Have the target move by ... - Diffusion? - Just following the flow?
+        # Add periodic boundaries. 
 
         # Reward
         dist = self._get_dist()
@@ -92,7 +93,7 @@ class PredatorPreyEnv(gym.Env):
             done = True
         else: 
             # For some reason must be a float not numpy float??
-            reward = float(-dist)  # Penalises for being far away - Might not be a good idea when flow is introduced. 
+            reward = float(-dist ** 2)  # Penalises for being far away - Might not be a good idea when flow is introduced. 
             done = False
 
         # Truncation - Check if ends early  # OBS SB3 DOES NOT LIKE THIS
@@ -150,7 +151,7 @@ class PredatorPreyEnv(gym.Env):
         canvas.fill((255, 255, 255))  # White
         
         # Draw target as rectangle
-        pix_size = self.window_size / self.width
+        pix_size = self.catch_radius * self.window_size / self.width
         pygame.draw.rect(
             canvas,
             (255, 0, 0),  # Red
@@ -186,10 +187,13 @@ class PredatorPreyEnv(gym.Env):
             pygame.quit()
     
 
-def test_model():
+def check_model():
     env = PredatorPreyEnv(catch_radius=0.5)
-    print("SB3 CHECK ENV:")
-    print(check_env(env))
+    print("-- SB3 CHECK ENV: --")
+    if check_env(env) == None:
+        print("   The Environment is compatible with SB3")
+    else:
+        print(check_env(env))
 
 
 def train(catch_radius, width, height, remaining_steps, train_total_steps):
@@ -225,10 +229,8 @@ catch_radius = 0.3
 width = 4
 height = 4
 remaining_steps = 1000
-train_total_steps = int(1e6) 
+train_total_steps = int(1e5) 
 
-#test_model()
+#check_model()
 #train(catch_radius, width, height, remaining_steps, train_total_steps)
 show_result(catch_radius, width, height, remaining_steps, render_mode="human")
-
-print("xxx")
