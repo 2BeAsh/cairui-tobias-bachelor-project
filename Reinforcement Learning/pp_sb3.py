@@ -21,13 +21,14 @@ class PredatorPreyEnv(gym.Env):
 
     metadata = {"render_modes": ["file", "human", "rgb_array"], "render_fps":4}
 
+
     def __init__(self, catch_radius, width=1, height=1, remaining_steps=1000, render_mode=None):
-        super().__init__()
-        # Variables
+        #super().__init__() - ingen anelse hvorfor jeg gør det?
+        # -- Variables --
         # Model 
         self.width = width  # Width and height of learning playground
         self.height = height
-        self.remaining_steps = remaining_steps
+        self.remaining_steps = remaining_steps  # Not used atm
         self.catch_radius = catch_radius
         # Rendering
         self.window_size = 512  # PyGame window size
@@ -36,7 +37,7 @@ class PredatorPreyEnv(gym.Env):
         self.window = None
         self.clock = None
         
-        # Define action and observation space
+        # -- Define action and observation space -- 
         # Actions: Angle to move
         # Observations: agent and target position        
         self.action_space = spaces.Box(low=-1, high=1, shape=(1,))  # Angle 
@@ -54,11 +55,10 @@ class PredatorPreyEnv(gym.Env):
     def reset(self, seed=None):
         # Fix seed and reset values 
         super().reset(seed=seed)
-        reward = 0
 
         # Initial positions
         # Agent always starts one corner, target stats random location not within catch radius. 
-        self._agent_position = np.array([0, 0], dtype=np.float32)
+        self._agent_position = np.array([0., 0.], dtype=np.float32)
         self._target_position = self._agent_position
         dist = self._get_dist()
 
@@ -71,7 +71,7 @@ class PredatorPreyEnv(gym.Env):
         if self.render_mode == "human":
             self._render_frame()
 
-        return observation  # OBS: need info?
+        return observation  # Need info? Gym says so, SB3 dislikes
 
 
     def step(self, action):
@@ -79,7 +79,7 @@ class PredatorPreyEnv(gym.Env):
         move_x = np.cos(np.pi * action)
         move_y = np.sin(np.pi * action)
         agent_move = np.array([move_x, move_y]).reshape(2,)        
-        self._agent_position = np.clip(a=self._agent_position + agent_move, a_min=[0, 0], a_max=[self.width, self.height])
+        self._agent_position = np.clip(a=self._agent_position + agent_move, a_min=[0., 0.], a_max=[self.width, self.height])
         self._agent_position = self._agent_position.reshape(2,).astype(np.float32)
         # In the future:
         # Calculate the fluid velocity field and add that to the move. 
@@ -88,13 +88,14 @@ class PredatorPreyEnv(gym.Env):
         # Reward
         dist = self._get_dist()
         if dist <= self.catch_radius:  # Catch target
-            reward = 100 * self.width * self.height  # Scale catch reward with size of playground
+            reward = float(100 * self.width * self.height)  # Scale catch reward with size of playground
             done = True
         else: 
-            reward = - dist  # Penalises for being far away - Might not be a good idea when flow is introduced. 
+            # For some reason must be a float not numpy float??
+            reward = float(-dist)  # Penalises for being far away - Might not be a good idea when flow is introduced. 
             done = False
 
-        # Truncation - Check if ends early 
+        # Truncation - Check if ends early  # OBS SB3 DOES NOT LIKE THIS
         self.remaining_steps -= 1
         if self.remaining_steps <= 0:
             truncated = True
@@ -106,9 +107,14 @@ class PredatorPreyEnv(gym.Env):
 
         if self.render_mode == "human":
             self._render_frame()
-        print("REWARD = ", reward)
-        print("TYPE = ", type(reward))
-        return observation, reward.astype(np.float32), done, info
+        
+        # Problem with reward. 
+        #name_list = ["Obs", "reward", "done", "info"]
+        #var_list = [observation, reward, done, info]
+        #for n, v in zip(name_list, var_list):
+        #    print(f"{n} = {v}  with type: {type(v)}\n")
+        
+        return observation, reward, done, info
 
 
     def _render_to_file(self, filename="pp_render.txt"):
@@ -222,7 +228,7 @@ remaining_steps = 1000
 train_total_steps = int(1e6) 
 
 #test_model()
-train(catch_radius, width, height, remaining_steps, train_total_steps)
-#show_result(catch_radius, width, height, remaining_steps, render_mode="human")
+#train(catch_radius, width, height, remaining_steps, train_total_steps)
+show_result(catch_radius, width, height, remaining_steps, render_mode="human")
 
 print("xxx")
