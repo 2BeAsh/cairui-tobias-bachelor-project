@@ -40,10 +40,10 @@ class PredatorPreyEnv(gym.Env):
         # -- Define action and observation space -- 
         # Actions: Angle to move
         # Observations: agent and target position        
-        self.action_space = spaces.Box(low=np.array([-1, -1]), high=np.array([1, 1]), shape=(2,))  # dx, dy
+        self.action_space = spaces.Box(low=np.array([-1, -1], dtype=np.float32), high=np.array([1, 1], dtype=np.float32), shape=(2,))  # dx, dy
         self.observation_space = spaces.Dict({
-            "agent": spaces.Box(low=np.array([0, 0]), high=np.array([self.width, self.height]), shape=(2,), dtype=np.float32),
-            "target": spaces.Box(low=np.array([0, 0]), high=np.array([self.width, self.height]), shape=(2,), dtype=np.float32),
+            "agent": spaces.Box(low=np.array([0, 0], dtype=np.float32), high=np.array([self.width, self.height], dtype=np.float32), shape=(2,)),
+            "target": spaces.Box(low=np.array([0, 0], dtype=np.float32), high=np.array([self.width, self.height], dtype=np.float32), shape=(2,)),
         })
     
 
@@ -51,7 +51,28 @@ class PredatorPreyEnv(gym.Env):
         """Helper function that calculates the distance between the agent and the target"""
         return np.linalg.norm(self._agent_position - self._target_position, ord=1)
 
+
+    def _get_obs(self):
+        """Helper function with observation."""
+        return {"agent": self._agent_position, "target": self._target_position}
+
+
+    def _periodic_boundary(self, movement):
+        """Helper function that primitively updates movement according to periodic boundaries. Can probably be optimized!"""
+        # x-direction
+        if movement[0] > self.width: 
+            movement[0] -= self.width
+        elif movement[0] < 0:
+            movement[0] += self.width
+        # y-direction
+        if movement[1] > self.height:  
+            movement[1] -= self.height
+        elif movement[1] < 0:
+            movement[1] += self.height
+
+        return movement
         
+
     def reset(self, seed=None):
         # Fix seed and reset values 
         super().reset(seed=seed)
@@ -63,10 +84,10 @@ class PredatorPreyEnv(gym.Env):
         dist = self._get_dist()
 
         while dist <= self.catch_radius:  
-            self._target_position = self.np_random.uniform(low=np.array([0, 0]), high=np.array([self.width, self.height]), size=2)
+            self._target_position = self.np_random.uniform(low=np.array([0, 0], dtype=np.float32), high=np.array([self.width, self.height], dtype=np.float32), size=2)
             dist = self._get_dist()
         self._target_position = self._target_position.reshape(2,).astype(np.float32)
-        observation = {"agent": self._agent_position, "target": self._target_position}
+        observation = self._get_obs()
 
         if self.render_mode == "human":
             self._render_frame()
@@ -75,16 +96,30 @@ class PredatorPreyEnv(gym.Env):
 
 
     def step(self, action):
-        # Do the move
-        max_speed = 1
-        move = self._agent_position + action * max_speed
-        self._agent_position = np.clip(a=move, a_min=[0., 0.], a_max=[self.width, self.height])
-        self._agent_position = self._agent_position.reshape(2,).astype(np.float32)
+        # -- Movement --
+        # Agent
+        agent_max_move = 1  # Maximum velocity
+        move_agent = self._agent_position + action * agent_max_move  # Implicit dt=1
         
-        # In the future:
-        # Calculate the fluid velocity field and add that to the move. 
-        # Have the target move by ... - Diffusion? - Just following the flow?
-        # Add periodic boundaries. 
+        # Prey
+        target_max_move = agent_max_move / 4
+        move_target = self._target_position + np.random.uniform(low=-1, high=1, size=(2,)) * target_max_move 
+        
+        # Fluid velocity field
+        # INSERT 
+
+        # Box boundaries
+        #self._agent_position = np.clip(a=move_agent, a_min=[0, 0], a_max=[self.width, self.height])
+        #self._target_position = np.clip(a=move_target, a_min=[0, 0], a_max=[self.width, self.height])
+
+        # Periodic boundaries - SANDSYNLIGVIS OPTIMERES
+        self._agent_position = self._periodic_boundary(move_agent)
+        self._target_position = self._periodic_boundary(move_target)
+
+        # Get positions in correct shape
+        self._agent_position = self._agent_position.reshape(2,).astype(np.float32)
+        self._target_position = self._target_position.reshape(2,).astype(np.float32)
+
 
         # Reward
         dist = self._get_dist()
@@ -96,25 +131,19 @@ class PredatorPreyEnv(gym.Env):
             reward = float(-dist ** 2)  # Penalises for being far away - Might not be a good idea when flow is introduced. 
             done = False
 
-        # Truncation - Check if ends early  # OBS SB3 DOES NOT LIKE THIS
+        # Truncation - Check if ends early  # OBS SB3 DOES NOT LIKE THIS. Might delete.
         self.remaining_steps -= 1
         if self.remaining_steps <= 0:
             truncated = True
         else:
             truncated = False 
 
-        observation = {"agent": self._agent_position, "target": self._target_position}
+        observation = self._get_obs()
         info = {}
 
         if self.render_mode == "human":
             self._render_frame()
-        
-        # Problem with reward. 
-        #name_list = ["Obs", "reward", "done", "info"]
-        #var_list = [observation, reward, done, info]
-        #for n, v in zip(name_list, var_list):
-        #    print(f"{n} = {v}  with type: {type(v)}\n")
-        
+
         return observation, reward, done, info
 
 
@@ -151,22 +180,45 @@ class PredatorPreyEnv(gym.Env):
         canvas.fill((255, 255, 255))  # White
         
         # Draw target as rectangle
-        pix_size = self.catch_radius * self.window_size / self.width
+        pix_size = self.catch_radius * self.window_size / self.width  # Ideally, dots would be such that when they overlap, the prey is catched
+
+        #agent_rect = pygame.Rect(left=float(self._target_position[0]), 
+        #                         top=float(self._target_position[1]),
+        #                         width=float(pix_size),
+        #                         height=float(pix_size)
+        #)
+        
+        target_rectangle = [float(self._target_position[0]), float(self._target_position[1]), float(pix_size), float(pix_size)]  # x, y, width, height
         pygame.draw.rect(
             canvas,
-            (255, 0, 0),  # Red
-            pygame.Rect(
-                pix_size * self._target_position,
-                (pix_size, pix_size)
-                ),
-            )
+            (255, 0, 0),
+            target_rectangle
+        )
+
+        #pygame.draw.rect(
+        #    canvas,
+        #    (255, 0, 0),  # Red
+        #    pygame.Rect(
+        #        pix_size * np.array(self._target_position),
+        #        (pix_size, pix_size)
+        #        ),
+        #    )
         # Draw agent as circle
+        pygame.draw.circle(
+            canvas,
+            (0, 0, 255),  # Color
+            (float(self._agent_position[0]), float(self._agent_position[1])),  # x, y
+            pix_size / 2,  # Radius
+            )
+
+        """ 
         pygame.draw.circle(
             canvas,
             (0, 0, 255),  # Blue
             (self._agent_position + 0.5) * pix_size,
             pix_size / 3
             )
+        """
 
         # Draw canvas on visible window
         if self.render_mode == "human":
@@ -225,7 +277,7 @@ def show_result(catch_radius, width, height, remaining_steps, render_mode):
 
 # Run the code
 # Parameters
-catch_radius = 0.3
+catch_radius = 0.1
 width = 4
 height = 4
 remaining_steps = 1000
