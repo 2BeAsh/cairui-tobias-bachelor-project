@@ -5,6 +5,7 @@ Make predator prey custom environment from bottom.
 import numpy as np
 import os
 import pygame 
+import matplotlib.pyplot as plt
 
 import gym
 from gym import spaces
@@ -19,10 +20,10 @@ from stable_baselines3.common.evaluation import evaluate_policy
 class PredatorPreyEnv(gym.Env):
     """Custom Environment that follows gym interface."""
 
-    metadata = {"render_modes": ["file", "human", "rgb_array"], "render_fps":4}
+    metadata = {"render_modes": ["file", "human", "rgb_array"], "render_fps":4}  # nok fjern "file"
 
 
-    def __init__(self, catch_radius, width=1, height=1, remaining_steps=1000, render_mode=None):
+    def __init__(self, catch_radius=0.1, width=1, height=1, remaining_steps=1000, render_mode=None):
         #super().__init__() - ingen anelse hvorfor jeg gør det?
         # -- Variables --
         # Model 
@@ -78,15 +79,17 @@ class PredatorPreyEnv(gym.Env):
         super().reset(seed=seed)
 
         # Initial positions
-        # Agent always starts one corner, target stats random location not within catch radius. 
-        self._agent_position = np.array([0., 0.], dtype=np.float32)
+        # Agent starts random location, target stats random location not within 4 catch radius. 
+        self._agent_position = self.np_random.uniform(low=np.array([0, 0], dtype=np.float32), high=np.array([self.width, self.height], dtype=np.float32), size=2)
+        self._agent_position = self._agent_position.reshape(2,).astype(np.float32)
+        
         self._target_position = self._agent_position
         dist = self._get_dist()
-
-        while dist <= self.catch_radius:  
+        while dist <= 4 * self.catch_radius:  
             self._target_position = self.np_random.uniform(low=np.array([0, 0], dtype=np.float32), high=np.array([self.width, self.height], dtype=np.float32), size=2)
             dist = self._get_dist()
         self._target_position = self._target_position.reshape(2,).astype(np.float32)
+        
         observation = self._get_obs()
 
         if self.render_mode == "human":
@@ -98,15 +101,17 @@ class PredatorPreyEnv(gym.Env):
     def step(self, action):
         # -- Movement --
         # Agent
-        agent_max_move = 1  # Maximum velocity
-        move_agent = self._agent_position + action * agent_max_move  # Implicit dt=1
-        
-        # Prey
+        agent_max_move = 2 * self.catch_radius  # Maximum velocity
         target_max_move = agent_max_move / 4
+        move_agent = self._agent_position + action * agent_max_move  # Implicit dt=1
         move_target = self._target_position + np.random.uniform(low=-1, high=1, size=(2,)) * target_max_move 
         
         # Fluid velocity field
-        # INSERT 
+        # Constant velocity in x direction
+        v_fluid = np.array([1, 0], dtype=np.float32) * agent_max_move / 4
+
+        move_agent += v_fluid  # Again, implicit dt=1
+        move_target += v_fluid  
 
         # Box boundaries
         #self._agent_position = np.clip(a=move_agent, a_min=[0, 0], a_max=[self.width, self.height])
@@ -147,22 +152,9 @@ class PredatorPreyEnv(gym.Env):
         return observation, reward, done, info
 
 
-    def _render_to_file(self, filename="pp_render.txt"):
-        """Store the distance between agent and target in a file"""
-        dist = self._get_dist()
-        agent = self._agent_position
-        target = self._target_position
-        write = f"{dist}, {agent}, {target}"
-        file = open(filename, "a+")
-        file.write(write)
-        file.close()
-
-
-    def render(self, **kwargs):
-        """Renders environment to screen"""
-        if self.render_mode == "file":
-            self._render_to_file(kwargs.get("filename", "pp_render.txt"))
-        elif self.render_mode == "rgb_array":
+    def render(self):
+        """Renders environment to screen or prints to file"""
+        if self.render_mode == "rgb_array":
             return self._render_frame()
 
 
@@ -180,7 +172,7 @@ class PredatorPreyEnv(gym.Env):
         canvas.fill((255, 255, 255))  # White
         
         # Draw target as rectangle
-        pix_size = self.catch_radius * self.window_size / self.width  # Ideally, dots would be such that when they overlap, the prey is catched
+        pix_size = self.window_size / self.width  # Ideally, dots would be such that when they overlap, the prey is catched
 
         #agent_rect = pygame.Rect(left=float(self._target_position[0]), 
         #                         top=float(self._target_position[1]),
@@ -188,7 +180,7 @@ class PredatorPreyEnv(gym.Env):
         #                         height=float(pix_size)
         #)
         
-        target_rectangle = [float(self._target_position[0]), float(self._target_position[1]), float(pix_size), float(pix_size)]  # x, y, width, height
+        target_rectangle = [float(self._target_position[0] * pix_size), float(self._target_position[1] * pix_size), float(pix_size * self.catch_radius / 2), float(pix_size * self.catch_radius / 2)]  # x, y, width, height
         pygame.draw.rect(
             canvas,
             (255, 0, 0),
@@ -207,8 +199,8 @@ class PredatorPreyEnv(gym.Env):
         pygame.draw.circle(
             canvas,
             (0, 0, 255),  # Color
-            (float(self._agent_position[0]), float(self._agent_position[1])),  # x, y
-            pix_size / 2,  # Radius
+            (float(self._agent_position[0] * pix_size), float(self._agent_position[1] * pix_size)),  # x, y  - Maybe needs to add +0.5 to positions?
+            pix_size * self.catch_radius / 2,  # Radius
             )
 
         """ 
@@ -219,6 +211,24 @@ class PredatorPreyEnv(gym.Env):
             pix_size / 3
             )
         """
+
+        # Draw arrow representing direction of flow
+        # Flow right now is constant in x direction
+        pygame.draw.polygon(  # Arrow head
+            canvas,
+            (0, 0, 0),  # Black
+            [(self.width / 2 * pix_size, self.height / 2 * pix_size),      # Upper point
+             (self.width / 1.8 * pix_size, self.height / 2.2 * pix_size),  # Middle point
+             (self.width / 2 * pix_size, self.height / 2.4 * pix_size)],   # Lower point
+        )
+        pygame.draw.line(
+            canvas,
+            (0, 0, 0),  # Black
+            (self.width / 1.8 * pix_size,self.height / 2.2 * pix_size),  # start point
+            (self.width / 2.4 * pix_size, self.height / 2.2 * pix_size),  # end point
+            width=2,
+        )
+
 
         # Draw canvas on visible window
         if self.render_mode == "human":
@@ -240,7 +250,8 @@ class PredatorPreyEnv(gym.Env):
     
 
 def check_model():
-    env = PredatorPreyEnv(catch_radius=0.5)
+    env = PredatorPreyEnv()
+    #env = FlattenObservation(env)
     print("-- SB3 CHECK ENV: --")
     if check_env(env) == None:
         print("   The Environment is compatible with SB3")
@@ -250,7 +261,6 @@ def check_model():
 
 def train(catch_radius, width, height, remaining_steps, train_total_steps):
     env = PredatorPreyEnv(catch_radius, width, height, remaining_steps)    
-    #env = FlattenObservation(env)  - Not necessary?
 
     # Train with SB3
     log_path = os.path.join("Training", "Logs")
@@ -268,9 +278,12 @@ def show_result(catch_radius, width, height, remaining_steps, render_mode):
     obs = env.reset()
     done = False
     truncated = False 
+    reward_list = []
+    # Run and render model
     while not done or truncated:
         action, _states = model.predict(obs)
-        obs, rewards, done, info = env.step(action)
+        obs, reward, done, info = env.step(action)
+        reward_list.append(reward)
         env.render()
     env.close()
 
@@ -281,7 +294,7 @@ catch_radius = 0.1
 width = 4
 height = 4
 remaining_steps = 1000
-train_total_steps = int(1e5) 
+train_total_steps = int(2.5e5) 
 
 #check_model()
 #train(catch_radius, width, height, remaining_steps, train_total_steps)
