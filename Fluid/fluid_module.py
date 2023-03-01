@@ -58,7 +58,7 @@ def field_cartesian(r, theta, n, B, a):
     """
     u_r, u_theta = field_polar(r, theta, n, B, a)
     u_z = np.cos(theta) * u_r - np.sin(theta) * u_theta
-    u_y = u_r*np.sin(theta) + u_theta*np.cos(theta)
+    u_y = u_r * np.sin(theta) + u_theta*np.cos(theta)
     return u_y, u_z
 
 
