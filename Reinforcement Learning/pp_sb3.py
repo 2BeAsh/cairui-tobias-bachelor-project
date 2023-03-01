@@ -37,6 +37,8 @@ class PredatorPreyEnv(gym.Env):
         self.height = height
         self.squirmer_radius = squirmer_radius  # Also the radius of the squirmer
         self.legendre_degree = legendre_degree  # Highest mode the squirmer can access
+        self.dimless_factor = 4 / (3 * self.squirmer_radius ** 3)
+
         # Rendering
         self.window_size = 512  # PyGame window size
         assert render_mode is None or render_mode in self.metadata["render_modes"]  # Check if given render_mode matches available
@@ -58,7 +60,7 @@ class PredatorPreyEnv(gym.Env):
 
     def _get_dist(self):
         """Helper function that calculates the distance between the agent and the target"""
-        return np.linalg.norm(self._target_position, ord=1)
+        return np.linalg.norm(self._agent_position - self._target_position, ord=1)
 
 
     def _cartesian_to_polar(self):
@@ -124,31 +126,14 @@ class PredatorPreyEnv(gym.Env):
         
         # -- Movement --
         r, theta = self._cartesian_to_polar()
-        B = action
-        velocity_x, velocity_y = fm.field_cartesian(r, theta, n=self.legendre_degree, B=B, a=self.squirmer_radius)
-        velocity = np.array([velocity_x, velocity_y], dtype=np.float32)
-        print(velocity)
-        # ARTIFICIALLY CAP VELOCITY
-        velocity = np.clip(velocity, -1, 1)
-
-
-        move_target = self._target_position + velocity  # dt = 1
+        velocity_x, velocity_y = fm.field_cartesian(r, theta, n=self.legendre_degree, B=action, a=self.squirmer_radius)
+        velocity = np.array([velocity_x, velocity_y], dtype=np.float32) / self.dimless_factor
+        move_target = self._target_position + velocity
         self._target_position = self._periodic_boundary(move_target).reshape(2,).astype(np.float32)
-
-        # Box boundaries
-        #self._agent_position = np.clip(a=move_agent, a_min=[0, 0], a_max=[self.width, self.height])
-        #self._target_position = np.clip(a=move_target, a_min=[0, 0], a_max=[self.width, self.height])
-
-        # Periodic boundaries - SANDSYNLIGVIS OPTIMERES
-        #self._agent_position = self._periodic_boundary(move_agent)
-
-
-        # Get positions in correct shape
-        #self._agent_position = self._agent_position.reshape(2,).astype(np.float32)
 
         # Reward
         dist = self._get_dist()
-        catch_radius = 1.5 * self.squirmer_radius
+        catch_radius = 2. * self.squirmer_radius
         if dist <= catch_radius:  # Catch target
             reward = float(100 * self.width * self.height)  # Scale catch reward with size of playground
             done = True
@@ -201,23 +186,6 @@ class PredatorPreyEnv(gym.Env):
             (float(self._agent_position[0] * pix_size), float(self._agent_position[1] * pix_size)),  # x, y  - Maybe needs to add +0.5 to positions?
             pix_size * self.squirmer_radius / 2,  # Radius
             )
-
-        # Draw arrow representing direction of flow
-        # Flow right now is constant in x direction
-        pygame.draw.polygon(  # Arrow head
-            canvas,
-            (0, 0, 0),  # Black
-            [(self.width / 2 * pix_size, self.height / 2 * pix_size),      # Upper point
-             (self.width / 1.8 * pix_size, self.height / 2.2 * pix_size),  # Middle point
-             (self.width / 2 * pix_size, self.height / 2.4 * pix_size)],   # Lower point
-        )
-        pygame.draw.line(
-            canvas,
-            (0, 0, 0),  # Black
-            (self.width / 1.8 * pix_size,self.height / 2.2 * pix_size),  # start point
-            (self.width / 2.4 * pix_size, self.height / 2.2 * pix_size),  # end point
-            width=2,
-        )
 
         # Draw canvas on visible window
         if self.render_mode == "human":
