@@ -5,6 +5,7 @@ Make predator prey custom environment from bottom.
 import numpy as np
 import os
 import sys
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "1"
 import pygame 
 import matplotlib.pyplot as plt
 
@@ -17,7 +18,7 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.evaluation import evaluate_policy
 
-# Load fluid functions
+# Load custom fluid functions
 sys.path.append('./Fluid')
 import fluid_module as fm
 
@@ -29,8 +30,8 @@ class PredatorPreyEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
 
-    def __init__(self, squirmer_radius=0.1, width=1, height=1, n_legendre=2, m_legendre=2, render_mode=None):
-        #super().__init__() - ingen anelse hvorfor jeg havde skrevet det?
+    def __init__(self, squirmer_radius, width, height, n_legendre=2, m_legendre=2, render_mode=None):
+        #super().__init__() - ingen anelse om hvorfor jeg havde skrevet det eller hvor det kommer fra?
         # -- Variables --
         # Model 
         self.width = width  # Width and height of learning playground
@@ -51,13 +52,18 @@ class PredatorPreyEnv(gym.Env):
         # Actions: Strength of Legendre Modes
         self.action_space = spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)  
 
-        # Observations: target position and velocity field 
-        # The reference frame is at the Squirmer, such that it never moves. Instead, it moves the velocity field which in turn moves the target.
+        # Observations: Angle and distance between target and agent
+        max_distance = np.sqrt(self.width ** 2 + self.height ** 2) / 2  # Agent is located in center of playground, so max distance is the distance from the center to one corner, which is sqrt((width/2)^2 + (height/2)^2)
         self.observation_space = spaces.Dict({
-            "target": spaces.Box(low=np.array([0, 0], dtype=np.float32), high=np.array([self.width, self.height], dtype=np.float32), shape=(2,)),
-            "velocity": spaces.Box(low=-np.inf, high=np.inf, shape=(2,))  # Target's velocity
+            "distance": spaces.Box(low=0., high=max_distance, shape=(1,), dtype=np.float32),  # Even though is catched at self.catch_radius, the move could put it closer. 
+            "angle": spaces.Box(low=-np.pi, high=np.pi, shape=(1,), dtype=np.float32)
         })
-    
+
+
+    def _array_float(self, x, shape):
+        """Helper function to input x into a shape sized array with dtype np.float32"""
+        return np.array([x], dtype=np.float32).reshape(shape)
+
 
     def _get_dist(self):
         """Helper function that calculates the distance between the agent and the target"""
@@ -65,36 +71,40 @@ class PredatorPreyEnv(gym.Env):
 
 
     def _cartesian_to_polar(self):
+        # Not sure if correctly calculated!!
         r = self._get_dist()
-        agent_target_vec = self._agent_position - self._target_position  # Vector pointing from target to agent
+        agent_target_vec = self._target_position - self._agent_position  # Vector pointing from target to agent
         theta = np.arctan(agent_target_vec[0] / agent_target_vec[1])
         return r, theta
 
 
     def _get_obs(self):
         """Helper function with observation."""
-        return {"target": self._target_position, "velocity": self._target_velocity}
+        r, theta = self._cartesian_to_polar()
+        r_arr = self._array_float(r, shape=(1,))
+        theta_arr = self._array_float(theta, shape=(1,))
+        return {"distance": r_arr, "angle": theta_arr}
 
 
     def _periodic_boundary(self, movement):
-        """Helper function that (primitively) updates movement according to periodic boundaries. Can probably be optimized!"""
+        """Helper function that (primitively) updates movement according to periodic boundaries. Assumes the movement does not exceed the boundary by more than the width or height. Can probably be optimized!"""
         # x-direction
-        if movement[0] > self.width: 
-            movement[0] -= self.width
-        elif movement[0] < 0:
-            movement[0] += self.width
+        if movement[0] > self.width / 2: 
+            movement[0] -= self.width / 2
+        elif movement[0] < -self.width / 2:
+            movement[0] += self.width / 2
         # y-direction
-        if movement[1] > self.height:  
-            movement[1] -= self.height
-        elif movement[1] < 0:
-            movement[1] += self.height
+        if movement[1] > self.height / 2:  
+            movement[1] -= self.height / 2
+        elif movement[1] < -self.height / 2:
+            movement[1] += self.height / 2
 
-        return movement
+        return self._array_float(movement, shape=(2,))
     
 
     def _reward_time_optimized(self):
         r = self._get_dist()
-        d0 = np.min([self.height, self.width]) / 2
+        d0 = self.initial_target_position  # np.min([self.height, self.width]) / 2  # Should be multiplied by dimensionless factor
         far_away = r > d0
         captured = r < self.catch_radius
         done = False
@@ -102,7 +112,6 @@ class PredatorPreyEnv(gym.Env):
         if far_away:  # Penalizes further if too large a distance
             gamma = -1000
         elif captured:
-            d0 = 0.9  # Artificial, should be multiplied by dimensionless factor
             gamma = 200 / (self.time - d0)  # beta_T approx equal d0, where beta_T approximates the time needed to capture the target, which is the time it takes to move in a straight line
             done = True
         else:
@@ -118,20 +127,20 @@ class PredatorPreyEnv(gym.Env):
         self.time = 0
 
         # Initial positions
-        self._agent_position = np.array([self.width / 2, self.height / 2], dtype=np.float32)  # Agent in center
-        self._agent_position = self._agent_position.reshape(2,).astype(np.float32)
+        self._agent_position = self._array_float([0, 0], shape=(2,))  # Agent in center
         
         # Target starts random location not within 4 times catch radius.
         self.catch_radius = 2. * self.squirmer_radius  # Velocities blow up near the squirmer
-        self._target_position = self._agent_position
+        self.initial_target_position = self._agent_position
         dist = self._get_dist()
         while dist <= 2 * self.catch_radius:  
-            self._target_position = self.np_random.uniform(low=np.array([0, 0], dtype=np.float32), high=np.array([self.width, self.height], dtype=np.float32), size=2)
+            self.initial_target_position = self.np_random.uniform(low=np.array([-self.width/2, -self.height/2], dtype=np.float32), high=np.array([self.width/2, self.height/2], dtype=np.float32), size=2)
             dist = self._get_dist()  # Update distance
-        self._target_position = self._target_position.reshape(2,).astype(np.float32)
+        self.initial_target_position = self._array_float(self._target_position, shape=(2,))
+        self._target_position = self.initial_target_position
         
         # Initial velocity set to 0
-        self._target_velocity = np.array([0, 0], dtype=np.float32).reshape(2,)
+        self._target_velocity = self._array_float([0, 0], shape=(2,))
 
         # Observation
         observation = self._get_obs()
@@ -151,10 +160,10 @@ class PredatorPreyEnv(gym.Env):
         B01, B_tilde11 = action
         B = np.array([[0, B01], 
                       [0, 0],
-                      [0, 0]])
+                      [0, 0]], dtype=np.float32)
         B_tilde = np.array([[0, 0], 
                             [0, B_tilde11],
-                            [0, 0]])
+                            [0, 0]], dtype=np.float32)
 
         # -- Movement --
         # Convert to polar coordinates and get the cartesian velocity of the flow. 
@@ -167,7 +176,7 @@ class PredatorPreyEnv(gym.Env):
                                                     B_tilde=B_tilde)
         velocity = np.array([velocity_x, velocity_y], dtype=np.float32) / self.dimless_factor
         move_target = self._target_position + velocity
-        self._target_position = self._periodic_boundary(move_target).reshape(2,).astype(np.float32)
+        self._target_position = self._periodic_boundary(move_target)
 
         # -- Reward --
         reward, done = self._reward_time_optimized()
@@ -182,6 +191,11 @@ class PredatorPreyEnv(gym.Env):
 
         return observation, reward, done, info
 
+
+    def _coord_to_pixel(self, position):
+        """PyGame window is fixed at (0, 0), but we want (0, 0) to be in the center of the screen. The area is width x height, so all points must be shifted by (width/2, -height/2)"""
+        return position + self._array_float([self.width/2, self.height/2], shape=(2,))
+    
 
     def render(self):
         """Renders environment to screen or prints to file"""
@@ -202,20 +216,24 @@ class PredatorPreyEnv(gym.Env):
         canvas = pygame.Surface((self.window_size, self.window_size))
         canvas.fill((255, 255, 255))  # White
         
-        # Draw target as rectangle - NOTE THIS SHOULD PROBABLY BE CHANGED TO CIRCLE
-        pix_size = self.window_size / self.width  # Ideally, dots would be such that when they overlap, the prey is catched
-        
-        target_rectangle = [float(self._target_position[0] * pix_size), float(self._target_position[1] * pix_size), float(pix_size * self.squirmer_radius / 2), float(pix_size * self.squirmer_radius / 2)]  # x, y, width, height
-        pygame.draw.rect(
-            canvas,
-            (255, 0, 0),
-            target_rectangle
+        # Shift positions and scale their size to the canvas
+        pix_size = self.window_size / self.width  # Ideally, dots would be such that when they overlap, the prey is catched - NOTE that this would imply catch_radius=squirmer_radius, or use catch_radius instead of squirmer_radius when drawing
+        target_position_draw = self._coord_to_pixel(self._target_position) * pix_size
+        agent_position_draw = self._coord_to_pixel(self._agent_position) * pix_size
+
+        # Draw target
+        pygame.draw.circle(
+            canvas,  # What surface to draw on
+            (255, 0, 0),  # Color
+            (float(target_position_draw[0]), float(target_position_draw[1])),  # x, y
+            float(pix_size * self.squirmer_radius / 2)  # Radius
         )
 
+        # Draw agent
         pygame.draw.circle(
             canvas,
             (0, 0, 255),  # Color
-            (float(self._agent_position[0] * pix_size), float(self._agent_position[1] * pix_size)),  # x, y  - Maybe needs to add +0.5 to positions?
+            (float(agent_position_draw[0]), float(agent_position_draw[1])),  # x, y  - Maybe needs to add +0.5 to positions?
             pix_size * self.squirmer_radius / 2,  # Radius
             )
 
@@ -238,9 +256,9 @@ class PredatorPreyEnv(gym.Env):
             pygame.quit()
     
 
-def check_model():
-    env = PredatorPreyEnv()
-    #env = FlattenObservation(env)  - I though this would be needed, but gives error.
+def check_model(squirmer_radius, width, height, n_legendre, m_legendre):
+    env = PredatorPreyEnv(squirmer_radius, width, height, n_legendre, m_legendre)
+    #env = FlattenObservation(env)  - I thought this would be needed, but gives an error.
     print("-- SB3 CHECK ENV: --")
     if check_env(env) == None:
         print("   The Environment is compatible with SB3")
@@ -283,7 +301,7 @@ n_legendre = 2
 m_legendre = 2
 train_total_steps = int(1e5) 
 
-#check_model()
+#check_model(squirmer_radius, width, height, n_legendre, m_legendre)
 #train(squirmer_radius, width, height, n_legendre, m_legendre, train_total_steps)
 show_result(squirmer_radius, width, height, n_legendre, m_legendre, render_mode="human")
 
