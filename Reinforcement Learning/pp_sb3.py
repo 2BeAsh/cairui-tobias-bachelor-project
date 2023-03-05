@@ -34,15 +34,17 @@ class PredatorPreyEnv(gym.Env):
         #super().__init__() - ingen anelse om hvorfor jeg havde skrevet det eller hvor det kommer fra?
         # -- Variables --
         # Model
-        self.width = width  # Width and height of learning playground
-        self.height = height
-        self.squirmer_radius = squirmer_radius  # The catch radius is based on this
+        self.squirmer_radius = squirmer_radius  # The catch radius and more is based on this
+        self.width = width / self.squirmer_radius # Width and height of learning playground, divided by characteristic length
+        self.height = height / self.squirmer_radius 
         self.n_legendre = n_legendre  # Highest mode the squirmer can access
         self.m_legendre = m_legendre
         self.B_max = 1
-        self.dimless_factor = 4 * self.B_max / (3 * self.squirmer_radius ** 3)  # Characteristic velocity: Divide velocities by this to remove dimensions
-        self.charac_time = self.squirmer_radius ** 4 / (4 * self.B_max) # characteristic time
-        self.dt = 1 / self.charac_time
+        self.charac_velocity = 4 * self.B_max / (3 * self.squirmer_radius ** 3)  # Characteristic velocity: Divide velocities by this to remove dimensions
+        self.charac_time = 3 * self.squirmer_radius ** 4 / (4 * self.B_max) # characteristic time
+        tau = 0.5  # Seconds per iteration. 
+        self.dt = tau / self.charac_time
+        
         # Rendering
         self.window_size = 512  # PyGame window size
         assert render_mode is None or render_mode in self.metadata["render_modes"]  # Check if given render_mode matches available
@@ -69,7 +71,8 @@ class PredatorPreyEnv(gym.Env):
 
     def _get_dist(self):
         """Helper function that calculates the distance between the agent and the target"""
-        return np.linalg.norm(self._agent_position - self._target_position, ord=1)
+        diff_vec = self._agent_position - self._target_position
+        return np.linalg.norm(self._agent_position - self._target_position, ord=2)
 
 
     def _cartesian_to_polar(self):
@@ -85,29 +88,29 @@ class PredatorPreyEnv(gym.Env):
         r, theta = self._cartesian_to_polar()
         r_arr = self._array_float(r, shape=(1,))
         theta_arr = self._array_float(theta, shape=(1,))
-        return {"distance": r_arr, "angle": theta_arr}
+        return {"distance": r_arr, "angle": theta_arr}  # Must return arrays
 
 
     def _periodic_boundary(self, movement):
         """Helper function that (primitively) updates movement according to periodic boundaries. Assumes the movement does not exceed the boundary by more than the width or height. Can probably be optimized!"""
         # x-direction
         if movement[0] > self.width / 2:
-            movement[0] -= self.width / 2
+            movement[0] = -self.width / 2 + movement[0] % self.width
         elif movement[0] < -self.width / 2:
-            movement[0] += self.width / 2
+            movement[0] = self.width / 2 - movement[0] % self.width
         # y-direction
         if movement[1] > self.height / 2:
-            movement[1] -= self.height / 2
+            movement[1] = -self.height / 2 + movement[1] % self.height
         elif movement[1] < -self.height / 2:
-            movement[1] += self.height / 2
+            movement[1] = self.height / 2 - movement[1] % self.height
 
         return self._array_float(movement, shape=(2,))
 
 
     def _reward_time_optimized(self):
         r = self._get_dist()
-        d0 = self.initial_target_position  # np.min([self.height, self.width]) / 2  # Should be multiplied by dimensionless factor
-        far_away = r > d0
+        d0 = np.linalg.norm(self.initial_target_position, ord=2) / self.charac_velocity  # Time it takes to move from initial position to target if travelling in a straight line
+        far_away = r > self.width / 2  # Could be max(width, height) / 2 or similar
         captured = r < self.catch_radius
         done = False
 
@@ -128,19 +131,18 @@ class PredatorPreyEnv(gym.Env):
         # Time
         self.time = 0
 
-
         # Initial positions
         self._agent_position = self._array_float([0, 0], shape=(2,))  # Agent in center
 
         # Target starts random location not within 4 times catch radius.
-        self.catch_radius = 2. * self.squirmer_radius  # Velocities blow up near the squirmer
-        self.initial_target_position = self._agent_position
+        self.catch_radius = 2 * self.squirmer_radius  # Velocities blow up near the squirmer.
+        self._target_position = self._agent_position  # BURDE MAN BRUGE COPY?
         dist = self._get_dist()
-        while dist <= 2 * self.catch_radius:
-            self.initial_target_position = self.np_random.uniform(low=np.array([-self.width/2, -self.height/2], dtype=np.float32), high=np.array([self.width/2, self.height/2], dtype=np.float32), size=2)
+        while dist <= 1.1 * self.catch_radius:
+            self._target_position = self.np_random.uniform(low=np.array([-self.width/2, -self.height/2], dtype=np.float32), high=np.array([self.width/2, self.height/2], dtype=np.float32), size=2)
             dist = self._get_dist()  # Update distance
-        self.initial_target_position = self._array_float(self._target_position, shape=(2,))
-        self._target_position = self.initial_target_position
+        self._target_position = self._array_float(self._target_position, shape=(2,))
+        self.initial_target_position = self._target_position  # needed for reward calculation
 
         # Initial velocity set to 0
         self._target_velocity = self._array_float([0, 0], shape=(2,))
@@ -160,13 +162,13 @@ class PredatorPreyEnv(gym.Env):
         # Target's only movement is by the Squirmer's influence, does not diffuse
 
         # -- Action setup --
-        B01, B_tilde11 = action * self.B_max
-        B = np.array([[0, B01],
-                      [0, 0],
-                      [0, 0]], dtype=np.float32)
-        B_tilde = np.array([[0, 0],
-                            [0, B_tilde11],
+        B01, B_tilde11 = action / self.B_max
+        B_action = np.array([[0, B01],
+                            [0, 0],
                             [0, 0]], dtype=np.float32)
+        B_tilde_action = np.array([[0, 0],
+                                   [0, B_tilde11],
+                                   [0, 0]], dtype=np.float32)
 
         # -- Movement --
         # Convert to polar coordinates and get the cartesian velocity of the flow.
@@ -175,17 +177,17 @@ class PredatorPreyEnv(gym.Env):
         r, theta = self._cartesian_to_polar()  # dimensioner!!! husk
         velocity_x, velocity_y = fm.field_cartesian(r, theta,
                                                     n=self.n_legendre, m=self.m_legendre,
-                                                    a=self.squirmer_radius, B=B,
-                                                    B_tilde=B_tilde)
-        velocity = np.array([velocity_x, velocity_y], dtype=np.float32) / self.dimless_factor
-        move_target = self._target_position + velocity * self.dt  # måske problem dimensions
+                                                    a=self.squirmer_radius, B=B_action,
+                                                    B_tilde=B_tilde_action)
+        velocity = np.array([velocity_x, velocity_y], dtype=np.float32) / self.charac_velocity
+        move_target = self._target_position + velocity * self.dt 
         self._target_position = self._periodic_boundary(move_target)
 
         # -- Reward --
         reward, done = self._reward_time_optimized()
 
         # -- Update values --
-        self.time += self.dt  # Dimensions
+        self.time += self.dt
         observation = self._get_obs()
         info = {}
 
@@ -297,15 +299,15 @@ def show_result(squirmer_radius, width, height, n_legendre, m_legendre, render_m
 
 # -- Run the code --
 # Parameters
-squirmer_radius = 0.1
-width = 2
-height = 2
+squirmer_radius = 1
+width = 10
+height = 10
 n_legendre = 2
 m_legendre = 2
 train_total_steps = int(1e5)
 
-check_model(squirmer_radius, width, height, n_legendre, m_legendre)
+#check_model(squirmer_radius, width, height, n_legendre, m_legendre)
 #train(squirmer_radius, width, height, n_legendre, m_legendre, train_total_steps)
-#show_result(squirmer_radius, width, height, n_legendre, m_legendre, render_mode="human")
+show_result(squirmer_radius, width, height, n_legendre, m_legendre, render_mode="human")
 
 # tensorboard --logdir=.
