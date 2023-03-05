@@ -1,12 +1,12 @@
 """ Notes
-Make predator prey custom environment from bottom. 
+Make predator prey custom environment from bottom.
 """
 # Imports
 import numpy as np
 import os
 import sys
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "1"
-import pygame 
+import pygame
 import matplotlib.pyplot as plt
 
 import gym
@@ -33,29 +33,31 @@ class PredatorPreyEnv(gym.Env):
     def __init__(self, squirmer_radius, width, height, n_legendre=2, m_legendre=2, render_mode=None):
         #super().__init__() - ingen anelse om hvorfor jeg havde skrevet det eller hvor det kommer fra?
         # -- Variables --
-        # Model 
+        # Model
         self.width = width  # Width and height of learning playground
         self.height = height
         self.squirmer_radius = squirmer_radius  # The catch radius is based on this
         self.n_legendre = n_legendre  # Highest mode the squirmer can access
         self.m_legendre = m_legendre
-        self.dimless_factor = 4 / (3 * self.squirmer_radius ** 3)  # Divide velocities by this to remove dimensions
-
+        self.B_max = 1
+        self.dimless_factor = 4 * self.B_max / (3 * self.squirmer_radius ** 3)  # Characteristic velocity: Divide velocities by this to remove dimensions
+        self.charac_time = self.squirmer_radius ** 4 / (4 * self.B_max) # characteristic time
+        self.dt = 1 / self.charac_time
         # Rendering
         self.window_size = 512  # PyGame window size
         assert render_mode is None or render_mode in self.metadata["render_modes"]  # Check if given render_mode matches available
         self.render_mode = render_mode
         self.window = None
         self.clock = None
-        
-        # -- Define action and observation space -- 
+
+        # -- Define action and observation space --
         # Actions: Strength of Legendre Modes
-        self.action_space = spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)  
+        self.action_space = spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
 
         # Observations: Angle and distance between target and agent
         max_distance = np.sqrt(self.width ** 2 + self.height ** 2) / 2  # Agent is located in center of playground, so max distance is the distance from the center to one corner, which is sqrt((width/2)^2 + (height/2)^2)
         self.observation_space = spaces.Dict({
-            "distance": spaces.Box(low=0., high=max_distance, shape=(1,), dtype=np.float32),  # Even though is catched at self.catch_radius, the move could put it closer. 
+            "distance": spaces.Box(low=0., high=max_distance, shape=(1,), dtype=np.float32),  # Even though is catched at self.catch_radius, the move could put it closer.
             "angle": spaces.Box(low=-np.pi, high=np.pi, shape=(1,), dtype=np.float32)
         })
 
@@ -89,18 +91,18 @@ class PredatorPreyEnv(gym.Env):
     def _periodic_boundary(self, movement):
         """Helper function that (primitively) updates movement according to periodic boundaries. Assumes the movement does not exceed the boundary by more than the width or height. Can probably be optimized!"""
         # x-direction
-        if movement[0] > self.width / 2: 
+        if movement[0] > self.width / 2:
             movement[0] -= self.width / 2
         elif movement[0] < -self.width / 2:
             movement[0] += self.width / 2
         # y-direction
-        if movement[1] > self.height / 2:  
+        if movement[1] > self.height / 2:
             movement[1] -= self.height / 2
         elif movement[1] < -self.height / 2:
             movement[1] += self.height / 2
 
         return self._array_float(movement, shape=(2,))
-    
+
 
     def _reward_time_optimized(self):
         r = self._get_dist()
@@ -120,25 +122,26 @@ class PredatorPreyEnv(gym.Env):
 
 
     def reset(self, seed=None):
-        # Fix seed and reset values 
+        # Fix seed and reset values
         super().reset(seed=seed)
 
         # Time
         self.time = 0
 
+
         # Initial positions
         self._agent_position = self._array_float([0, 0], shape=(2,))  # Agent in center
-        
+
         # Target starts random location not within 4 times catch radius.
         self.catch_radius = 2. * self.squirmer_radius  # Velocities blow up near the squirmer
         self.initial_target_position = self._agent_position
         dist = self._get_dist()
-        while dist <= 2 * self.catch_radius:  
+        while dist <= 2 * self.catch_radius:
             self.initial_target_position = self.np_random.uniform(low=np.array([-self.width/2, -self.height/2], dtype=np.float32), high=np.array([self.width/2, self.height/2], dtype=np.float32), size=2)
             dist = self._get_dist()  # Update distance
         self.initial_target_position = self._array_float(self._target_position, shape=(2,))
         self._target_position = self.initial_target_position
-        
+
         # Initial velocity set to 0
         self._target_velocity = self._array_float([0, 0], shape=(2,))
 
@@ -153,36 +156,36 @@ class PredatorPreyEnv(gym.Env):
 
     def step(self, action):
         # Agent changes velocity at target's position
-        # Target is moved by velocity        
+        # Target is moved by velocity
         # Target's only movement is by the Squirmer's influence, does not diffuse
-        
+
         # -- Action setup --
-        B01, B_tilde11 = action
-        B = np.array([[0, B01], 
+        B01, B_tilde11 = action * self.B_max
+        B = np.array([[0, B01],
                       [0, 0],
                       [0, 0]], dtype=np.float32)
-        B_tilde = np.array([[0, 0], 
+        B_tilde = np.array([[0, 0],
                             [0, B_tilde11],
                             [0, 0]], dtype=np.float32)
 
         # -- Movement --
-        # Convert to polar coordinates and get the cartesian velocity of the flow. 
+        # Convert to polar coordinates and get the cartesian velocity of the flow.
         # Remove the velocity's dimensions, and add it to the target's position (implicit dt=0)
         # Apply periodic boundaries to the position.
-        r, theta = self._cartesian_to_polar()
+        r, theta = self._cartesian_to_polar()  # dimensioner!!! husk
         velocity_x, velocity_y = fm.field_cartesian(r, theta,
                                                     n=self.n_legendre, m=self.m_legendre,
-                                                    a=self.squirmer_radius, B=B, 
+                                                    a=self.squirmer_radius, B=B,
                                                     B_tilde=B_tilde)
         velocity = np.array([velocity_x, velocity_y], dtype=np.float32) / self.dimless_factor
-        move_target = self._target_position + velocity
+        move_target = self._target_position + velocity * self.dt  # måske problem dimensions
         self._target_position = self._periodic_boundary(move_target)
 
         # -- Reward --
         reward, done = self._reward_time_optimized()
 
         # -- Update values --
-        self.time += 1
+        self.time += self.dt  # Dimensions
         observation = self._get_obs()
         info = {}
 
@@ -195,7 +198,7 @@ class PredatorPreyEnv(gym.Env):
     def _coord_to_pixel(self, position):
         """PyGame window is fixed at (0, 0), but we want (0, 0) to be in the center of the screen. The area is width x height, so all points must be shifted by (width/2, -height/2)"""
         return position + self._array_float([self.width/2, self.height/2], shape=(2,))
-    
+
 
     def render(self):
         """Renders environment to screen or prints to file"""
@@ -215,7 +218,7 @@ class PredatorPreyEnv(gym.Env):
         # Create canvas and make it white
         canvas = pygame.Surface((self.window_size, self.window_size))
         canvas.fill((255, 255, 255))  # White
-        
+
         # Shift positions and scale their size to the canvas
         pix_size = self.window_size / self.width  # Ideally, dots would be such that when they overlap, the prey is catched - NOTE that this would imply catch_radius=squirmer_radius, or use catch_radius instead of squirmer_radius when drawing
         target_position_draw = self._coord_to_pixel(self._target_position) * pix_size
@@ -243,18 +246,18 @@ class PredatorPreyEnv(gym.Env):
             pygame.event.pump()
             pygame.display.update()
 
-            # FPS 
+            # FPS
             self.clock.tick(self.metadata["render_fps"])
         elif self.render_mode == "rgb_array":
             return np.transpose(
                 np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2))
-    
-    
+
+
     def close(self):
         if self.window is not None:
             pygame.display.quit()
             pygame.quit()
-    
+
 
 def check_model(squirmer_radius, width, height, n_legendre, m_legendre):
     env = PredatorPreyEnv(squirmer_radius, width, height, n_legendre, m_legendre)
@@ -267,7 +270,7 @@ def check_model(squirmer_radius, width, height, n_legendre, m_legendre):
 
 
 def train(squirmer_radius, width, height, n_legendre, m_legendre, train_total_steps):
-    env = PredatorPreyEnv(squirmer_radius, width, height, n_legendre, m_legendre)    
+    env = PredatorPreyEnv(squirmer_radius, width, height, n_legendre, m_legendre)
 
     # Train with SB3
     log_path = os.path.join("Reinforcement Learning", "Training", "Logs")
@@ -281,7 +284,7 @@ def show_result(squirmer_radius, width, height, n_legendre, m_legendre, render_m
     # Load model and create environment
     model = PPO.load("ppo_predator_prey")
     env = PredatorPreyEnv(squirmer_radius, width, height, n_legendre, m_legendre, render_mode)
-    
+
     # Run and render model
     obs = env.reset()
     done = False
@@ -295,14 +298,14 @@ def show_result(squirmer_radius, width, height, n_legendre, m_legendre, render_m
 # -- Run the code --
 # Parameters
 squirmer_radius = 0.1
-width = 5
-height = 5
+width = 2
+height = 2
 n_legendre = 2
 m_legendre = 2
-train_total_steps = int(1e5) 
+train_total_steps = int(1e5)
 
-#check_model(squirmer_radius, width, height, n_legendre, m_legendre)
+check_model(squirmer_radius, width, height, n_legendre, m_legendre)
 #train(squirmer_radius, width, height, n_legendre, m_legendre, train_total_steps)
-show_result(squirmer_radius, width, height, n_legendre, m_legendre, render_mode="human")
+#show_result(squirmer_radius, width, height, n_legendre, m_legendre, render_mode="human")
 
 # tensorboard --logdir=.
