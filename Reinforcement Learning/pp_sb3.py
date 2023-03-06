@@ -169,7 +169,7 @@ class PredatorPreyEnv(gym.Env):
         B_tilde_action = np.array([[0, 0],
                                    [0, B_tilde11],
                                    [0, 0]], dtype=np.float32)
-
+        
         # -- Movement --
         # Convert to polar coordinates and get the cartesian velocity of the flow.
         # Remove the velocity's dimensions, and add it to the target's position (implicit dt=0)
