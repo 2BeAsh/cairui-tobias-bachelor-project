@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 
 # Functions
-def legendre_poly(n,m, x):
+def legendre_poly(n, m, x):
     if n==1 and m==0:
         return np.cos(x)
     elif n==2 and m==0:
@@ -38,7 +38,7 @@ def legendre_poly_prime(n, m, x):
         return 0
 
 
-def field_polar(r, theta, n, m, a, B, C_tilde, B_tilde, C):
+def field_polar(r, theta, n, m, a, B, B_tilde, C, C_tilde):
     """Velocity field in polar coordinates
     r: afstand fra centrum
     theta: vinkel mellem punkt 
@@ -64,10 +64,10 @@ def field_polar(r, theta, n, m, a, B, C_tilde, B_tilde, C):
     return u_r, u_theta
 
 
-def field_cartesian(r, theta, n, m, a, B, B_tilde, C_tilde=np.array([[0, 0], [0, 0], [0, 0]]), C=np.array([[0, 0], [0, 0], [0, 0]])):
-    u_r, u_theta = field_polar(r, theta, n, m, a, B, C_tilde, B_tilde, C)
+def field_cartesian(r, theta, n, m, a, B, B_tilde, C=np.array([[0, 0], [0, 0], [0, 0]]), C_tilde=np.array([[0, 0], [0, 0], [0, 0]])):
+    u_r, u_theta = field_polar(r, theta, n, m, a, B, B_tilde, C, C_tilde)
     u_z = np.cos(theta) * u_r - np.sin(theta) * u_theta
-    u_y = u_r*np.sin(theta) + u_theta*np.cos(theta)
+    u_y = u_r * np.sin(theta) + u_theta * np.cos(theta)
     return u_y, u_z
 
 
