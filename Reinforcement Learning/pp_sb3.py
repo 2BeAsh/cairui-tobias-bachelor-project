@@ -59,7 +59,7 @@ class PredatorPreyEnv(gym.Env):
         # Observations: Angle and distance between target and agent
         max_distance = np.sqrt(self.width ** 2 + self.height ** 2) / 2  # Agent is located in center of playground, so max distance is the distance from the center to one corner, which is sqrt((width/2)^2 + (height/2)^2)
         self.observation_space = spaces.Dict({
-            "distance": spaces.Box(low=0., high=max_distance, shape=(1,), dtype=np.float32),  # Even though is catched at self.catch_radius, the move could put it closer.
+            "distance": spaces.Box(low=0., high=max_distance, shape=(1,), dtype=np.float32),  # Even though is catched at self.catch_radius, the move could put it closer. distance==0 is absolute minimum.
             "angle": spaces.Box(low=-np.pi, high=np.pi, shape=(1,), dtype=np.float32)
         })
 
@@ -71,12 +71,10 @@ class PredatorPreyEnv(gym.Env):
 
     def _get_dist(self):
         """Helper function that calculates the distance between the agent and the target"""
-        diff_vec = self._agent_position - self._target_position
         return np.linalg.norm(self._agent_position - self._target_position, ord=2)
 
 
     def _cartesian_to_polar(self):
-        # Not sure if correctly calculated!!
         r = self._get_dist()
         agent_target_vec = self._target_position - self._agent_position  # Vector pointing from target to agent
         theta = np.arctan(agent_target_vec[0] / agent_target_vec[1])
@@ -93,6 +91,7 @@ class PredatorPreyEnv(gym.Env):
 
     def _periodic_boundary(self, movement):
         """Helper function that (primitively) updates movement according to periodic boundaries. Assumes the movement does not exceed the boundary by more than the width or height. Can probably be optimized!"""
+        # NOTE I believe something is off with the boundaries. Seems to teleport it to the middle of the playground
         # x-direction
         if movement[0] > self.width / 2:
             movement[0] = -self.width / 2 + movement[0] % self.width
@@ -109,7 +108,7 @@ class PredatorPreyEnv(gym.Env):
 
     def _reward_time_optimized(self):
         r = self._get_dist()
-        d0 = np.linalg.norm(self.initial_target_position, ord=2) / self.charac_velocity  # Time it takes to move from initial position to target if travelling in a straight line
+        d0 = np.linalg.norm(self.initial_target_position, ord=2) / self.charac_velocity  # Time it takes to move from initial position to target if travelling in a straight line, in time units
         far_away = r > self.width / 2  # Could be max(width, height) / 2 or similar
         captured = r < self.catch_radius
         done = False
@@ -162,7 +161,7 @@ class PredatorPreyEnv(gym.Env):
         # Target's only movement is by the Squirmer's influence, does not diffuse
 
         # -- Action setup --
-        B01, B_tilde11 = action / self.B_max
+        B01, B_tilde11 = action / self.B_max  # NOTE WHY DOES B01 REGISTER AS A CONSTANT??? SOURCE OF PROBLEM?
         B_action = np.array([[0, B01],
                             [0, 0],
                             [0, 0]], dtype=np.float32)
@@ -172,9 +171,9 @@ class PredatorPreyEnv(gym.Env):
         
         # -- Movement --
         # Convert to polar coordinates and get the cartesian velocity of the flow.
-        # Remove the velocity's dimensions, and add it to the target's position (implicit dt=0)
+        # Remove the velocity's dimensions, and add it to the target's position
         # Apply periodic boundaries to the position.
-        r, theta = self._cartesian_to_polar()  # dimensioner!!! husk
+        r, theta = self._cartesian_to_polar() 
         velocity_x, velocity_y = fm.field_cartesian(r, theta,
                                                     n=self.n_legendre, m=self.m_legendre,
                                                     a=self.squirmer_radius, B=B_action,
@@ -304,7 +303,7 @@ width = 10
 height = 10
 n_legendre = 2
 m_legendre = 2
-train_total_steps = int(1e5)
+train_total_steps = int(1.1e6)
 
 #check_model(squirmer_radius, width, height, n_legendre, m_legendre)
 #train(squirmer_radius, width, height, n_legendre, m_legendre, train_total_steps)
