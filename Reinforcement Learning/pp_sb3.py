@@ -152,6 +152,9 @@ class PredatorPreyEnv(gym.Env):
 
         # -- Action setup --
         B_01, B_tilde_11 = action / self.B_max 
+        #B_01, B_tilde_11  = np.sin(action[0] * np.pi), np.cos(action[0] * np.pi)
+        #print("PRINT ACTION", action[0], np.shape(action), B_01, B_tilde_11)
+        
         
         # -- Movement --
         # Convert to polar coordinates and get the cartesian velocity of the flow.
@@ -281,11 +284,11 @@ def show_result(squirmer_radius, spawn_radius, start_angle, render_mode):
 # Parameters
 squirmer_radius = 1
 spawn_radius = 5
-start_angle = 3 * np.pi / 4
-train_total_steps = int(1e6)
+start_angle = -np.pi
+train_total_steps = int(6.5e5)
 
 #check_model(squirmer_radius, spawn_radius, start_angle)
-train(squirmer_radius, spawn_radius, start_angle, train_total_steps)
-#show_result(squirmer_radius, spawn_radius, start_angle, render_mode="human")
+#train(squirmer_radius, spawn_radius, start_angle, train_total_steps)
+show_result(squirmer_radius, spawn_radius, start_angle, render_mode="human")
 
 # tensorboard --logdir=.
