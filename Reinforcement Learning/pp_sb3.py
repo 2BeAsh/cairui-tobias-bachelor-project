@@ -30,7 +30,7 @@ class PredatorPreyEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
 
-    def __init__(self, squirmer_radius, spawn_radius, const_angle=None, render_mode=None):
+    def __init__(self, squirmer_radius, spawn_radius, scale_canvas=1, const_angle=None, render_mode=None):
         #super().__init__() - ingen anelse om hvorfor jeg havde skrevet det eller hvor det kommer fra?
         # -- Variables --
         # Model
@@ -44,6 +44,7 @@ class PredatorPreyEnv(gym.Env):
         self.dt = tau / self.charac_time
         
         # Rendering
+        self.scale_canvas = scale_canvas  # Makes canvas this times smaller
         self.window_size = 512  # PyGame window size
         assert render_mode is None or render_mode in self.metadata["render_modes"]  # Check if given render_mode matches available
         self.render_mode = render_mode
@@ -182,7 +183,7 @@ class PredatorPreyEnv(gym.Env):
 
     def _coord_to_pixel(self, position):
         """PyGame window is fixed at (0, 0), but we want (0, 0) to be in the center of the screen. The area is width x height, so all points must be shifted by (width/2, -height/2)"""
-        return position + self._array_float([self.spawn_radius, self.spawn_radius], shape=(2,))  # NOTE might be wrong
+        return position + self._array_float([self.spawn_radius, self.spawn_radius], shape=(2,)) * self.scale_canvas
 
 
     def render(self):
@@ -205,7 +206,7 @@ class PredatorPreyEnv(gym.Env):
         canvas.fill((255, 255, 255))  # White
 
         # Shift positions and scale their size to the canvas
-        pix_size = self.window_size / (2 * self.spawn_radius) # Ideally, dots would be such that when they overlap, the prey is catched - NOTE that this would imply catch_radius=squirmer_radius, or use catch_radius instead of squirmer_radius when drawing
+        pix_size = self.window_size / (2 * self.spawn_radius * self.scale_canvas) # Ideally, dots would be such that when they overlap, the prey is catched - NOTE that this would imply catch_radius=squirmer_radius, or use catch_radius instead of squirmer_radius when drawing
         target_position_draw = self._coord_to_pixel(self._target_position) * pix_size 
         agent_position_draw = self._coord_to_pixel(self._agent_position) * pix_size
 
@@ -213,7 +214,7 @@ class PredatorPreyEnv(gym.Env):
         pygame.draw.circle(
             canvas,  # What surface to draw on
             (255, 0, 0),  # Color
-            (float(target_position_draw[0]), float(target_position_draw[1])),  # x, y
+            (float(target_position_draw[0]), float(target_position_draw[1])),  # x, y coordinate
             float(pix_size * self.squirmer_radius / 2)  # Radius
         )
 
@@ -244,8 +245,8 @@ class PredatorPreyEnv(gym.Env):
             pygame.quit()
 
 
-def check_model(squirmer_radius, spawn_radius, start_angle):
-    env = PredatorPreyEnv(squirmer_radius, spawn_radius, start_angle)
+def check_model(squirmer_radius, spawn_radius, scale_canvas, start_angle):
+    env = PredatorPreyEnv(squirmer_radius, spawn_radius, scale_canvas, start_angle)
     #env = FlattenObservation(env)  - I thought this would be needed, but gives an error.
     print("-- SB3 CHECK ENV: --")
     if check_env(env) == None:
@@ -254,8 +255,8 @@ def check_model(squirmer_radius, spawn_radius, start_angle):
         print(check_env(env))
 
 
-def train(squirmer_radius, spawn_radius, start_angle, train_total_steps):
-    env = PredatorPreyEnv(squirmer_radius, spawn_radius, start_angle)
+def train(squirmer_radius, spawn_radius, scale_canvas, start_angle, train_total_steps):
+    env = PredatorPreyEnv(squirmer_radius, spawn_radius, scale_canvas, start_angle)
 
     # Train with SB3
     log_path = os.path.join("Reinforcement Learning", "Training", "Logs")
@@ -264,11 +265,11 @@ def train(squirmer_radius, spawn_radius, start_angle, train_total_steps):
     model.save("ppo_predator_prey")
 
 
-def show_result(squirmer_radius, spawn_radius, start_angle, render_mode):
+def show_result(squirmer_radius, spawn_radius, scale_canvas, start_angle, render_mode):
     """Arguments should match that of the loaded model for correct results"""
     # Load model and create environment
     model = PPO.load("ppo_predator_prey")
-    env = PredatorPreyEnv(squirmer_radius, spawn_radius, start_angle, render_mode)
+    env = PredatorPreyEnv(squirmer_radius, spawn_radius, scale_canvas, start_angle, render_mode)
 
     # Run and render model
     obs = env.reset()
@@ -284,11 +285,12 @@ def show_result(squirmer_radius, spawn_radius, start_angle, render_mode):
 # Parameters
 squirmer_radius = 1
 spawn_radius = 5
+scale_canvas = 1  # Makes everything factor smaller / zoomed out
 start_angle = -np.pi
 train_total_steps = int(6.5e5)
 
 #check_model(squirmer_radius, spawn_radius, start_angle)
 #train(squirmer_radius, spawn_radius, start_angle, train_total_steps)
-show_result(squirmer_radius, spawn_radius, start_angle, render_mode="human")
+show_result(squirmer_radius, spawn_radius, scale_canvas, start_angle, render_mode="human")
 
 # tensorboard --logdir=.
