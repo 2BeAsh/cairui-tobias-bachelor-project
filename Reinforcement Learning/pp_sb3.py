@@ -53,7 +53,7 @@ class PredatorPreyEnv(gym.Env):
 
         # -- Define action and observation space --
         # Actions: Strength of Legendre Modes
-        self.action_space = spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
+        self.action_space = spaces.Box(low=-1, high=1, shape=(3,), dtype=np.float32)
 
         # Observations: distance and angle between target and agent. Angle is measured from the vertical axis
         self.observation_space = spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)  # (distance, angle). 
@@ -152,8 +152,8 @@ class PredatorPreyEnv(gym.Env):
         # Target's only movement is by the Squirmer's influence, does not diffuse
 
         # -- Action setup --
-        B_01, B_tilde_11 = action / self.B_max 
-        #B_01, B_tilde_11  = np.sin(action[0] * np.pi), np.cos(action[0] * np.pi)
+        #B_01, B_tilde_11 = action / self.B_max 
+        B_01, B_tilde_11  = (action[1]+1)/2 *np.sin(action[0] * np.pi), (action[2]+1)/2 * np.cos(action[0] * np.pi)
         #print("PRINT ACTION", action[0], np.shape(action), B_01, B_tilde_11)
         
         
@@ -289,11 +289,11 @@ def show_result(squirmer_radius, spawn_radius, scale_canvas, start_angle, render
 squirmer_radius = 1
 spawn_radius = 5
 scale_canvas = 1.4  # Makes everything factor smaller / zoomed out
-start_angle = -np.pi
-train_total_steps = int(6.5e5)
+start_angle = np.pi/ 2
+train_total_steps = int(9e5)
 
 #check_model(squirmer_radius, spawn_radius, scale_canvas, start_angle)
-train(squirmer_radius, spawn_radius, scale_canvas, start_angle, train_total_steps)
-#show_result(squirmer_radius, spawn_radius, scale_canvas, start_angle, render_mode="human")
+#train(squirmer_radius, spawn_radius, scale_canvas, start_angle, train_total_steps)
+show_result(squirmer_radius, spawn_radius, scale_canvas, start_angle, render_mode="human")
 
 # tensorboard --logdir=.
