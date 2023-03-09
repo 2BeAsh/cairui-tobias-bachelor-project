@@ -167,6 +167,9 @@ class PredatorPreyEnv(gym.Env):
         velocity = np.array([velocity_y, velocity_z], dtype=np.float32) / self.charac_velocity
         self._target_position = self._target_position + velocity * self.dt 
 
+        #
+        squirmer_velocity = np.array([B_tilde_11, -B_01], dtype=np.float32) 
+        self._agent_position = self._agent_position + squirmer_velocity  * self.dt 
         # -- Reward --
         reward, done = self._reward_time_optimized()
 
@@ -285,12 +288,12 @@ def show_result(squirmer_radius, spawn_radius, scale_canvas, start_angle, render
 # Parameters
 squirmer_radius = 1
 spawn_radius = 5
-scale_canvas = 1  # Makes everything factor smaller / zoomed out
+scale_canvas = 1.4  # Makes everything factor smaller / zoomed out
 start_angle = -np.pi
 train_total_steps = int(6.5e5)
 
-#check_model(squirmer_radius, spawn_radius, start_angle)
-#train(squirmer_radius, spawn_radius, start_angle, train_total_steps)
-show_result(squirmer_radius, spawn_radius, scale_canvas, start_angle, render_mode="human")
+#check_model(squirmer_radius, spawn_radius, scale_canvas, start_angle)
+train(squirmer_radius, spawn_radius, scale_canvas, start_angle, train_total_steps)
+#show_result(squirmer_radius, spawn_radius, scale_canvas, start_angle, render_mode="human")
 
 # tensorboard --logdir=.
