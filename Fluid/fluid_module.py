@@ -34,9 +34,9 @@ def field_cartesian_squirmer(r, theta, phi, a, B_11, B_tilde_11, B_01):
     u_y = u_r * np.sin(theta) * np.sin(phi) + u_theta * np.cos(theta) * np.sin(phi) + u_phi * np.cos(phi)
     u_x = u_r * np.sin(theta) * np.cos(phi) + u_theta * np.cos(theta) * np.cos(phi) - u_phi * np.sin(phi)
     
-    u_z += B_01 * 4 / (3 * a ** 3)
-    u_y += -B_tilde_11 * 4 / (3 * a ** 3)
-    u_x += -B_11 * 4 / (3 * a ** 3)
+    #u_z += B_01 * 4 / (3 * a ** 3)
+    #u_y += -B_tilde_11 * 4 / (3 * a ** 3)
+    #u_x += -B_11 * 4 / (3 * a ** 3)
     return u_x, u_y, u_z
     
 
