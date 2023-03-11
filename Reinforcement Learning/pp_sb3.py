@@ -40,7 +40,7 @@ class PredatorPreyEnv(gym.Env):
         self.B_max = 1
         self.charac_velocity = 4 * self.B_max / (3 * self.squirmer_radius ** 3)  # Characteristic velocity: Divide velocities by this to remove dimensions
         self.charac_time = 3 * self.squirmer_radius ** 4 / (4 * self.B_max) # characteristic time
-        tau = 0.5  # Seconds per iteration. 
+        tau = 0.3  # Seconds per iteration. 
         self.dt = tau / self.charac_time
         
         # Rendering
@@ -118,7 +118,7 @@ class PredatorPreyEnv(gym.Env):
         self._agent_position = self._array_float([0, 0], shape=(2,))  # Agent in center
 
         # Target starts random location not within a factor times catch radius. catch_radius is a factor of squirmer_radius
-        self.catch_radius = 1.1 * self.squirmer_radius  # Velocities blow up near the squirmer.
+        self.catch_radius = self.squirmer_radius + 0.05  # Velocities blow up near the squirmer.
 
         if self.const_angle is None:
             self._target_position = self._agent_position  
@@ -218,7 +218,7 @@ class PredatorPreyEnv(gym.Env):
             canvas,  # What surface to draw on
             (255, 0, 0),  # Color
             (float(target_position_draw[0]), float(target_position_draw[1])),  # x, y coordinate
-            float(pix_size * self.squirmer_radius / 2)  # Radius
+            float(pix_size * 0.05)  # Radius
         )
 
         # Draw agent
@@ -226,7 +226,7 @@ class PredatorPreyEnv(gym.Env):
             canvas,
             (0, 0, 255),  # Color
             (float(agent_position_draw[0]), float(agent_position_draw[1])),  # x, y  - Maybe needs to add +0.5 to positions?
-            pix_size * self.squirmer_radius / 2,  # Radius
+            pix_size * self.squirmer_radius ,  # Radius
             )
 
         # Draw canvas on visible window
@@ -290,7 +290,7 @@ squirmer_radius = 1
 spawn_radius = 5
 scale_canvas = 1.4  # Makes everything factor smaller / zoomed out
 start_angle = np.pi/ 2
-train_total_steps = int(9e5)
+train_total_steps = int(8e5)
 
 #check_model(squirmer_radius, spawn_radius, scale_canvas, start_angle)
 #train(squirmer_radius, spawn_radius, scale_canvas, start_angle, train_total_steps)
