@@ -96,7 +96,8 @@ def field_polar_lab_updated(N, r, theta, a, B, B_tilde, C, C_tilde):
      
     return u_r, u_theta
     
-def field_cartesian_squirmer(N, r, theta, a, B, B_tilde, C, C_tilde):
+    
+def field_cartesian_lab_updated(N, r, theta, a, B, B_tilde, C, C_tilde):
     """Convert polar velocities to cartesian
     
     Args:
@@ -117,7 +118,7 @@ def field_cartesian_squirmer(N, r, theta, a, B, B_tilde, C, C_tilde):
     """
     phi = np.pi / 2
     u_phi = 0
-    u_r, u_theta, u_phi = field_polar_lab(N, r, theta, a, B, B_tilde, C, C_tilde)
+    u_r, u_theta = field_polar_lab_updated(N, r, theta, a, B, B_tilde, C, C_tilde)
     
     u_z = np.cos(theta) * u_r - np.sin(theta) * u_theta
     u_y = u_r * np.sin(theta) * np.sin(phi) + u_theta * np.cos(theta) * np.sin(phi) + u_phi * np.cos(phi)
