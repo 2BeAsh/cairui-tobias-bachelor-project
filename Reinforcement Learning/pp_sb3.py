@@ -314,7 +314,7 @@ spawn_radius = 5
 legendre_modes = 2  # DOES NOT WORK FOR >2
 scale_canvas = 1.4  # Makes everything factor smaller / zoomed out
 start_angle = np.pi/ 2
-cap_modes = True
+cap_modes = True  # True, False, "constant"
 lab_frame = True
 
 train_total_steps = int(8e5)
