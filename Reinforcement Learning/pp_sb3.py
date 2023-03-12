@@ -31,13 +31,16 @@ class PredatorPreyEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
 
-    def __init__(self, squirmer_radius, spawn_radius, scale_canvas=1, const_angle=None, render_mode=None):
+    def __init__(self, squirmer_radius, spawn_radius, legendre_modes, scale_canvas=1, const_angle=None, cap_modes=True, lab_frame=True, render_mode=None):
         #super().__init__() - ingen anelse om hvorfor jeg havde skrevet det eller hvor det kommer fra?
         # -- Variables --
         # Model
         self.squirmer_radius = squirmer_radius  # The catch radius and more is based on this
         self.spawn_radius = spawn_radius  # Max distance the target can be spawned away from the agent
         self.const_angle = const_angle
+        self.cap_modes = cap_modes  # If True, will have sum(modes) <= 1, if False: uncapped, if "constant" will have sum(modes)=1
+        self.legendre_modes = legendre_modes - 1  # Max available legendre modes. The minus 1 comes from different definitons. 
+        self.lab_frame = lab_frame  # Choose lab or squirmer frame of reference. If True, in lab frame otherwise in squirmer
         self.B_max = 1
         self.charac_velocity = 4 * self.B_max / (3 * self.squirmer_radius ** 3)  # Characteristic velocity: Divide velocities by this to remove dimensions
         self.charac_time = 3 * self.squirmer_radius ** 4 / (4 * self.B_max) # characteristic time
@@ -54,7 +57,14 @@ class PredatorPreyEnv(gym.Env):
 
         # -- Define action and observation space --
         # Actions: Strength of Legendre Modes
-        self.action_space = spaces.Box(low=-1, high=1, shape=(3,), dtype=np.float32)
+        assert cap_modes in [True, False, "constant"]
+        if cap_modes:  # Capped, sum(modes) <= 1
+            action_shape=(3,)  # 3 parameters that determines strength of modes
+        elif cap_modes == "constant":  # Capped, sum(modes) = 1
+            action_shape = (1,)  # alpha, distribution of the two modes
+        else:  # Uncapped
+            action_shape = (2,)  # The two modes
+        self.action_space = spaces.Box(low=-1, high=1, shape=action_shape, dtype=np.float32)
 
         # Observations: distance and angle between target and agent. Angle is measured from the vertical axis
         self.observation_space = spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)  # (distance, angle). 
@@ -153,24 +163,37 @@ class PredatorPreyEnv(gym.Env):
         # Target's only movement is by the Squirmer's influence, does not diffuse
 
         # -- Action setup --
-        #B_01, B_tilde_11 = action / self.B_max 
-        B_01, B_tilde_11  = (action[1]+1)/2 *np.sin(action[0] * np.pi), (action[2]+1)/2 * np.cos(action[0] * np.pi)
-        #print("PRINT ACTION", action[0], np.shape(action), B_01, B_tilde_11)
-        
+        if self.cap_modes:
+            B_01, B_tilde_11  = (action[1] + 1) / 2 * np.sin(action[0] * np.pi), (action[2] + 1) / 2 * np.cos(action[0] * np.pi)
+        elif self.cap_modes == "constant":
+            B_01 = np.sin(action * np.pi)
+            B_tilde_11 = np.cos(action * np.pi)
+        else:
+            B_01 = action[0] / self.B_max
+            B_tilde_11 = action[1] / self.B_max        
         
         # -- Movement --
         # Convert to polar coordinates and get the cartesian velocity of the flow.
 
-        r, theta = self._cartesian_to_polar() 
-        _, velocity_y, velocity_z = fm.field_cartesian_squirmer(r, theta, 
-                                                                phi=np.pi/2, a=self.squirmer_radius, 
-                                                                B_11=0, B_tilde_11=B_tilde_11, B_01=B_01)
+        r, theta = self._cartesian_to_polar()
+        B = np.zeros((self.legendre_modes+1, self.legendre_modes+1))
+        B_tilde = np.zeros_like(B)
+        C = np.zeros_like(B)
+        C_tilde = np.zeros_like(B)
+        B[0, 1] = B_01
+        B_tilde[1, 1] = B_tilde_11
+        velocity_y, velocity_z = fm.field_cartesian(N=self.legendre_modes, r=r, 
+                                                    theta=theta, a=self.squirmer_radius, 
+                                                    B=B, B_tilde=B_tilde, 
+                                                    C=C, C_tilde=C_tilde, 
+                                                    lab_frame=self.lab_frame)
         velocity = np.array([velocity_y, velocity_z], dtype=np.float32) / self.charac_velocity
         self._target_position = self._target_position + velocity * self.dt 
-
-        #
-        squirmer_velocity = np.array([B_tilde_11, -B_01], dtype=np.float32) 
-        self._agent_position = self._agent_position + squirmer_velocity  * self.dt 
+        
+        if self.lab_frame:
+            squirmer_velocity = np.array([B_tilde_11, -B_01], dtype=np.float32) 
+            self._agent_position = self._agent_position + squirmer_velocity  * self.dt 
+            
         # -- Reward --
         reward, done = self._reward_time_optimized()
 
@@ -249,9 +272,8 @@ class PredatorPreyEnv(gym.Env):
             pygame.quit()
 
 
-def check_model(squirmer_radius, spawn_radius, scale_canvas, start_angle):
-    env = PredatorPreyEnv(squirmer_radius, spawn_radius, scale_canvas, start_angle)
-    #env = FlattenObservation(env)  - I thought this would be needed, but gives an error.
+def check_model(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame):
+    env = PredatorPreyEnv(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
     print("-- SB3 CHECK ENV: --")
     if check_env(env) == None:
         print("   The Environment is compatible with SB3")
@@ -259,8 +281,8 @@ def check_model(squirmer_radius, spawn_radius, scale_canvas, start_angle):
         print(check_env(env))
 
 
-def train(squirmer_radius, spawn_radius, scale_canvas, start_angle, train_total_steps):
-    env = PredatorPreyEnv(squirmer_radius, spawn_radius, scale_canvas, start_angle)
+def train(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame, train_total_steps):
+    env = PredatorPreyEnv(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
 
     # Train with SB3
     log_path = os.path.join("Reinforcement Learning", "Training", "Logs")
@@ -269,11 +291,11 @@ def train(squirmer_radius, spawn_radius, scale_canvas, start_angle, train_total_
     model.save("ppo_predator_prey")
 
 
-def show_result(squirmer_radius, spawn_radius, scale_canvas, start_angle, render_mode):
+def show_result(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame, render_mode):
     """Arguments should match that of the loaded model for correct results"""
     # Load model and create environment
     model = PPO.load("ppo_predator_prey")
-    env = PredatorPreyEnv(squirmer_radius, spawn_radius, scale_canvas, start_angle, render_mode)
+    env = PredatorPreyEnv(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame, render_mode)
 
     # Run and render model
     obs = env.reset()
@@ -289,12 +311,17 @@ def show_result(squirmer_radius, spawn_radius, scale_canvas, start_angle, render
 # Parameters
 squirmer_radius = 1
 spawn_radius = 5
+legendre_modes = 2  # DOES NOT WORK FOR >2
 scale_canvas = 1.4  # Makes everything factor smaller / zoomed out
 start_angle = np.pi/ 2
+cap_modes = True
+lab_frame = True
+
 train_total_steps = int(8e5)
 
-#check_model(squirmer_radius, spawn_radius, scale_canvas, start_angle)
-#train(squirmer_radius, spawn_radius, scale_canvas, start_angle, train_total_steps)
-show_result(squirmer_radius, spawn_radius, scale_canvas, start_angle, render_mode="human")
+
+check_model(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
+#train(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame, train_total_steps)
+#show_result(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame, render_mode="human")
 
 # tensorboard --logdir=.
