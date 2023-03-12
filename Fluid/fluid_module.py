@@ -76,7 +76,7 @@ def field_polar_lab_updated(N, r, theta, a, B, B_tilde, C, C_tilde):
         LP_arr = LP[:n+1, n]
         LP_deriv_arr = LP_deriv[:n+1, n]
         B_arr = B[:n+1, n]
-        B_tilde_arr = B[:n+1, n]
+        B_tilde_arr = B_tilde[:n+1, n]
         C_arr = C[:n+1, n]
         C_tilde_arr = C_tilde[:n+1, n]
         # Array with velocities for each m can be summed to give the total value of the inner sum.
@@ -87,7 +87,7 @@ def field_polar_lab_updated(N, r, theta, a, B, B_tilde, C, C_tilde):
         
         u_theta_arr = (np.sin(theta) * LP_deriv_arr
                    * ((n - 2) / (n * a ** 2 * r ** n) - 1 / r ** (n + 2))
-                   * (B_arr * np.cos(phi) + B_tilde_arr * np.sin(m_arr * phi))
+                   * (B_arr * np.cos(m_arr * phi) + B_tilde_arr * np.sin(m_arr * phi))
                    + m_arr * LP_arr / (r ** (n + 1) * np.sin(theta)) 
                    * (C_tilde_arr * np.cos(m_arr * phi) - C_arr * np.sin(m_arr * phi))
         )
