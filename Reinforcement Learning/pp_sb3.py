@@ -21,6 +21,7 @@ from stable_baselines3.common.evaluation import evaluate_policy
 # Load custom fluid functions
 sys.path.append('./Fluid')
 import fluid_module as fm
+import power_factor as pf
 
 
 # Environment
@@ -75,7 +76,7 @@ class PredatorPreyEnv(gym.Env):
         theta = np.arctan2(agent_target_vec[0], agent_target_vec[1])
         return r, theta
 
-
+   
     def _get_obs(self):
         """Helper function which convertes values into observation space values (between -1 and 1).
         Get the distance and angle, and then convert them to values between -1 and 1.
