@@ -126,7 +126,7 @@ def field_cartesian(N, r, theta, a, B, B_tilde, C, C_tilde, lab_frame=True):
     u_y = u_r * np.sin(theta) * np.sin(phi) + u_theta * np.cos(theta) * np.sin(phi) + u_phi * np.cos(phi)
     
     if not lab_frame:  # Convert to squirmer frame
-            u_z += B[0, 1] * 4 / (3 * a ** 3)
+            u_z += B[0, 1] * 4 / (3 * a ** 3) 
             u_y += -B_tilde[1, 1] * 4 / (3 * a ** 3)
     
     return u_y, u_z
