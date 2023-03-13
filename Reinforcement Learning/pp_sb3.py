@@ -8,6 +8,8 @@ import sys
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "1"
 import pygame
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import matplotlib.lines as mlines
 
 import gym
 from gym import spaces
@@ -110,7 +112,7 @@ class PredatorPreyEnv(gym.Env):
         if too_far_away:  # Stop simulation and penalize hard if goes too far away
             gamma = -1000
             done = True
-        elif captured:
+        elif captured:  # Believe there is a problem with self.time - d0, as sometimes get massive negative reward when catches.
             gamma = 200 / (self.time - d0)  # beta_T approx equal d0, where beta_T approximates the time needed to capture the target, which is the time it takes to move in a straight line
             done = True
         else:
@@ -129,7 +131,8 @@ class PredatorPreyEnv(gym.Env):
         self._agent_position = self._array_float([0, 0], shape=(2,))  # Agent in center
 
         # Target starts random location not within a factor times catch radius. catch_radius is a factor of squirmer_radius
-        self.catch_radius = self.squirmer_radius + 0.05  # Velocities blow up near the squirmer.
+        self.epsilon = 0.05  # Extra catch distance
+        self.catch_radius = self.squirmer_radius + self.epsilon  # Velocities blow up near the squirmer.
 
         if self.const_angle is None:
             self._target_position = self._agent_position  
@@ -165,12 +168,15 @@ class PredatorPreyEnv(gym.Env):
         # -- Action setup --
         if self.cap_modes:
             B_01, B_tilde_11  = (action[1] + 1) / 2 * np.sin(action[0] * np.pi), (action[2] + 1) / 2 * np.cos(action[0] * np.pi)
+            mode_info = [B_01, B_tilde_11]
         elif self.cap_modes == "constant":
             B_01 = np.sin(action * np.pi)
             B_tilde_11 = np.cos(action * np.pi)
+            mode_inf0 = [B_01, B_tilde_11]
         else:
             B_01 = action[0] / self.B_max
             B_tilde_11 = action[1] / self.B_max        
+            mode_info = [B_01, B_tilde_11]
         
         # -- Movement --
         # Convert to polar coordinates and get the cartesian velocity of the flow.
@@ -200,11 +206,11 @@ class PredatorPreyEnv(gym.Env):
         # -- Update values --
         self.time += self.dt
         observation = self._get_obs()
-        info = {}
+        info = {"modes": mode_info, "time": self.time, "target": self._target_position, "agent": self._agent_position}
 
         if self.render_mode == "human":
             self._render_frame()
-
+        
         return observation, reward, done, info
 
 
@@ -214,7 +220,7 @@ class PredatorPreyEnv(gym.Env):
 
 
     def render(self):
-        """Renders environment to screen or prints to file"""
+        """Renders environment to screen"""
         if self.render_mode == "rgb_array":
             return self._render_frame()
 
@@ -233,7 +239,7 @@ class PredatorPreyEnv(gym.Env):
         canvas.fill((255, 255, 255))  # White
 
         # Shift positions and scale their size to the canvas
-        pix_size = self.window_size / (2 * self.spawn_radius * self.scale_canvas) # Ideally, dots would be such that when they overlap, the prey is catched - NOTE that this would imply catch_radius=squirmer_radius, or use catch_radius instead of squirmer_radius when drawing
+        pix_size = self.window_size / (2 * self.spawn_radius * self.scale_canvas)
         target_position_draw = self._coord_to_pixel(self._target_position) * pix_size 
         agent_position_draw = self._coord_to_pixel(self._agent_position) * pix_size
 
@@ -242,7 +248,7 @@ class PredatorPreyEnv(gym.Env):
             canvas,  # What surface to draw on
             (255, 0, 0),  # Color
             (float(target_position_draw[0]), float(target_position_draw[1])),  # x, y coordinate
-            float(pix_size * 0.05)  # Radius
+            float(pix_size * self.epsilon)  # Radius
         )
 
         # Draw agent
@@ -300,12 +306,78 @@ def show_result(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, sta
     # Run and render model
     obs = env.reset()
     done = False
+        
     while not done:
         action, _states = model.predict(obs)
         obs, reward, done, info = env.step(action)
         env.render()
+        
     env.close()
+        
 
+def plot_info(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame):
+    """Arguments should match that of the loaded model for correct results"""
+    # Load model and create environment
+    model = PPO.load("ppo_predator_prey")
+    env = PredatorPreyEnv(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
+
+    # Run and render model
+    obs = env.reset()
+    done = False
+    
+    mode_list = []
+    time_list = []
+    target_pos_list = []
+    agent_pos_list = []
+    reward_list = []
+    
+    while not done:
+        action, _states = model.predict(obs)
+        obs, reward, done, info = env.step(action)        
+        mode_list.append(info["modes"])
+        time_list.append(info["time"])
+        target_pos_list.append(info["target"])
+        agent_pos_list.append(info["agent"])
+        reward_list.append(reward)
+        
+    modes = np.array(mode_list)
+    time = np.array(time_list)
+    target_pos = np.array(target_pos_list)
+    agent_pos = np.array(agent_pos_list)
+    reward_arr = np.array(reward_list)
+    
+    # Plot mode values over time
+    fig_mode, ax_mode = plt.subplots(dpi=150, figsize=(8, 6))
+    ax_mode.plot(time, modes, "--.")
+    ax_mode.set(xlabel="Time", ylabel="Mode values", title="Mode values against time")
+    ax_mode.legend([r"$B_{01}$", r"$\tilde{B}_{11}$"])
+    fig_mode.tight_layout()
+    plt.show()
+    plt.close()
+    
+    # Plot target and agent position over time
+    fig_pos, ax_pos = plt.subplots(dpi=150, figsize=(3, 6))
+    color_target = cm.Reds(np.linspace(0, 1, len(target_pos[:, 0])))  # Colors gets darker with time. 
+    color_agent = cm.Blues(np.linspace(0, 1, len(agent_pos[:, 0])))
+    ax_pos.scatter(target_pos[:, 0], target_pos[:, 1], s=15, label="Target", facecolor="none", edgecolors=color_target)
+    ax_pos.scatter(agent_pos[:, 0], agent_pos[:, 1], s=8000, label="Agent", facecolor="none", edgecolors=color_agent)
+    ax_pos.set(xlabel="x", ylabel="y", xlim=(-1, 1), title="Agent and target position over time")
+    # Making a good looking legend
+    agent_legend_marker = mlines.Line2D(xdata=[], ydata=[], marker=".", markersize=10, linestyle="none", fillstyle="none", color="navy", label="Agent")
+    target_legend_marker = mlines.Line2D(xdata=[], ydata=[], marker=".", markersize=5, linestyle="none", fillstyle="none", color="firebrick", label="Target")
+    ax_pos.legend(handles=[agent_legend_marker, target_legend_marker])
+    fig_pos.tight_layout()
+    plt.show()
+    plt.close()
+                
+    # Plot reward over time
+    fig_reward, ax_reward = plt.subplots(dpi=150, figsize=(8, 6))
+    ax_reward.plot(time, reward_arr, ".--", label="Reward")
+    ax_reward.set(xlabel="Time", ylabel="Reward", title="Agent Reward against time")
+    ax_reward.legend()
+    
+    fig_reward.tight_layout()     
+    plt.show()
 
 # -- Run the code --
 # Parameters
@@ -318,10 +390,12 @@ cap_modes = True  # True, False, "constant"
 lab_frame = True
 
 train_total_steps = int(8e5)
+render_mode = "human"
 
-
-check_model(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
+#check_model(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
 #train(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame, train_total_steps)
-#show_result(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame, render_mode="human")
+#show_result(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame, render_mode)
+plot_info(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
+
 
 # tensorboard --logdir=.
