@@ -134,6 +134,15 @@ def field_cartesian(N, r, theta, a, B, B_tilde, C, C_tilde, lab_frame=True):
 
 # Forces
 def canonical_fibonacci_lattice(N, radius):
+    """Calculate N points uniformly distributed on the surface of a sphere with given radius, using the canonical Fibonacci Lattice method.
+
+    Args:
+        N (int): Number of points
+        radius (float): Radius of sphere.
+
+    Returns:
+        Tupple of three 1d-arrays and a float: Returns cartesian coordinates of the points distributed on the spherical surface, and the approximate area each point are given.
+    """
     # Find spherical coordinates. 
     # Radius is contant, theta determined by golden ratio and phi is found using the Inverse Transform Method.
     offset = 0.5
@@ -162,7 +171,9 @@ def discretized_sphere(N, radius):
     Returns:
         Tupple of three 1d-arrays and a float: Returns cartesian coordinates of the points distributed on the spherical surface, and the approximate area each point are given.
     """
-    # Find best index offset based on N. From: http://extremelearning.com.au/how-to-evenly-distribute-points-on-a-sphere-more-effectively-than-the-canonical-fibonacci-lattice/
+    # Find best index offset based on N. 
+    # From: http://extremelearning.com.au/how-to-evenly-distribute-points-on-a-sphere-more-effectively-than-the-canonical-fibonacci-lattice/
+    # And inspired by: https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere 
     if N < 80:
         offset = 2.66
     elif N < 1e3:
