@@ -108,7 +108,7 @@ class PredatorPreyEnv(gym.Env):
         too_far_away = r > self.spawn_radius
         captured = r < self.catch_radius
         done = False
-
+        # Fix d0, evt. bare fjern
         if too_far_away:  # Stop simulation and penalize hard if goes too far away
             gamma = -1000
             done = True
