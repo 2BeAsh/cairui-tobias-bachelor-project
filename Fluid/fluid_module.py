@@ -132,9 +132,72 @@ def field_cartesian(N, r, theta, a, B, B_tilde, C, C_tilde, lab_frame=True):
     return u_y, u_z
 
 
+# Forces
+def canonical_fibonacci_lattice(N, radius):
+    # Find spherical coordinates. 
+    # Radius is contant, theta determined by golden ratio and phi is found using the Inverse Transform Method.
+    offset = 0.5
+    indices = np.arange(N)
+    golden_ratio = (1 + np.sqrt(5)) / 2 
+    theta = 2 * np.pi * indices / golden_ratio
+    phi = np.arccos(1 - 2 * (indices + offset) / N)
+    
+    # Convert to cartesian
+    x = radius * np.sin(phi) * np.cos(theta)
+    y = radius * np.sin(phi) * np.sin(theta)
+    z = radius * np.cos(phi)
+    # The area of each patch is approximated by surface area divided by number of points
+    area = 4 * np.pi * radius ** 2 / N
+    return x, y, z, area    
 
+
+def discretized_sphere(N, radius):
+    """Calculate N points uniformly distributed on the surface of a sphere with given radius.
+    The calculation is done using a modified version of the canonical Fibonacci Lattice.
+
+    Args:
+        N (int): Number of points
+        radius (float): Radius of sphere.
+
+    Returns:
+        Tupple of three 1d-arrays and a float: Returns cartesian coordinates of the points distributed on the spherical surface, and the approximate area each point are given.
+    """
+    # Find best index offset based on N. From: http://extremelearning.com.au/how-to-evenly-distribute-points-on-a-sphere-more-effectively-than-the-canonical-fibonacci-lattice/
+    if N < 80:
+        offset = 2.66
+    elif N < 1e3:
+        offset = 3.33
+    elif N < 4e4:
+        offset = 10
+    else:  # N > 40_000
+        offset = 25 
+    # Place the first two points and top and bottom of the sphere (0, 0, radius) and (0, 0, -radius)
+    x = np.empty(N)
+    y = np.empty_like(x)
+    z = np.empty_like(x)
+    x[:2] = 0
+    y[:2] = 0
+    z[0] = radius
+    z[1] = -radius
+        
+    # Find spherical coordinates. 
+    # Radius is contant, theta determined by golden ratio and phi is found using the Inverse Transform Method.
+    indices = np.arange(N-2)  # Two first points already placed, thus minus 2
+    golden_ratio = (1 + np.sqrt(5)) / 2 
+    theta = 2 * np.pi * indices / golden_ratio
+    phi = np.arccos(1 - 2 * (indices + offset) / (N - 1 + 2 * offset))
+    
+    # Convert to cartesian
+    x[2:] = radius * np.sin(phi) * np.cos(theta)
+    y[2:] = radius * np.sin(phi) * np.sin(theta)
+    z[2:] = radius * np.cos(phi)
+    # The area of each patch is approximated by surface area divided by number of points
+    area = 4 * np.pi * radius ** 2 / N
+    return x, y, z, area
+    
 
 if __name__ == "__main__":
+    import matplotlib.pyplot as plt
     N = 2
     r = 3
     a = 1
@@ -145,5 +208,25 @@ if __name__ == "__main__":
     theta = 0
     #vals, diff = lpmn(N, N, np.cos(theta))
     #print(diff)
-    u_r, u_theta = field_polar(N, r, theta, a, B, B_tilde, C, C_tilde)
-    print(u_r, u_theta)
+    #u_r, u_theta = field_polar(N, r, theta, a, B, B_tilde, C, C_tilde)
+    #print(u_r, u_theta)
+    x, y, z,_ = discretized_sphere(N=1000, radius=1)
+    fig = plt.figure(dpi=200)
+    ax = fig.add_subplot(projection="3d")
+    ax.scatter(x, y, z)
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_zlabel("z")
+    plt.show()
+    plt.close()
+    
+    x_can, y_can, z_can, _ = canonical_fibonacci_lattice(N=1000, radius=1)
+    fig_1 = plt.figure(dpi=200)
+    ax_1 = fig_1.add_subplot(projection="3d")
+    ax_1.scatter(x_can, y_can, z_can)
+    ax_1.set_xlabel("x")
+    ax_1.set_ylabel("y")
+    ax_1.set_zlabel("z")
+    plt.show()
+    plt.close()
+    
