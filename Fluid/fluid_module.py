@@ -163,6 +163,8 @@ def canonical_fibonacci_lattice(N, radius):
 def discretized_sphere(N, radius):
     """Calculate N points uniformly distributed on the surface of a sphere with given radius.
     The calculation is done using a modified version of the canonical Fibonacci Lattice.
+    From: http://extremelearning.com.au/how-to-evenly-distribute-points-on-a-sphere-more-effectively-than-the-canonical-fibonacci-lattice/
+    And inspired by: https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere 
 
     Args:
         N (int): Number of points
@@ -172,8 +174,6 @@ def discretized_sphere(N, radius):
         Tupple of three 1d-arrays and a float: Returns cartesian coordinates of the points distributed on the spherical surface, and the approximate area each point are given.
     """
     # Find best index offset based on N. 
-    # From: http://extremelearning.com.au/how-to-evenly-distribute-points-on-a-sphere-more-effectively-than-the-canonical-fibonacci-lattice/
-    # And inspired by: https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere 
     if N < 80:
         offset = 2.66
     elif N < 1e3:
@@ -205,6 +205,50 @@ def discretized_sphere(N, radius):
     # The area of each patch is approximated by surface area divided by number of points
     area = 4 * np.pi * radius ** 2 / N
     return x, y, z, area
+    
+
+def oseen_tensor(x, y, z, epsilon, dA, viscosity):
+    """Find Oseen tensor for all multiple points.
+
+    Args:
+        x (1d array of floats): x-coordinate of all points
+        y (1d array of floats): y-coordinate of all points
+        z (1d array of floats): z-coordinate of all points
+        epsilon (float): The regularization offset
+        dA (float): Area of each patch, assumed the same for all points
+        viscosity (float): Viscosity of the fluid.
+
+    Returns:
+        _type_: _description_
+    """
+    N = np.shape(x)[0]
+    dx = x[:, None] - x[None, :]
+    dy = y[:, None] - y[None, :]
+    dz = z[:, None] - z[None, :]
+    r = np.sqrt(dx**2 + dy**2 + dz**2)  # Symmetrical, could save memory?
+    
+    # Expand r to match S - OPTIMIZEABLE
+    r_expanded = np.repeat(r, 3, axis=0)
+    r_expanded = np.repeat(r_expanded, 3, axis=1)
+    r_epsilon = np.sqrt(r_expanded**2 + epsilon**2)
+    
+    S_diag = np.zeros((3*N, 3*N))  # 3 variables, so 3N in each direction
+    S_diag[:N, :N] = dx
+    S_diag[N:2*N, N:2*N] = dy
+    S_diag[2*N:3*N, 2*N:3*N] = dz
+    
+    S_off_diag = np.zeros_like(S_diag)
+    S_off_diag[0:N, N:2*N] = dx * dy  # Element wise multiplication
+    S_off_diag[0:N, 2*N:3*N] = dx * dz
+    S_off_diag[N:2*N, 2*N:3*N] = dy * dz
+    
+    S = ((r_expanded**2 + 2 * epsilon**2) * S_diag
+         + S_off_diag
+         + S_off_diag.T
+    ) / r_epsilon ** 3
+    
+    A = S * dA / (4 * np.pi * viscosity)
+    return A
     
 
 if __name__ == "__main__":
