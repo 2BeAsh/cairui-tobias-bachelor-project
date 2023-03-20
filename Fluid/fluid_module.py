@@ -106,13 +106,14 @@ def field_polar(N, r, theta, phi, a, B, B_tilde, C, C_tilde):
     return u_r, u_theta, u_phi
     
     
-def field_cartesian(N, r, theta, a, B, B_tilde, C, C_tilde, lab_frame=True):
+def field_cartesian(N, r, theta, phi, a, B, B_tilde, C, C_tilde, lab_frame=True):
     """Convert polar velocities to cartesian
     
     Args:
         N (int larger than 1): Max possible mode
         r (float): Distance between target and agent (prey and squirmer)
         theta (float): Angle between vertical axis z and target
+        phi (float): Angle between horizontal axis and target
         a (float): Squirmer radius
         B ((N+1, N+1)-array): Modes
         B_tilde ((N+1, N+1)-array): Modes
@@ -126,9 +127,7 @@ def field_cartesian(N, r, theta, a, B, B_tilde, C, C_tilde, lab_frame=True):
         u_theta (float):
             Angular velocity        
     """
-    phi = np.pi / 2
-    u_phi = 0
-    u_r, u_theta = field_polar(N, r, theta, a, B, B_tilde, C, C_tilde)
+    u_r, u_theta, u_phi = field_polar(N, r, theta, a, B, B_tilde, C, C_tilde)
     
     u_z = np.cos(theta) * u_r - np.sin(theta) * u_theta
     u_y = u_r * np.sin(theta) * np.sin(phi) + u_theta * np.cos(theta) * np.sin(phi) + u_phi * np.cos(phi)
@@ -136,8 +135,9 @@ def field_cartesian(N, r, theta, a, B, B_tilde, C, C_tilde, lab_frame=True):
     if not lab_frame:  # Convert to squirmer frame
             u_z += B[0, 1] * 4 / (3 * a ** 3) 
             u_y += -B_tilde[1, 1] * 4 / (3 * a ** 3)
+            # u_x is unchanged, as the modes for this is unused
     
-    return u_y, u_z, u_x
+    return u_x, u_y, u_z
 
 
 # Forces
