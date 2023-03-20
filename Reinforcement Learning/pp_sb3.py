@@ -172,7 +172,7 @@ class PredatorPreyEnv(gym.Env):
         elif self.cap_modes == "constant":
             B_01 = np.sin(action * np.pi)
             B_tilde_11 = np.cos(action * np.pi)
-            mode_inf0 = [B_01, B_tilde_11]
+            mode_info = [B_01, B_tilde_11]
         else:
             B_01 = action[0] / self.B_max
             B_tilde_11 = action[1] / self.B_max        
@@ -188,17 +188,18 @@ class PredatorPreyEnv(gym.Env):
         C_tilde = np.zeros_like(B)
         B[0, 1] = B_01
         B_tilde[1, 1] = B_tilde_11
-        velocity_y, velocity_z = fm.field_cartesian(N=self.legendre_modes, r=r, 
-                                                    theta=theta, a=self.squirmer_radius, 
-                                                    B=B, B_tilde=B_tilde, 
-                                                    C=C, C_tilde=C_tilde, 
-                                                    lab_frame=self.lab_frame)
+        _, velocity_y, velocity_z = fm.field_cartesian(N=self.legendre_modes, r=r, 
+                                                       theta=theta, phi=np.pi/2,
+                                                       a=self.squirmer_radius, 
+                                                       B=B, B_tilde=B_tilde, 
+                                                       C=C, C_tilde=C_tilde, 
+                                                       lab_frame=self.lab_frame)
         velocity = np.array([velocity_y, velocity_z], dtype=np.float32) / self.charac_velocity
         self._target_position = self._target_position + velocity * self.dt 
         
         if self.lab_frame:
             squirmer_velocity = np.array([B_tilde_11, -B_01], dtype=np.float32) 
-            self._agent_position = self._agent_position + squirmer_velocity  * self.dt 
+            self._agent_position = self._agent_position + squirmer_velocity * self.dt 
             
         # -- Reward --
         reward, done = self._reward_time_optimized()
