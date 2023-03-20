@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.special import lpmn
 
-
+# Benyttes ikke
 def field_polar_lab(r, theta, phi, B_11, B_tilde_11, B_01):
     """
     r: afstand fra centrum af squirmer
@@ -16,7 +16,7 @@ def field_polar_lab(r, theta, phi, B_11, B_tilde_11, B_01):
     u_phi = 2 / (3 * r ** 3) * (B_11 * np.sin(phi) - B_tilde_11 * np.cos(phi))
     return u_r, u_theta, u_phi
 
-
+# Benyttes ikke
 def field_cartesian_squirmer(r, theta, phi, a, B_11, B_tilde_11, B_01):
     """
     r: afstand fra centrum af squirmer
@@ -41,13 +41,14 @@ def field_cartesian_squirmer(r, theta, phi, a, B_11, B_tilde_11, B_01):
     return u_x, u_y, u_z
 
 
-def field_polar(N, r, theta, a, B, B_tilde, C, C_tilde):
+def field_polar(N, r, theta, phi, a, B, B_tilde, C, C_tilde):
     """Calculate the field in polar coordinates
 
     Args:
         N (int larger than 1): Max possible mode
         r (float): Distance between target and agent (prey and squirmer)
         theta (float): Angle between vertical axis z and target
+        phi (float): Angle between horizontal axis and target
         a (float): Squirmer radius
         B ((N+1, N+1)-array): Modes
         B_tilde ((N+1, N+1)-array): Modes
@@ -60,7 +61,6 @@ def field_polar(N, r, theta, a, B, B_tilde, C, C_tilde):
         u_theta (float):
             Angular velocity        
     """
-    phi = np.pi / 2
     LP, LP_deriv = lpmn(N, N, np.cos(theta))
     r_first_term = 4 / (3 * r ** 3) * (B[1, 1] * np.sin(theta) * np.cos(phi) 
                                        + B_tilde[1, 1] * np.sin(theta) * np.sin(phi) 
@@ -68,8 +68,11 @@ def field_polar(N, r, theta, a, B, B_tilde, C, C_tilde):
     theta_first_term = - 2 / (3 * r ** 3) * (B[1, 1] * np.cos(theta) * np.cos(phi)
                                              + B_tilde[1, 1] * np.cos(theta) * np.sin(phi)
                                              + B[0, 1] * np.sin(theta))
+    phi_first_term = 2 / (3 * r ** 3) * (B[1, 1] * np.sin(phi)
+                                         - B_tilde[1, 1] * np.cos(phi))
     u_r = r_first_term
     u_theta = theta_first_term 
+    u_phi = phi_first_term
     for n in np.arange(2, N+1):  # Sum starts at n=2 and ends at N
         m_arr = np.arange(n+1)  # Since endpoints are not included, all must +1
         #mask = (slice(n+1), slice(n))
@@ -84,18 +87,23 @@ def field_polar(N, r, theta, a, B, B_tilde, C, C_tilde):
                    * ((r / a) ** 2 - 1)
                    * (B_arr * np.cos(m_arr * phi) + B_tilde_arr * np.sin(m_arr * phi)) 
         )
-        print(LP_deriv_arr)
-        print(LP_deriv_arr * np.sin(theta))
         u_theta_arr = (np.sin(theta) * LP_deriv_arr
                    * ((n - 2) / (n * a ** 2 * r ** n) - 1 / r ** (n + 2))
                    * (B_arr * np.cos(m_arr * phi) + B_tilde_arr * np.sin(m_arr * phi))
                    + m_arr * LP_arr / (r ** (n + 1) * np.sin(theta)) 
                    * (C_tilde_arr * np.cos(m_arr * phi) - C_arr * np.sin(m_arr * phi))
         )
+        u_phi_arr = (np.sin(theta) * LP_deriv_arr / r ** (n + 1)
+                     * (C * np.cos(m_arr * phi) + C_tilde * np.sin(m_arr * phi))
+                     - m_arr * LP_arr / np.sin(theta)
+                     * ((n - 2) / (n * a ** 2 * r ** n) - 1 / r ** (n + 2))
+                     * (B_tilde * np.cos(m_arr * phi) - B * np.sin(m_arr * phi))
+        )
         u_r += np.sum(u_r_arr)
         u_theta += np.sum(u_theta_arr)
+        u_phi += np.sum(u_phi_arr)
      
-    return u_r, u_theta
+    return u_r, u_theta, u_phi
     
     
 def field_cartesian(N, r, theta, a, B, B_tilde, C, C_tilde, lab_frame=True):
