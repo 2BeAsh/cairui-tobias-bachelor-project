@@ -1,44 +1,129 @@
 import numpy as np
 from scipy.special import lpmn
 
-# Benyttes ikke
-def field_polar_lab(r, theta, phi, B_11, B_tilde_11, B_01):
-    """
-    r: afstand fra centrum af squirmer
-    theta, phi: polar vinkler. phi=pi/2 hvis ser på y og z akse som vi har gjort indtil videre
-    
-    B_11, B_tilde_11, B_01: Tal mellem -1 og 1. IKKE en matrix men et ENKEL tal. ET tal IKKE Matrix
-    
-    return hastighed i polare koordinater i LAB frame
-    """
-    u_r = 4 / (3 * r ** 3) * (B_11 * np.sin(theta) * np.cos(phi) + B_tilde_11 * np.sin(theta) * np.sin(phi) - B_01 * np.cos(theta))
-    u_theta = - 2 / (3 * r ** 3) * (B_11 * np.cos(theta) * np.cos(phi) + B_tilde_11 * np.cos(theta) * np.sin(phi) - B_01 * np.sin(theta))
-    u_phi = 2 / (3 * r ** 3) * (B_11 * np.sin(phi) - B_tilde_11 * np.cos(phi))
-    return u_r, u_theta, u_phi
+def legendre_poly(n, m, x):
+    """Associated Legendre Polynomials for n<=4
 
-# Benyttes ikke
-def field_cartesian_squirmer(r, theta, phi, a, B_11, B_tilde_11, B_01):
+    Args:
+        n (int): n mode
+        m (int): m mode
+        x (1d array of floats): The x-values the polynomials are evaluated at.
+
+    Returns:
+        (1d array of floats size x): P_n^m(x)
     """
-    r: afstand fra centrum af squirmer
-    theta, phi: polar vinkler. phi=pi/2 hvis ser på y og z akse som vi har gjort indtil videre
-    
-    LÆG MÆRKE TIL at denne funktion tager én yderligere parameter som er a:
-    a: radius af squirmer.
-    
-    B_11, B_tilde_11, B_01: Tal mellem -1 og 1. IKKE en matrix men et ENKEL tal. ET tal IKKE Matrix
-    
-    return hastighed i kartetiske koordinater i SQUIRMER frame
+    if n == 1 and m == 0:
+        return np.cos(x)
+    elif n == 2 and m == 0:
+        return 1 / 2 * (3 * np.cos(x) ** 2 - 1)
+    elif n == 3 and m == 0:
+        return 1 / 2 * (5 * np.cos(x) ** 3 - 3 * np.cos(x))
+    elif n == 4 and m == 0:
+        return 1 / 8 * (35 * np.cos(x) ** 4 - 30 * np.cos(x) ** 2 + 3)
+    elif n == 1 and m == 1:
+        return -np.sin(x)
+    elif n == 2 and m == 1:
+        return -3 * np.cos(x) * np.sin(x)
+    elif n == 2 and m == 2:
+        return 3*np.sin(theta) ** 2
+    elif n == 3 and m == 1:
+        return 3/2 * (1 - 5 * np.cos(x)**2)*(1 - np.cos(x)**2)**(1/2)
+    elif n == 3 and m == 2:
+        return 15 * np.cos(x) * (1 - np.cos(x) ** 2)
+    elif n == 3 and m == 3:
+        return -15 * (1 - np.cos(x) ** 2) ** (3 / 2)
+    elif n == 4 and m == 1:
+        return 5/2 * np.cos(x) * (3 - 7 * np.cos(x) ** 2) * ( 1 - np.cos(x) ** 2) ** (1 / 2)
+    elif n == 4 and m == 2:
+        return 15/2 * (7 * np.cos(x) ** 2 - 1) * (1 - np.cos(x) ** 2) 
+    elif n == 4 and m == 3:
+        return -105 * np.cos(x) * (1 - np.cos(x) ** 2) ** (3 / 2)
+    elif n == 4 and m == 4:
+        return 105*(1 - np.cos(x)**2)**2
+
+
+def legendre_poly_m_sin(n, m, x):
+    """Associated Legendre Polynomials times m divided by sin(x) for n<=4
+
+    Args:
+        n (int): n mode
+        m (int): m mode
+        x (1d array of floats): The x-values the polynomials are evaluated at.
+
+    Returns:
+        (1d array of floats size x): P_n^m(x) * m / sin(x)
     """
-    u_r, u_theta, u_phi = field_polar_lab(r, theta, phi, B_11, B_tilde_11, B_01)
-    
-    u_z = np.cos(theta) * u_r - np.sin(theta) * u_theta
-    u_y = u_r * np.sin(theta) * np.sin(phi) + u_theta * np.cos(theta) * np.sin(phi) + u_phi * np.cos(phi)
-    u_x = u_r * np.sin(theta) * np.cos(phi) + u_theta * np.cos(theta) * np.cos(phi) - u_phi * np.sin(phi)
-    
-    u_z += B_01 * 4 / (3 * a ** 3)
-    u_y += -B_tilde_11 * 4 / (3 * a ** 3)
-    u_x += -B_11 * 4 / (3 * a ** 3)
-    return u_x, u_y, u_z
+    if n == 1 and m == 0:
+        return np.cos(x)
+    elif n == 2 and m == 0:
+        return m
+    elif n == 3 and m == 0:
+        return m
+    elif n == 4 and m == 0:
+        return m
+    elif n == 1 and m == 1:
+        return -1 * m
+    elif n == 2 and m == 1:
+        return -3 * np.cos(x) * m
+    elif n == 2 and m == 2:
+        return 3 * (1 - np.cos(x) ** 2) ** (1 / 2) * m
+    elif n == 3 and m == 1:
+        return 3/2 * (1 - 5 * np.cos(x)**2) * m
+    elif n == 3 and m == 2:
+        return 15 * np.cos(x) * (1 - np.cos(x) ** 2) ** (1 / 2) * m
+    elif n == 3 and m == 3:
+        return -15 * (1 - np.cos(x) ** 2) * m
+    elif n == 4 and m == 1:
+        return 5/2 * np.cos(x) * (3 - 7 * np.cos(x) ** 2) * m
+    elif n == 4 and m == 2:
+        return 15/2 * (7 * np.cos(x) ** 2 - 1) * (1 - np.cos(x) ** 2) ** (1 / 2) * m
+    elif n == 4 and m == 3:
+        return -105 * np.cos(x) * (1 - np.cos(x) ** 2) * m 
+    elif n == 4 and m == 4:
+        return 105*(1 - np.cos(x)**2) ** (3 / 2) * m
+
+
+def legendre_poly_deriv_sin(n, m, x):
+    """First derivative of Associated Legendre Polynomials times sin(x) for n<=4
+
+    Args:
+        n (int): n mode
+        m (int): m mode
+        x (1d array of floats): The x-values the polynomials are evaluated at.
+
+    Returns:
+        (1d array of floats size x): P'_n^m(x) * sin(x)
+    """
+    if n == 1 and m == 0:
+        return 1 * np.sin(x)
+    elif n == 2 and m == 0: #done
+        return 3  * np.cos(x) * np.sin(x)
+    elif n == 3 and m == 0: #done
+        return 1 / 2 * (-3 + 3 * 5 * np.cos(x) ** 2) * np.sin(x)
+    elif n == 4 and m == 0: #done
+        return (17.5 * np.cos(x)**3 - 7.5 * np.cos(x)) * np.sin(x)
+    elif n == 1 and m == 1: #done
+        return np.cos(x)
+    elif n == 2 and m == 1: #done
+        return 3 * np.cos(x)**2 - 3 * (1 - np.cos(x)**2) 
+    elif n == 2 and m == 2: #done
+        return -6 * np.cos(x) * np.sin(x)
+    elif n == 3 and m == 1:
+        return - np.cos(x)*(1.5 - 7.5 * np.cos(x)**2)  - 15 * np.cos(x) * (1 - np.cos(x) ** 2) 
+    elif n == 3 and m == 2:
+        return (15 - 45 * np.cos(x)**2) * np.sin(x) 
+    elif n == 3 and m == 3:
+        return 45 * np.cos(x) * (1 - np.cos(x)**2 )
+    elif n == 4 and m == 1:
+        return (-2.5 * np.cos(x) **2 * (3 - 7 * np.cos(x) ** 2) 
+                - 35 * np.cos(x) ** 2 * (1 - np.cos(x) ** 2) 
+                + 2.5 * (1 - np.cos(x) ** 2) * (3 - 7 * np.cos(x) ** 2))
+    elif n == 4 and m == 2:
+        return (105 * np.cos(x) * (1 - np.cos(x) ** 2) - 2 * np.cos(x) * (52.5 * np.cos(x) ** 2 - 7.5)) * np.sin(x)
+    elif n == 4 and m == 3:
+        return 315 * np.cos(x)**2 * (1 - np.cos(x) ** 2)  - 105 * (1 - np.cos(x) ** 2)
+    elif n == 4 and m == 4:
+        return -420 * np.cos(x) * (1 - np.cos(x) ** 2) * np.sin(x)
 
 
 def field_polar(N, r, theta, phi, a, B, B_tilde, C, C_tilde):
@@ -47,8 +132,8 @@ def field_polar(N, r, theta, phi, a, B, B_tilde, C, C_tilde):
     Args:
         N (int larger than 1): Max possible mode
         r (float): Distance between target and agent (prey and squirmer)
-        theta (float): Angle between vertical axis z and target
-        phi (float): Angle between horizontal axis and target
+        theta (1d array of floats): Angle between vertical axis z and target
+        phi (1d array of floats): Angle between horizontal axis and target. Must have same size as theta
         a (float): Squirmer radius
         B ((N+1, N+1)-array): Modes
         B_tilde ((N+1, N+1)-array): Modes
@@ -56,56 +141,69 @@ def field_polar(N, r, theta, phi, a, B, B_tilde, C, C_tilde):
         C_tilde ((N+1, N+1)-array): Modes
 
     Returns:
-        u_r (float): 
+        u_r (1d array of float size theta): 
             Velocity in the radial direction
-        u_theta (float):
-            Angular velocity        
-    """
-    # NOTE
-    # Must be changed to handle forces, which requires theta and phi to be vectors. 
+        u_theta (1d array of float size thet):
+            Angular velocity in theta
+        u_phi (1d array of float size thet):
+            Angular velocity in phi      
+    """ 
+    # Lower than N=2 values
+    u_r = 4 / (3 * r ** 3) * (B[1, 1] * np.sin(theta) * np.cos(phi) 
+                              + B_tilde[1, 1] * np.sin(theta) * np.sin(phi) 
+                              - B[0, 1] * np.cos(theta))
+    u_theta = - 2 / (3 * r ** 3) * (B[1, 1] * np.cos(theta) * np.cos(phi)
+                                    + B_tilde[1, 1] * np.cos(theta) * np.sin(phi)
+                                    + B[0, 1] * np.sin(theta))
+    u_phi = 2 / (3 * r ** 3) * (B[1, 1] * np.sin(phi)
+                                - B_tilde[1, 1] * np.cos(phi))
+
+    # Calculate associated Legendre polynomials for all possible m and n values, evaluated in all theta values
+    LP = np.empty(shape=(N-2+1, N+1, len(theta)))  # n values, m values, theta values
+    LP_sin_m = np.empty_like(LP)
+    LP_deriv_sin = np.empty_like(LP)
+    for n in range(2, N+1):
+        for m in range(N+1):
+            LP[n-2, m, :] = legendre_poly(n, m, theta)  # ALP "Associated Legende Polynomial"
+            LP_sin_m[n-2, m, :] = legendre_poly_m_sin(n, m, theta)  # ALP times m times sin(theta)
+            LP_deriv_sin[n-2, m, :] = legendre_poly_deriv_sin(n, m, theta)  # Derivative of ALP times sin(theta)
     
-    LP, LP_deriv = lpmn(N, N, np.cos(theta))
-    r_first_term = 4 / (3 * r ** 3) * (B[1, 1] * np.sin(theta) * np.cos(phi) 
-                                       + B_tilde[1, 1] * np.sin(theta) * np.sin(phi) 
-                                       - B[0, 1] * np.cos(theta))
-    theta_first_term = - 2 / (3 * r ** 3) * (B[1, 1] * np.cos(theta) * np.cos(phi)
-                                             + B_tilde[1, 1] * np.cos(theta) * np.sin(phi)
-                                             + B[0, 1] * np.sin(theta))
-    phi_first_term = 2 / (3 * r ** 3) * (B[1, 1] * np.sin(phi)
-                                         - B_tilde[1, 1] * np.cos(phi))
-    u_r = r_first_term
-    u_theta = theta_first_term 
-    u_phi = phi_first_term
-    for n in np.arange(2, N+1):  # Sum starts at n=2 and ends at N
-        m_arr = np.arange(n+1)  # Since endpoints are not included, all must +1
-        #mask = (slice(n+1), slice(n))
-        LP_arr = LP[:n+1, n]
-        LP_deriv_arr = LP_deriv[:n+1, n]
-        B_arr = B[:n+1, n]
-        B_tilde_arr = B_tilde[:n+1, n]
-        C_arr = C[:n+1, n]
-        C_tilde_arr = C_tilde[:n+1, n]
-        # Array with velocities for each m can be summed to give the total value of the inner sum.
-        u_r_arr = ((n + 1) * LP_arr / r ** (n + 2)
+    # Expand phi dimensions for matrix multiplication
+    phi = np.expand_dims(phi, axis=0)
+    
+    # Sum from n=2 to N
+    for n in np.arange(2, N+1):
+        m_arr = np.expand_dims(np.arange(n+1), axis=1)
+        # Set up modes and ALP matrices
+        LP_matrix = LP[n-2, :n+1, :]  # LP starts at n=2
+        LP_sin_m_matrix = LP_sin_m[n-2, :n+1, :]
+        LP_deriv_sin_matrix = LP_deriv_sin[n-2, :n+1, :]
+        B_arr = np.expand_dims(B[:n+1, n], axis=1)  # Extra dimension needed for proper multiplication
+        B_tilde_arr = np.expand_dims(B_tilde[:n+1, n], axis=1)
+        C_arr = np.expand_dims(C[:n+1, n], axis=1)
+        C_tilde_arr = np.expand_dims(C_tilde[:n+1, n], axis=1)
+        
+        u_r_arr = ((n + 1) / r ** (n + 2) 
                    * ((r / a) ** 2 - 1)
-                   * (B_arr * np.cos(m_arr * phi) + B_tilde_arr * np.sin(m_arr * phi)) 
+                   * LP_matrix
+                   * (B_arr * np.cos(m_arr @ phi) + B_tilde_arr * np.sin(m_arr @ phi))
         )
-        u_theta_arr = (np.sin(theta) * LP_deriv_arr
-                   * ((n - 2) / (n * a ** 2 * r ** n) - 1 / r ** (n + 2))
-                   * (B_arr * np.cos(m_arr * phi) + B_tilde_arr * np.sin(m_arr * phi))
-                   + m_arr * LP_arr / (r ** (n + 1) * np.sin(theta)) 
-                   * (C_tilde_arr * np.cos(m_arr * phi) - C_arr * np.sin(m_arr * phi))
+        u_theta_arr = (((n - 2) / (n * a ** 2 * r ** n) - 1 / r ** (n + 2))
+                       * LP_deriv_sin_matrix
+                       * (B_arr * np.cos(m_arr @ phi) + B_tilde_arr * np.sin(m_arr @ phi))
+                       + 1 / r ** (n + 1) * LP_sin_m_matrix
+                       * (C_tilde_arr * np.cos(m_arr @ phi) + C_arr * np.sin(m_arr @ phi))
         )
-        u_phi_arr = (np.sin(theta) * LP_deriv_arr / r ** (n + 1)
-                     * (C * np.cos(m_arr * phi) + C_tilde * np.sin(m_arr * phi))
-                     - m_arr * LP_arr / np.sin(theta)
-                     * ((n - 2) / (n * a ** 2 * r ** n) - 1 / r ** (n + 2))
-                     * (B_tilde * np.cos(m_arr * phi) - B * np.sin(m_arr * phi))
+        u_phi_arr = (1 / r ** (n + 1) * LP_deriv_sin_matrix
+                     * (C_arr * np.cos(m_arr @ phi) + C_tilde_arr * np.sin(m_arr @ phi))
+                     - ((n - 2) / (n * a ** 2 * r ** n) - 1 / r ** (n + 2))
+                     * LP_sin_m_matrix
+                     * (B_tilde_arr * np.cos(m_arr @ phi) - B_arr * np.sin(m_arr @ phi))
         )
-        u_r += np.sum(u_r_arr)
-        u_theta += np.sum(u_theta_arr)
-        u_phi += np.sum(u_phi_arr)
-     
+        u_r += np.sum(u_r_arr, axis=0)
+        u_theta += np.sum(u_theta_arr, axis=0)
+        u_phi += np.sum(u_phi_arr, axis=0)
+                
     return u_r, u_theta, u_phi
     
     
@@ -135,7 +233,8 @@ def field_cartesian(N, r, theta, phi, a, B, B_tilde, C, C_tilde, lab_frame=True)
     u_z = np.cos(theta) * u_r - np.sin(theta) * u_theta
     u_y = u_r * np.sin(theta) * np.sin(phi) + u_theta * np.cos(theta) * np.sin(phi) + u_phi * np.cos(phi)
     u_x = np.sin(theta) * np.cos(phi) * u_r + np.cos(theta) * np.cos(phi) * u_theta - np.sin(phi) * u_phi
-    if not lab_frame:  # Convert to squirmer frame
+    # Convert to squirmer frame
+    if not lab_frame:
             u_z += B[0, 1] * 4 / (3 * a ** 3) 
             u_y += -B_tilde[1, 1] * 4 / (3 * a ** 3)
             # u_x is unchanged, as the modes for this is unused
@@ -288,9 +387,9 @@ def force_on_sphere(N_sphere, distance_squirmer, max_mode, theta, phi, squirmer_
     x_sphere, y_sphere, z_sphere, theta_sphere, phi_sphere, area = discretized_sphere(N_sphere, squirmer_radius)
     A_oseen = oseen_tensor(x_sphere, y_sphere, z_sphere, regularization_offset, area, viscosity)
     # Get velocities in each of the points
-    u_x, u_y, u_z = field_cartesian(max_mode, distance_squirmer=squirmer_radius, 
+    u_x, u_y, u_z = field_cartesian(N=max_mode, r=squirmer_radius, 
                                     theta=theta_sphere, phi=phi_sphere, 
-                                    squirmer_radius=squirmer_radius, 
+                                    a=squirmer_radius, 
                                     B=B, B_tilde=B_tilde, 
                                     C=C, C_tilde=C_tilde, 
                                     lab_frame=lab_frame)
@@ -303,13 +402,13 @@ def force_on_sphere(N_sphere, distance_squirmer, max_mode, theta, phi, squirmer_
 
     
     
-if __name__ == "__main__":
+if __name__ ==  "__main__":
     import matplotlib.pyplot as plt
     N_sphere = 10
     distance_squirmer = 1
-    max_mode = 2
-    theta = np.pi / 3
-    phi = np.pi / 2
+    max_mode = 4
+    theta = np.array([0, 0.5, 1, 1.5]) * np.pi
+    phi = np.array([0, 0.5, 1, 1.5]) * np.pi * 1.5 + 0.1
     squirmer_radius = 1
     B = np.random.uniform(size=(max_mode+1, max_mode+1))
     B_tilde = B / 2
@@ -317,35 +416,8 @@ if __name__ == "__main__":
     C_tilde = B / 4
     regularization_offset = 0.05
     viscosity = 1
-    force_on_sphere(N_sphere, distance_squirmer, max_mode, theta, phi, squirmer_radius, B, B_tilde, C, C_tilde, regularization_offset, viscosity, lab_frame=True)
     
-"""     
-    N = 2
-    r = 3
-    a = 1
-    theta = 0
+    print(field_polar(max_mode, distance_squirmer, theta, phi, squirmer_radius, B, B_tilde, C, C_tilde))
 
-    #vals, diff = lpmn(N, N, np.cos(theta))
-    #print(diff)
-    #u_r, u_theta = field_polar(N, r, theta, a, B, B_tilde, C, C_tilde)
-    #print(u_r, u_theta)
-    x, y, z,_ = discretized_sphere(N=1000, radius=1)
-    fig = plt.figure(dpi=200)
-    ax = fig.add_subplot(projection="3d")
-    ax.scatter(x, y, z)
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
-    ax.set_zlabel("z")
-    plt.show()
-    plt.close()
-    
-    x_can, y_can, z_can, _ = canonical_fibonacci_lattice(N=1000, radius=1)
-    fig_1 = plt.figure(dpi=200)
-    ax_1 = fig_1.add_subplot(projection="3d")
-    ax_1.scatter(x_can, y_can, z_can)
-    ax_1.set_xlabel("x")
-    ax_1.set_ylabel("y")
-    ax_1.set_zlabel("z")
-    plt.show()
-    plt.close() """
+    #force_on_sphere(N_sphere, distance_squirmer, max_mode, theta, phi, squirmer_radius, B, B_tilde, C, C_tilde, regularization_offset, viscosity, lab_frame=True)
     
