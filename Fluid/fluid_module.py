@@ -61,6 +61,9 @@ def field_polar(N, r, theta, phi, a, B, B_tilde, C, C_tilde):
         u_theta (float):
             Angular velocity        
     """
+    # NOTE
+    # Must be changed to handle forces, which requires theta and phi to be vectors. 
+    
     LP, LP_deriv = lpmn(N, N, np.cos(theta))
     r_first_term = 4 / (3 * r ** 3) * (B[1, 1] * np.sin(theta) * np.cos(phi) 
                                        + B_tilde[1, 1] * np.sin(theta) * np.sin(phi) 
@@ -106,13 +109,14 @@ def field_polar(N, r, theta, phi, a, B, B_tilde, C, C_tilde):
     return u_r, u_theta, u_phi
     
     
-def field_cartesian(N, r, theta, a, B, B_tilde, C, C_tilde, lab_frame=True):
+def field_cartesian(N, r, theta, phi, a, B, B_tilde, C, C_tilde, lab_frame=True):
     """Convert polar velocities to cartesian
     
     Args:
         N (int larger than 1): Max possible mode
         r (float): Distance between target and agent (prey and squirmer)
         theta (float): Angle between vertical axis z and target
+        phi (float): Angle between horizontal axis and target
         a (float): Squirmer radius
         B ((N+1, N+1)-array): Modes
         B_tilde ((N+1, N+1)-array): Modes
@@ -126,9 +130,7 @@ def field_cartesian(N, r, theta, a, B, B_tilde, C, C_tilde, lab_frame=True):
         u_theta (float):
             Angular velocity        
     """
-    phi = np.pi / 2
-    u_phi = 0
-    u_r, u_theta = field_polar(N, r, theta, a, B, B_tilde, C, C_tilde)
+    u_r, u_theta, u_phi = field_polar(N, r, theta, phi, a, B, B_tilde, C, C_tilde)
     
     u_z = np.cos(theta) * u_r - np.sin(theta) * u_theta
     u_y = u_r * np.sin(theta) * np.sin(phi) + u_theta * np.cos(theta) * np.sin(phi) + u_phi * np.cos(phi)
@@ -136,8 +138,9 @@ def field_cartesian(N, r, theta, a, B, B_tilde, C, C_tilde, lab_frame=True):
     if not lab_frame:  # Convert to squirmer frame
             u_z += B[0, 1] * 4 / (3 * a ** 3) 
             u_y += -B_tilde[1, 1] * 4 / (3 * a ** 3)
+            # u_x is unchanged, as the modes for this is unused
     
-    return u_y, u_z, u_x
+    return u_x, u_y, u_z
 
 
 # Forces
@@ -212,7 +215,7 @@ def discretized_sphere(N, radius):
     z[2:] = radius * np.cos(phi)
     # The area of each patch is approximated by surface area divided by number of points
     area = 4 * np.pi * radius ** 2 / N
-    return x, y, z, area
+    return x, y, z, theta, phi, area
     
 
 def oseen_tensor(x, y, z, epsilon, dA, viscosity):
@@ -257,18 +260,71 @@ def oseen_tensor(x, y, z, epsilon, dA, viscosity):
     
     A = S * dA / (4 * np.pi * viscosity)
     return A
+
+
+def force_on_sphere(N_sphere, distance_squirmer, max_mode, theta, phi, squirmer_radius, B, B_tilde, C, C_tilde, regularization_offset, viscosity, lab_frame=True):
+    """Calculates the force vectors at N_sphere points on a sphere with radius squirmer_radius. 
+
+    Args:
+        N_sphere (int): Amount of points on the sphere. 
+        distance_squirmer (float): Euclidean distance from squirmer centrum to desired point.
+        max_mode (int): The max Legendre mode available.
+        theta (float): vertial angle between.
+        phi (_type_): Horizontal angle
+        squirmer_radius (float): Radius of squirmer.
+        B ((max_mode, max_mode)-array): Matrix with the B mode values
+        B_tilde ((max_mode, max_mode)-array)): Matrix with the B_tilde mode values
+        C ((max_mode, max_mode)-array)): Matrix with the C mode values
+        C_tilde ((max_mode, max_mode)-array)): Matrix with the C_tilde mode values
+        regularization_offset (float): epsilon that "blobs" the delta function at singularities
+        viscosity (float): Viscosity of the fluid.
+        lab_frame (bool, optional): Wheter the velocities are in lab (True) or squirmer frame (False). Defaults to True.
+
+    Returns:
+        (3N_sphere, 1)-array): Forces on the sphere. First N values are the x part, the next N the y and the last N the z part of the forces.
+    """
+    assert np.array([N_sphere, distance_squirmer, max_mode, squirmer_radius, regularization_offset, viscosity]).all() > 0
+    # Get the A matrix from the Oseen tensor
+    x_sphere, y_sphere, z_sphere, theta_sphere, phi_sphere, area = discretized_sphere(N_sphere, squirmer_radius)
+    A_oseen = oseen_tensor(x_sphere, y_sphere, z_sphere, regularization_offset, area, viscosity)
+    # Get velocities in each of the points
+    u_x, u_y, u_z = field_cartesian(max_mode, distance_squirmer=squirmer_radius, 
+                                    theta=theta_sphere, phi=phi_sphere, 
+                                    squirmer_radius=squirmer_radius, 
+                                    B=B, B_tilde=B_tilde, 
+                                    C=C, C_tilde=C_tilde, 
+                                    lab_frame=lab_frame)
+    u_comb = np.array([u_x, u_y, u_z]).flatten()
+
+    # Solve for the forces, A_oseen @ forces = u_comb
+    force_arr = np.linalg.solve(A_oseen, u_comb)
+    return force_arr
     
 
+    
+    
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
-    N = 2
-    r = 3
-    a = 1
-    B = np.random.uniform(size=(N+1, N+1))
+    N_sphere = 10
+    distance_squirmer = 1
+    max_mode = 2
+    theta = np.pi / 3
+    phi = np.pi / 2
+    squirmer_radius = 1
+    B = np.random.uniform(size=(max_mode+1, max_mode+1))
     B_tilde = B / 2
     C = B / 3
     C_tilde = B / 4
+    regularization_offset = 0.05
+    viscosity = 1
+    force_on_sphere(N_sphere, distance_squirmer, max_mode, theta, phi, squirmer_radius, B, B_tilde, C, C_tilde, regularization_offset, viscosity, lab_frame=True)
+    
+"""     
+    N = 2
+    r = 3
+    a = 1
     theta = 0
+
     #vals, diff = lpmn(N, N, np.cos(theta))
     #print(diff)
     #u_r, u_theta = field_polar(N, r, theta, a, B, B_tilde, C, C_tilde)
@@ -291,5 +347,5 @@ if __name__ == "__main__":
     ax_1.set_ylabel("y")
     ax_1.set_zlabel("z")
     plt.show()
-    plt.close()
+    plt.close() """
     
