@@ -175,7 +175,7 @@ def field_polar(N, r, theta, phi, a, B, B_tilde, C, C_tilde):
     for n in np.arange(2, N+1):
         m_arr = np.expand_dims(np.arange(n+1), axis=1)
         # Set up modes and ALP matrices
-        LP_matrix = LP[n-2, :n+1, :]  # LP starts at n=2
+        LP_matrix = LP[n-2, :n+1, :]  # Minimum n value in LP is n=2
         LP_sin_m_matrix = LP_sin_m[n-2, :n+1, :]
         LP_deriv_sin_matrix = LP_deriv_sin[n-2, :n+1, :]
         B_arr = np.expand_dims(B[:n+1, n], axis=1)  # Extra dimension needed for proper multiplication
@@ -337,7 +337,7 @@ def oseen_tensor(x, y, z, epsilon, dA, viscosity):
     dz = z[:, None] - z[None, :]
     r = np.sqrt(dx**2 + dy**2 + dz**2)  # Symmetrical, could save memory?
     
-    # Expand r to match S - OPTIMIZEABLE
+    # Expand r to match S - OPTIMIZEABLE???
     r_expanded = np.repeat(r, 3, axis=0)
     r_expanded = np.repeat(r_expanded, 3, axis=1)
     r_epsilon = np.sqrt(r_expanded**2 + epsilon**2)
@@ -359,6 +359,14 @@ def oseen_tensor(x, y, z, epsilon, dA, viscosity):
     
     A = S * dA / (4 * np.pi * viscosity)
     return A
+
+
+def oseen_on_point(x, y, z, x_point, y_point, z_point, epsilon, dA, viscosity):
+    # Hvad skal gøres?
+    # Er det:
+        # Find r, hvor ri er array med afstand mellem punkt xi og alle punkter på kuglen?
+        # Skal man have afstand mellem kuglepunkterne?
+    pass
 
 
 def force_on_sphere(N_sphere, distance_squirmer, max_mode, theta, phi, squirmer_radius, B, B_tilde, C, C_tilde, regularization_offset, viscosity, lab_frame=True):
