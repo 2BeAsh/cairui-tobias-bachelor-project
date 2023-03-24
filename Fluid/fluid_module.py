@@ -342,10 +342,10 @@ def oseen_tensor(x, y, z, epsilon, dA, viscosity):
     r_expanded = np.repeat(r_expanded, 3, axis=1)
     r_epsilon = np.sqrt(r_expanded**2 + epsilon**2)
     
-    S_diag = np.zeros((3*N, 3*N))  # 3 variables, so 3N in each direction
-    S_diag[:N, :N] = dx
-    S_diag[N:2*N, N:2*N] = dy
-    S_diag[2*N:3*N, 2*N:3*N] = dz
+    S_diag = np.zeros((3*N, 3*N))  # 3 variables, so 3N in each direction. "Diagonal" refers to the NxN matrices S11, S22 and S33 
+    S_diag[:N, :N] = dx ** 2  
+    S_diag[N:2*N, N:2*N] = dy ** 2
+    S_diag[2*N:3*N, 2*N:3*N] = dz ** 2
     
     S_off_diag = np.zeros_like(S_diag)
     S_off_diag[0:N, N:2*N] = dx * dy  # Element wise multiplication
@@ -361,12 +361,41 @@ def oseen_tensor(x, y, z, epsilon, dA, viscosity):
     return A
 
 
-def oseen_on_point(x, y, z, x_point, y_point, z_point, epsilon, dA, viscosity):
-    # Hvad skal gøres?
-    # Er det:
-        # Find r, hvor ri er array med afstand mellem punkt xi og alle punkter på kuglen?
-        # Skal man have afstand mellem kuglepunkterne?
-    pass
+def oseen_on_point(x_sphere, y_sphere, z_sphere, x_points, y_points, z_points, epsilon, dA, viscosity):
+    N_sphere = np.shape(x_sphere)[0]
+    N_points = np.shape(x_points)[0]
+    N_min = np.min([N_sphere, N_points])
+    # Need difference between each point and all sphere points, done using broadcasting
+    dx = x_points[:, None] - x_sphere[None, :]
+    dy = y_points[:, None] - y_sphere[None, :]
+    dz = z_points[:, None] - z_sphere[None, :]
+    r = np.sqrt(dx ** 2 + dy ** 2 + dz ** 2)
+    
+    # Expand r to match S - OPTIMIZEABLE???
+    r_expanded = np.repeat(r, 3, axis=0)
+    r_expanded = np.repeat(r_expanded, 3, axis=1)
+    r_epsilon = np.sqrt(r_expanded**2 + epsilon**2)
+    
+    # No longer a symmetric matrix, so cannot transpose
+    S = np.zeros((3*N_sphere, 3*N_points))  # three coordinates so multiply by three
+    # The centermost matrices: S11 S22 S33
+    S[0:N_sphere, 0:N_points] = r ** 2 + 2 * epsilon ** 2 + dx ** 2
+    S[N_sphere:2*N_sphere, N_points:2*N_points] = r ** 2 + 2 * epsilon ** 2 + dy ** 2
+    S[2*N_sphere:3*N_sphere, 2*N_points:3*N_points] = r ** 2 + 2 * epsilon ** 2 + dy ** 2
+    # Right part: S12 S13 S23
+    S[0:N_sphere, N_points:2*N_points] = dx * dy
+    S[0:N_sphere, 2*N_points:3*N_points] = dx * dz
+    S[N_sphere:2*N_sphere, 2*N_points:3*N_points] = dz * dy
+    # Left part: S21 S31, S32
+    S[N_sphere:2*N_sphere, 0:N_points] = dx * dy
+    S[2*N_sphere:3*N_sphere, 0:N_points] = dx * dz
+    S[2*N_sphere:3*N_sphere, N_points:2*N_points] = dz * dz
+
+    S /= r_epsilon ** 3
+    
+    A = S * dA / (4 * np.pi * viscosity)
+    return A
+    
 
 
 def force_on_sphere(N_sphere, distance_squirmer, max_mode, theta, phi, squirmer_radius, B, B_tilde, C, C_tilde, regularization_offset, viscosity, lab_frame=True):
