@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.special import lpmn
 
+
 def legendre_poly(n, m, x):
     """Associated Legendre Polynomials for n<=4
 
@@ -25,7 +26,7 @@ def legendre_poly(n, m, x):
     elif n == 2 and m == 1:
         return -3 * np.cos(x) * np.sin(x)
     elif n == 2 and m == 2:
-        return 3*np.sin(theta) ** 2
+        return 3 * np.sin(x) ** 2
     elif n == 3 and m == 1:
         return 3/2 * (1 - 5 * np.cos(x)**2)*(1 - np.cos(x)**2)**(1/2)
     elif n == 3 and m == 2:
@@ -252,6 +253,7 @@ def canonical_fibonacci_lattice(N, radius):
 
     Returns:
         Tupple of three 1d-arrays and a float: Returns cartesian coordinates of the points distributed on the spherical surface, and the approximate area each point are given.
+        x, y, z, theta, phi, area 
     """
     # Find spherical coordinates. 
     # Radius is contant, theta determined by golden ratio and phi is found using the Inverse Transform Method.
@@ -267,7 +269,7 @@ def canonical_fibonacci_lattice(N, radius):
     z = radius * np.cos(phi)
     # The area of each patch is approximated by surface area divided by number of points
     area = 4 * np.pi * radius ** 2 / N
-    return x, y, z, area    
+    return x, y, z, theta, phi, area 
 
 
 def discretized_sphere(N, radius):
@@ -317,7 +319,7 @@ def discretized_sphere(N, radius):
     return x, y, z, theta, phi, area
     
 
-def oseen_tensor(x, y, z, epsilon, dA, viscosity):
+def oseen_tensor(x, y, z, regularization_offset, dA, viscosity):
     """Find Oseen tensor for all multiple points.
 
     Args:
@@ -340,7 +342,7 @@ def oseen_tensor(x, y, z, epsilon, dA, viscosity):
     # Expand r to match S - OPTIMIZEABLE???
     r_expanded = np.repeat(r, 3, axis=0)
     r_expanded = np.repeat(r_expanded, 3, axis=1)
-    r_epsilon = np.sqrt(r_expanded**2 + epsilon**2)
+    r_epsilon = np.sqrt(r_expanded**2 + regularization_offset**2)
     
     S_diag = np.zeros((3*N, 3*N))  # 3 variables, so 3N in each direction. "Diagonal" refers to the NxN matrices S11, S22 and S33 
     S_diag[:N, :N] = dx ** 2  
@@ -352,7 +354,7 @@ def oseen_tensor(x, y, z, epsilon, dA, viscosity):
     S_off_diag[0:N, 2*N:3*N] = dx * dz
     S_off_diag[N:2*N, 2*N:3*N] = dy * dz
     
-    S = ((r_expanded**2 + 2 * epsilon**2) * S_diag
+    S = ((r_expanded**2 + 2 * regularization_offset**2) * S_diag
          + S_off_diag
          + S_off_diag.T
     ) / r_epsilon ** 3
@@ -421,7 +423,7 @@ def force_on_sphere(N_sphere, distance_squirmer, max_mode, theta, phi, squirmer_
     """
     assert np.array([N_sphere, distance_squirmer, max_mode, squirmer_radius, regularization_offset, viscosity]).all() > 0
     # Get the A matrix from the Oseen tensor
-    x_sphere, y_sphere, z_sphere, theta_sphere, phi_sphere, area = discretized_sphere(N_sphere, squirmer_radius)
+    x_sphere, y_sphere, z_sphere, theta_sphere, phi_sphere, area = canonical_fibonacci_lattice(N_sphere, squirmer_radius)
     A_oseen = oseen_tensor(x_sphere, y_sphere, z_sphere, regularization_offset, area, viscosity)
     # Get velocities in each of the points
     u_x, u_y, u_z = field_cartesian(N=max_mode, r=squirmer_radius, 
@@ -435,9 +437,7 @@ def force_on_sphere(N_sphere, distance_squirmer, max_mode, theta, phi, squirmer_
     # Solve for the forces, A_oseen @ forces = u_comb
     force_arr = np.linalg.solve(A_oseen, u_comb)
     return force_arr
-    
 
-    
     
 if __name__ ==  "__main__":
     import matplotlib.pyplot as plt
