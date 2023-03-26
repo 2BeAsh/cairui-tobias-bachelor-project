@@ -363,10 +363,11 @@ def oseen_tensor(x, y, z, regularization_offset, dA, viscosity):
     return A
 
 
-def oseen_on_point(x_sphere, y_sphere, z_sphere, x_points, y_points, z_points, epsilon, dA, viscosity):
+def oseen_tensor_on_points(x_sphere, y_sphere, z_sphere, x_points, y_points, z_points, regularization_offset, dA, viscosity):
+    epsilon = regularization_offset 
+    
     N_sphere = np.shape(x_sphere)[0]
     N_points = np.shape(x_points)[0]
-    N_min = np.min([N_sphere, N_points])
     # Need difference between each point and all sphere points, done using broadcasting
     dx = x_points[:, None] - x_sphere[None, :]
     dy = y_points[:, None] - y_sphere[None, :]
@@ -379,19 +380,20 @@ def oseen_on_point(x_sphere, y_sphere, z_sphere, x_points, y_points, z_points, e
     r_epsilon = np.sqrt(r_expanded**2 + epsilon**2)
     
     # No longer a symmetric matrix, so cannot transpose
-    S = np.zeros((3*N_sphere, 3*N_points))  # three coordinates so multiply by three
+    S = np.zeros((3*N_points, 3*N_sphere))  # three coordinates so multiply by three
     # The centermost matrices: S11 S22 S33
-    S[0:N_sphere, 0:N_points] = r ** 2 + 2 * epsilon ** 2 + dx ** 2
-    S[N_sphere:2*N_sphere, N_points:2*N_points] = r ** 2 + 2 * epsilon ** 2 + dy ** 2
-    S[2*N_sphere:3*N_sphere, 2*N_points:3*N_points] = r ** 2 + 2 * epsilon ** 2 + dy ** 2
+    
+    S[0:N_points, 0:N_sphere] = r ** 2 + 2 * epsilon ** 2 + dx ** 2
+    S[N_points:2*N_points, N_sphere:2*N_sphere] = r ** 2 + 2 * epsilon ** 2 + dy ** 2
+    S[2*N_points:3*N_points, 2*N_sphere:3*N_sphere] = r ** 2 + 2 * epsilon ** 2 + dy ** 2
     # Right part: S12 S13 S23
-    S[0:N_sphere, N_points:2*N_points] = dx * dy
-    S[0:N_sphere, 2*N_points:3*N_points] = dx * dz
-    S[N_sphere:2*N_sphere, 2*N_points:3*N_points] = dz * dy
+    S[0:N_points, N_sphere:2*N_sphere] = dx * dy
+    S[0:N_points, 2*N_sphere:3*N_sphere] = dx * dz
+    S[N_points:2*N_points, 2*N_sphere:3*N_sphere] = dz * dy
     # Left part: S21 S31, S32
-    S[N_sphere:2*N_sphere, 0:N_points] = dx * dy
-    S[2*N_sphere:3*N_sphere, 0:N_points] = dx * dz
-    S[2*N_sphere:3*N_sphere, N_points:2*N_points] = dz * dz
+    S[N_points:2*N_points, 0:N_sphere] = dx * dy
+    S[2*N_points:3*N_points, 0:N_sphere] = dx * dz
+    S[2*N_points:3*N_points, N_sphere:2*N_sphere] = dz * dz
 
     S /= r_epsilon ** 3
     
@@ -436,7 +438,7 @@ def force_on_sphere(N_sphere, distance_squirmer, max_mode, theta, phi, squirmer_
 
     # Solve for the forces, A_oseen @ forces = u_comb
     force_arr = np.linalg.solve(A_oseen, u_comb)
-    return force_arr
+    return force_arr, u_comb  # fjern u_comb
 
     
 if __name__ ==  "__main__":
