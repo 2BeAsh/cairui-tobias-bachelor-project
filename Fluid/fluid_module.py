@@ -224,11 +224,13 @@ def field_cartesian(N, r, theta, phi, a, B, B_tilde, C, C_tilde, lab_frame=True)
         lab_frame (Bool): If chooses lab or squirmer frame
 
     Returns:
-        u_r (float): 
-            Velocity in the radial direction
-        u_theta (float):
-            Angular velocity        
-    """
+        u_x (float): 
+            Velocity in the x direction
+        u_y (float): 
+            Velocity in the y direction
+        u_z (float): 
+            Velocity in the z direction            
+            """
     u_r, u_theta, u_phi = field_polar(N, r, theta, phi, a, B, B_tilde, C, C_tilde)
     
     u_z = np.cos(theta) * u_r - np.sin(theta) * u_theta
@@ -333,39 +335,32 @@ def oseen_tensor(x, y, z, regularization_offset, dA, viscosity):
     Returns:
         _type_: _description_
     """
+    oseen_factor = dA / (8 * np.pi * viscosity)
     N = np.shape(x)[0]
     dx = x[:, None] - x[None, :]
     dy = y[:, None] - y[None, :]
     dz = z[:, None] - z[None, :]
     r = np.sqrt(dx**2 + dy**2 + dz**2)  # Symmetrical, could save memory?
-    
-    # Expand r to match S - OPTIMIZEABLE???
-    r_expanded = np.repeat(r, 3, axis=0)
-    r_expanded = np.repeat(r_expanded, 3, axis=1)
-    r_epsilon = np.sqrt(r_expanded**2 + regularization_offset**2)
-    
+    r_epsilon_cubed = np.sqrt(r**2 + regularization_offset**2) ** 3
+        
+    # Find the S matrices
     S_diag = np.zeros((3*N, 3*N))  # 3 variables, so 3N in each direction. "Diagonal" refers to the NxN matrices S11, S22 and S33 
-    S_diag[:N, :N] = dx ** 2  
-    S_diag[N:2*N, N:2*N] = dy ** 2
-    S_diag[2*N:3*N, 2*N:3*N] = dz ** 2
+    S_diag[:N, :N] = (dx ** 2 + r ** 2 + 2 * regularization_offset ** 2) / r_epsilon_cubed
+    S_diag[N:2*N, N:2*N] = (dy ** 2 + r ** 2 + 2 * regularization_offset ** 2) / r_epsilon_cubed
+    S_diag[2*N:3*N, 2*N:3*N] = (dz ** 2 + r ** 2 + 2 * regularization_offset ** 2) / r_epsilon_cubed
     
     S_off_diag = np.zeros_like(S_diag)
-    S_off_diag[0:N, N:2*N] = dx * dy  # Element wise multiplication
-    S_off_diag[0:N, 2*N:3*N] = dx * dz
-    S_off_diag[N:2*N, 2*N:3*N] = dy * dz
+    S_off_diag[0:N, N:2*N] = dx * dy / r_epsilon_cubed # Element wise multiplication
+    S_off_diag[0:N, 2*N:3*N] = dx * dz / r_epsilon_cubed
+    S_off_diag[N:2*N, 2*N:3*N] = dy * dz / r_epsilon_cubed
     
-    S = ((r_expanded**2 + 2 * regularization_offset**2) * S_diag
-         + S_off_diag
-         + S_off_diag.T
-    ) / r_epsilon ** 3
-    
-    A = S * dA / (4 * np.pi * viscosity)
-    return A
+    S = (S_diag + S_off_diag + S_off_diag.T)
+    return S * oseen_factor
 
 
 def oseen_tensor_on_points(x_sphere, y_sphere, z_sphere, x_points, y_points, z_points, regularization_offset, dA, viscosity):
     epsilon = regularization_offset 
-    
+    oseen_factor = dA / (8 * np.pi * viscosity)
     N_sphere = np.shape(x_sphere)[0]
     N_points = np.shape(x_points)[0]
     # Need difference between each point and all sphere points, done using broadcasting
@@ -373,32 +368,28 @@ def oseen_tensor_on_points(x_sphere, y_sphere, z_sphere, x_points, y_points, z_p
     dy = y_points[:, None] - y_sphere[None, :]
     dz = z_points[:, None] - z_sphere[None, :]
     r = np.sqrt(dx ** 2 + dy ** 2 + dz ** 2)
-    
-    # Expand r to match S - OPTIMIZEABLE???
-    r_expanded = np.repeat(r, 3, axis=0)
-    r_expanded = np.repeat(r_expanded, 3, axis=1)
-    r_epsilon = np.sqrt(r_expanded**2 + epsilon**2)
+    r_epsilon_cubed = np.sqrt(r ** 2 + epsilon ** 2) ** 3
     
     # No longer a symmetric matrix, so cannot transpose
     S = np.zeros((3*N_points, 3*N_sphere))  # three coordinates so multiply by three
+    
     # The centermost matrices: S11 S22 S33
+    S[0:N_points, 0:N_sphere] = (r ** 2 + 2 * epsilon ** 2 + dx ** 2) / r_epsilon_cubed
+    S[N_points:2*N_points, N_sphere:2*N_sphere] = (r ** 2 + 2 * epsilon ** 2 + dy ** 2) / r_epsilon_cubed
+    S[2*N_points:3*N_points, 2*N_sphere:3*N_sphere] = (r ** 2 + 2 * epsilon ** 2 + dz ** 2) / r_epsilon_cubed
     
-    S[0:N_points, 0:N_sphere] = r ** 2 + 2 * epsilon ** 2 + dx ** 2
-    S[N_points:2*N_points, N_sphere:2*N_sphere] = r ** 2 + 2 * epsilon ** 2 + dy ** 2
-    S[2*N_points:3*N_points, 2*N_sphere:3*N_sphere] = r ** 2 + 2 * epsilon ** 2 + dy ** 2
     # Right part: S12 S13 S23
-    S[0:N_points, N_sphere:2*N_sphere] = dx * dy
-    S[0:N_points, 2*N_sphere:3*N_sphere] = dx * dz
-    S[N_points:2*N_points, 2*N_sphere:3*N_sphere] = dz * dy
-    # Left part: S21 S31, S32
-    S[N_points:2*N_points, 0:N_sphere] = dx * dy
-    S[2*N_points:3*N_points, 0:N_sphere] = dx * dz
-    S[2*N_points:3*N_points, N_sphere:2*N_sphere] = dz * dz
-
-    S /= r_epsilon ** 3
+    S[0:N_points, N_sphere:2*N_sphere] = dx * dy / r_epsilon_cubed
+    S[0:N_points, 2*N_sphere:3*N_sphere] = dx * dz / r_epsilon_cubed
+    S[N_points:2*N_points, 2*N_sphere:3*N_sphere] = dz * dy / r_epsilon_cubed
+    # Virker her til
     
-    A = S * dA / (4 * np.pi * viscosity)
-    return A
+    # Left part: S21 S31, S32
+    S[N_points:2*N_points, 0:N_sphere] = dx * dy / r_epsilon_cubed
+    S[2*N_points:3*N_points, 0:N_sphere] = dx * dz / r_epsilon_cubed
+    S[2*N_points:3*N_points, N_sphere:2*N_sphere] = dz * dy / r_epsilon_cubed
+    
+    return S * oseen_factor
     
 
 
@@ -423,7 +414,7 @@ def force_on_sphere(N_sphere, distance_squirmer, max_mode, theta, phi, squirmer_
     Returns:
         (3N_sphere, 1)-array): Forces on the sphere. First N values are the x part, the next N the y and the last N the z part of the forces.
     """
-    assert np.array([N_sphere, distance_squirmer, max_mode, squirmer_radius, regularization_offset, viscosity]).all() > 0
+    assert np.array([N_sphere, max_mode, squirmer_radius, regularization_offset, viscosity]).all() > 0
     # Get the A matrix from the Oseen tensor
     x_sphere, y_sphere, z_sphere, theta_sphere, phi_sphere, area = canonical_fibonacci_lattice(N_sphere, squirmer_radius)
     A_oseen = oseen_tensor(x_sphere, y_sphere, z_sphere, regularization_offset, area, viscosity)
@@ -435,7 +426,6 @@ def force_on_sphere(N_sphere, distance_squirmer, max_mode, theta, phi, squirmer_
                                     C=C, C_tilde=C_tilde, 
                                     lab_frame=lab_frame)
     u_comb = np.array([u_x, u_y, u_z]).flatten()
-
     # Solve for the forces, A_oseen @ forces = u_comb
     force_arr = np.linalg.solve(A_oseen, u_comb)
     return force_arr, u_comb  # fjern u_comb
