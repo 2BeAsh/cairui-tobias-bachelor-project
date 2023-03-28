@@ -330,8 +330,8 @@ def discretized_sphere(N, radius):
     return x, y, z, theta, phi, area
     
 
-def oseen_tensor(x, y, z, regularization_offset, dA, viscosity):
-    """Find Oseen tensor for all multiple points.
+def oseen_tensor_surface(x, y, z, regularization_offset, dA, viscosity):
+    """Find Oseen tensor for all multiple points on the surface of the squirmer.
 
     Args:
         x (1d array of floats): x-coordinate of all points
@@ -353,7 +353,7 @@ def oseen_tensor(x, y, z, regularization_offset, dA, viscosity):
     r_epsilon_cubed = np.sqrt(r**2 + regularization_offset**2) ** 3
         
     # Find the S matrices
-    S_diag = np.zeros((3*N, 3*N))  # 3 variables, so 3N in each direction. "Diagonal" refers to the NxN matrices S11, S22 and S33 
+    S_diag = np.zeros((3*N, 3*N))  # "Diagonal" refers to the NxN matrices S11, S22 and S33 
     S_diag[:N, :N] = (dx ** 2 + r ** 2 + 2 * regularization_offset ** 2) / r_epsilon_cubed
     S_diag[N:2*N, N:2*N] = (dy ** 2 + r ** 2 + 2 * regularization_offset ** 2) / r_epsilon_cubed
     S_diag[2*N:3*N, 2*N:3*N] = (dz ** 2 + r ** 2 + 2 * regularization_offset ** 2) / r_epsilon_cubed
@@ -363,13 +363,12 @@ def oseen_tensor(x, y, z, regularization_offset, dA, viscosity):
     S_off_diag[0:N, 2*N:3*N] = dx * dz / r_epsilon_cubed
     S_off_diag[N:2*N, 2*N:3*N] = dy * dz / r_epsilon_cubed
     
-    S = (S_diag + S_off_diag + S_off_diag.T)
-    #S = np.append(S, np.ones((1,3*N)), axis=0)
-    S[-1,:] = 1
+    S = (S_diag + S_off_diag + S_off_diag.T) * oseen_factor
+    S[-1, :] = 1  # Replace last row with condition that forces must sum to zero
     
     print(np.shape(S))
    
-    return S * oseen_factor
+    return S 
 
 
 def oseen_tensor_on_points(x_sphere, y_sphere, z_sphere, x_points, y_points, z_points, regularization_offset, dA, viscosity):
@@ -431,7 +430,7 @@ def force_on_sphere(N_sphere, distance_squirmer, max_mode, theta, phi, squirmer_
     #assert np.array([N_sphere, max_mode, squirmer_radius, regularization_offset, viscosity]).all() > 0
     # Get the A matrix from the Oseen tensor
     x_sphere, y_sphere, z_sphere, theta_sphere, phi_sphere, area = canonical_fibonacci_lattice(N_sphere, squirmer_radius)
-    A_oseen = oseen_tensor(x_sphere, y_sphere, z_sphere, regularization_offset, area, viscosity)
+    A_oseen = oseen_tensor_surface(x_sphere, y_sphere, z_sphere, regularization_offset, area, viscosity)
     # Get velocities in each of the points
     u_x, u_y, u_z = field_cartesian(N=max_mode, r=squirmer_radius, 
                                     theta=theta_sphere, phi=phi_sphere, 
@@ -439,14 +438,16 @@ def force_on_sphere(N_sphere, distance_squirmer, max_mode, theta, phi, squirmer_
                                     B=B, B_tilde=B_tilde, 
                                     C=C, C_tilde=C_tilde, 
                                     lab_frame=lab_frame)
-    u_comb = np.array([u_x, u_y, u_z]).flatten()
+    u_comb = np.array([u_x, u_y, u_z]).ravel()
+    u_comb[-1] = 0  # Forces must sum to zero
     #u_comb = np.append(u_comb , np.ones(1)*8*np.pi/squirmer_radius**2)
-    u_comb[-1] = 1 #8*np.pi/squirmer_radius**2
-    print(np.shape(u_comb))
+    #u_comb[-1] = 1 #8*np.pi/squirmer_radius**2
+    print("u_comb shape =", np.shape(u_comb))
+    print(u_comb)
 
     # Solve for the forces, A_oseen @ forces = u_comb
     force_arr = np.linalg.solve(A_oseen, u_comb)
-    return force_arr, u_comb  # fjern u_comb
+    return force_arr, u_comb  # The last point does not hold physical meaning, comes from enforcing sum Forces = 0. fjern u_comb
 
     
 if __name__ ==  "__main__":
