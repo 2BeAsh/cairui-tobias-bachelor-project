@@ -233,6 +233,14 @@ def field_cartesian(N, r, theta, phi, a, B, B_tilde, C, C_tilde, lab_frame=True)
             """
     u_r, u_theta, u_phi = field_polar(N, r, theta, phi, a, B, B_tilde, C, C_tilde)
     
+   #SLET nedenstående efterfølgende
+    #u_r = (1+1)*np.cos(theta)/r**3 * (r**2/a**2 -1) * np.cos(phi)
+    #u_theta = np.sin(theta) / r**3 * ((1-2)/(1*a**2*r)-1/r**3 )* np.cos(phi)
+    #u_phi = 0
+ 
+    #Slet ovenstående efterfølgende
+    
+    
     u_z = np.cos(theta) * u_r - np.sin(theta) * u_theta
     u_y = u_r * np.sin(theta) * np.sin(phi) + u_theta * np.cos(theta) * np.sin(phi) + u_phi * np.cos(phi)
     u_x = np.sin(theta) * np.cos(phi) * u_r + np.cos(theta) * np.cos(phi) * u_theta - np.sin(phi) * u_phi
@@ -241,6 +249,7 @@ def field_cartesian(N, r, theta, phi, a, B, B_tilde, C, C_tilde, lab_frame=True)
             u_z += B[0, 1] * 4 / (3 * a ** 3) 
             u_y += -B_tilde[1, 1] * 4 / (3 * a ** 3)
             # u_x is unchanged, as the modes for this is unused
+            print("hallo")
     
     return u_x, u_y, u_z
 
@@ -355,6 +364,11 @@ def oseen_tensor(x, y, z, regularization_offset, dA, viscosity):
     S_off_diag[N:2*N, 2*N:3*N] = dy * dz / r_epsilon_cubed
     
     S = (S_diag + S_off_diag + S_off_diag.T)
+    #S = np.append(S, np.ones((1,3*N)), axis=0)
+    S[-1,:] = 1
+    
+    print(np.shape(S))
+   
     return S * oseen_factor
 
 
@@ -414,7 +428,7 @@ def force_on_sphere(N_sphere, distance_squirmer, max_mode, theta, phi, squirmer_
     Returns:
         (3N_sphere, 1)-array): Forces on the sphere. First N values are the x part, the next N the y and the last N the z part of the forces.
     """
-    assert np.array([N_sphere, max_mode, squirmer_radius, regularization_offset, viscosity]).all() > 0
+    #assert np.array([N_sphere, max_mode, squirmer_radius, regularization_offset, viscosity]).all() > 0
     # Get the A matrix from the Oseen tensor
     x_sphere, y_sphere, z_sphere, theta_sphere, phi_sphere, area = canonical_fibonacci_lattice(N_sphere, squirmer_radius)
     A_oseen = oseen_tensor(x_sphere, y_sphere, z_sphere, regularization_offset, area, viscosity)
@@ -426,6 +440,10 @@ def force_on_sphere(N_sphere, distance_squirmer, max_mode, theta, phi, squirmer_
                                     C=C, C_tilde=C_tilde, 
                                     lab_frame=lab_frame)
     u_comb = np.array([u_x, u_y, u_z]).flatten()
+    #u_comb = np.append(u_comb , np.ones(1)*8*np.pi/squirmer_radius**2)
+    u_comb[-1] = 1 #8*np.pi/squirmer_radius**2
+    print(np.shape(u_comb))
+
     # Solve for the forces, A_oseen @ forces = u_comb
     force_arr = np.linalg.solve(A_oseen, u_comb)
     return force_arr, u_comb  # fjern u_comb
