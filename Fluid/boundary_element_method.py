@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import field_velocity as fv
 
 
 def canonical_fibonacci_lattice(N, radius):
@@ -137,7 +138,7 @@ def oseen_tensor(regularization_offset, dA, viscosity, evaluation_points, source
     r = np.sqrt(dx ** 2 + dy ** 2 + dz ** 2)
     r_epsilon_cubed = np.sqrt(r ** 2 + epsilon ** 2) ** 3
     
-    S = np.zeros((3*N_points, 3*N_sphere))  # three coordinates so multiply by three
+    S = np.zeros((3*N_points+6, 3*N_sphere+6))  # three coordinates, +3 from force +3 from torque
     
     # The centermost matrices: S11 S22 S33
     S[0:N_points, 0:N_sphere] = (r ** 2 + 2 * epsilon ** 2 + dx ** 2) / r_epsilon_cubed
@@ -154,7 +155,68 @@ def oseen_tensor(regularization_offset, dA, viscosity, evaluation_points, source
     S[2*N_points:3*N_points, 0:N_sphere] = dx * dz / r_epsilon_cubed
     S[2*N_points:3*N_points, N_sphere:2*N_sphere] = dz * dy / r_epsilon_cubed
     
-    return S * oseen_factor
+    S *= oseen_factor
+    
+    # Forces = 0, U and torque
+    for i in range(3):
+        S[i-6, i*N_sphere:(i+1)*N_sphere] = 1 
+        S[i*N_points:(i+1)*N_points, i-6] = 1
+    
+    # Torque
+    # Row
+    S[-3, N_sphere:2*N_sphere] = -z_sphere
+    S[-3, 2*N_sphere:3*N_sphere] = y_sphere
+    S[-2, 0:N_sphere] = z_sphere
+    S[-2, 2*N_sphere:3*N_sphere] = -x_sphere
+    S[-1, 0:N_sphere] = -y_sphere
+    S[-1, N_sphere:2*N_sphere] = x_sphere
+    
+    # Column    
+    S[0:N_points, -2] = z_points
+    S[0:N_points, -1] = -y_points
+    S[N_points:2*N_points, -3] = -z_points
+    S[N_points:2*N_points, -1] = x_points
+    S[2*N_points:3*N_points, -3] = y_points    
+    S[2*N_points:3*N_points, -2] = -x_points
+    
+    return S 
+
+
+def force_on_sphere(N_sphere, distance_squirmer, max_mode, theta, phi, squirmer_radius, B, B_tilde, C, C_tilde, regularization_offset, viscosity, lab_frame=True):
+    """Calculates the force vectors at N_sphere points on a sphere with radius squirmer_radius. 
+
+    Args:
+        N_sphere (int): Amount of points on the sphere. 
+        distance_squirmer (float): Euclidean distance from squirmer centrum to desired point.
+        max_mode (int): The max Legendre mode available.
+        theta (float): vertial angle between.
+        phi (_type_): Horizontal angle
+        squirmer_radius (float): Radius of squirmer.
+        B ((max_mode, max_mode)-array): Matrix with the B mode values
+        B_tilde ((max_mode, max_mode)-array)): Matrix with the B_tilde mode values
+        C ((max_mode, max_mode)-array)): Matrix with the C mode values
+        C_tilde ((max_mode, max_mode)-array)): Matrix with the C_tilde mode values
+        regularization_offset (float): epsilon that "blobs" the delta function at singularities
+        viscosity (float): Viscosity of the fluid.
+        lab_frame (bool, optional): Wheter the velocities are in lab (True) or squirmer frame (False). Defaults to True.
+
+    Returns:
+        (3N_sphere, 1)-array): Forces on the sphere. First N values are the x part, the next N the y and the last N the z part of the forces.
+    """
+    # Get the A matrix from the Oseen tensor
+    x_sphere, y_sphere, z_sphere, theta_sphere, phi_sphere, area = canonical_fibonacci_lattice(N_sphere, squirmer_radius)
+    A_oseen = oseen_tensor_surface(x_sphere, y_sphere, z_sphere, regularization_offset, area, viscosity)
+    # Get velocities in each of the points
+    u_x, u_y, u_z = fv.field_cartesian(N=max_mode, r=squirmer_radius, 
+                                    theta=theta_sphere, phi=phi_sphere, 
+                                    a=squirmer_radius, 
+                                    B=B, B_tilde=B_tilde, 
+                                    C=C, C_tilde=C_tilde, 
+                                    lab_frame=lab_frame)
+    u_comb = np.array([u_x, u_y, u_z, np.zeros(6)]).ravel()  # 6 zeros from Forces=0=Torque
+    # Solve for the forces, A_oseen @ forces = u_comb
+    force_arr = np.linalg.solve(A_oseen, u_comb)
+    return force_arr, u_comb 
 
 
 def test_oseen_given_field():
@@ -165,7 +227,8 @@ def test_oseen_given_field():
     x, y, z, _, _, area = canonical_fibonacci_lattice(N, r)
     
     # Boundary Conditions
-    vx = 1 + 0 * x
+    vx = 0 * x
+    vy = 0 * x
     vy = 1 + 0 * x
     vz = 0 * x
     
@@ -173,12 +236,14 @@ def test_oseen_given_field():
     x = np.stack((x, y, z)).T
     v = np.stack((vx, vy, vz)).T
     v = np.reshape(v, -1, order="F")
-    
+    v = np.append(v, np.zeros(6))  # From force=0=Torque
+
     # Få Oseen matrix på overfladen og løs for kræfterne
     A = oseen_tensor(regularization_offset=eps, dA=area, viscosity=viscosity,
                      evaluation_points=x)
     F = np.linalg.solve(A, v)
-    
+    U = F[-6:-3]
+    ang_freq = F[-3:]
     # Evaluate i punkter uden for kuglen
     x_e = np.linspace(-3 * r, 3 * r, 25)
     X, Y = np.meshgrid(x_e, x_e)
@@ -191,10 +256,11 @@ def test_oseen_given_field():
     A_e = oseen_tensor(regularization_offset=eps, dA=area, viscosity=viscosity,
                      evaluation_points=x_e, source_points=x)
     v_e = A_e @ F
+    v_e = v_e[:-6]  # Remove Forces
     v_e = np.reshape(v_e, (len(v_e)//3, 3), order="F")
-    
-    # Return to lab frame by subtracting boundary conditions
-    v_e[:, 0] -= 1
+    print(v_e[:, 0])
+    # Return to squirmer frame by subtracting boundary conditions
+    #v_e[:, 0] -= 1
     v_e[:, 1] -= 1
 
     # Remove values inside squirmer
@@ -202,8 +268,12 @@ def test_oseen_given_field():
     v_e[r2 < r ** 2, :] = 0
     
     # Plot
-    plt.quiver(x_e[:, 0], x_e[:, 1], v_e[:, 0], v_e[:, 1])
+    fig, ax = plt.subplots(dpi=150, figsize=(6,6))
+    ax.quiver(x_e[:, 0], x_e[:, 1], v_e[:, 0], v_e[:, 1])
     plt.show()
+    
+    print("U")
+    print(U)
     
     
 def test_oseen_given_force():
@@ -235,4 +305,4 @@ def test_oseen_given_force():
     
 if __name__ == "__main__":
     test_oseen_given_field()
-    test_oseen_given_force()
+    #test_oseen_given_force()
