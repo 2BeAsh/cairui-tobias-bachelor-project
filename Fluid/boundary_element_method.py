@@ -279,7 +279,7 @@ def test_oseen_given_field():
 def test_oseen_given_force():
     eps = 0.1
     viscosity = 1
-    xx = np.linspace(-1, 1, 25)
+    xx = np.linspace(-2, 2, 25)
     X, Y = np.meshgrid(xx, xx)
     X = X.ravel()
     Y = Y.ravel()
@@ -287,14 +287,16 @@ def test_oseen_given_force():
     
     # Source point and force
     xi = np.zeros(3).reshape(1, -1)
-    F = np.zeros(3)
-    F[0] = 1.
+    F = np.zeros(9)  # Rotation and U makes bigger
+    F[1] = 1.  # Force in y
+    #F[-6] = 1.2  # Background flow in x
+    #F[-1] = -1.  # Rotation along z-axis
     
     x_e = np.stack((X, Y, Z)).T
-    print(x_e.shape)
     O = oseen_tensor(regularization_offset=eps, dA=0.5, viscosity=viscosity, 
                         evaluation_points=x_e, source_points=xi)
     v = O @ F
+    v = v[:-6]  # Remove force and torque
     v = np.reshape(v, (len(v)//3, 3), order='F')
         
     vx = v[:, 0]
@@ -304,5 +306,5 @@ def test_oseen_given_force():
     plt.show()
     
 if __name__ == "__main__":
-    test_oseen_given_field()
-    #test_oseen_given_force()
+    #test_oseen_given_field()
+    test_oseen_given_force()
