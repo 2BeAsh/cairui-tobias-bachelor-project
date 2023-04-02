@@ -90,7 +90,7 @@ def oseen_tensor_surface(x, y, z, regularization_offset, dA, viscosity):
         viscosity (float): Viscosity of the fluid.
 
     Returns:
-        _type_: _description_
+        (3N, 3N)-array: Oseen tensor S, N is number of points i.e. len(x)
     """
     oseen_factor = dA / (8 * np.pi * viscosity)
     N = np.shape(x)[0]
@@ -119,7 +119,7 @@ def oseen_tensor(regularization_offset, dA, viscosity, evaluation_points, source
     epsilon = regularization_offset 
     oseen_factor = dA / (8 * np.pi * viscosity)
     
-    # Skal klart opdateres. Kan forhåbentlig definere r = x - xi, og ri*rj = r[:, None] * r[None, :]
+    # Skal klart opdateres/optimeres. Kan forhåbentlig definere r = x - xi, og ri*rj = r[:, None] * r[None, :]
     N_points = np.shape(evaluation_points)[0]
     x_points = evaluation_points[:, 0]
     y_points = evaluation_points[:, 1]
@@ -171,7 +171,7 @@ def oseen_tensor(regularization_offset, dA, viscosity, evaluation_points, source
     S[-1, 0:N_sphere] = -y_sphere
     S[-1, N_sphere:2*N_sphere] = x_sphere
     
-    # Column    
+    # Column - Måske man kunne sige den er transponeret af Row?
     S[0:N_points, -2] = z_points
     S[0:N_points, -1] = -y_points
     S[N_points:2*N_points, -3] = -z_points
@@ -205,7 +205,8 @@ def force_on_sphere(N_sphere, distance_squirmer, max_mode, theta, phi, squirmer_
     """
     # Get the A matrix from the Oseen tensor
     x_sphere, y_sphere, z_sphere, theta_sphere, phi_sphere, area = canonical_fibonacci_lattice(N_sphere, squirmer_radius)
-    A_oseen = oseen_tensor_surface(x_sphere, y_sphere, z_sphere, regularization_offset, area, viscosity)
+    x_e = np.stack((x_sphere, y_sphere, z_sphere)).T  # NOTE Brokker sig ikke selvom jeg ændrer på om () eller ej, samt transponeret eller ej
+    A_oseen = oseen_tensor(regularization_offset, area, viscosity, evaluation_points=x_e)
     # Get velocities in each of the points
     u_x, u_y, u_z = fv.field_cartesian(N=max_mode, r=squirmer_radius, 
                                     theta=theta_sphere, phi=phi_sphere, 
@@ -220,6 +221,7 @@ def force_on_sphere(N_sphere, distance_squirmer, max_mode, theta, phi, squirmer_
 
 
 def test_oseen_field_cartesian():
+    # Parametre
     N = 150
     r = 1.
     eps = 0.1
@@ -229,12 +231,13 @@ def test_oseen_field_cartesian():
     B_tilde = np.zeros_like(B)
     C = np.zeros_like(B)
     C_tilde = np.zeros_like(B)
-    B[1, 1] = 1
+    #B[1, 1] = 1
     B_tilde[1, 1] = 1
     
+    # x og v
     x, y, z, theta, phi, area = canonical_fibonacci_lattice(N, r)
-    #u_x, u_y, u_z = fv.field_cartesian(max_mode, r, theta, phi, r, B, B_tilde, C, C_tilde)
-    
+    u_x, u_y, u_z = fv.field_cartesian(max_mode, r, theta, phi, r, B, B_tilde, C, C_tilde)
+    """    VAR I TVIVL OM field_cartesian VIRKEDE, SÅ LAVEDE DET MANUELT, MEN DET GAV HELT SAMME RESULTAT
     # Manuelt find v
     B11 = 1
     u_r = 4 / (3 * r ** 3) * B11 * np.sin(theta) * np.cos(phi)
@@ -245,7 +248,7 @@ def test_oseen_field_cartesian():
     u_y = u_r * np.sin(theta) * np.sin(phi) + u_theta * np.cos(theta) * np.sin(phi) + u_phi * np.cos(phi)
     u_x = np.sin(theta) * np.cos(phi) * u_r + np.cos(theta) * np.cos(phi) * u_theta - np.sin(phi) * u_phi
     # ---
-    
+    """
     x_surface = np.stack((x, y, z)).T
     v = np.stack((u_x, u_y, u_z)).T
     v = np.reshape(v, -1, order="F")
@@ -255,12 +258,10 @@ def test_oseen_field_cartesian():
     A = oseen_tensor(regularization_offset=eps, dA=area, viscosity=viscosity,
                      evaluation_points=x_surface)
     F = np.linalg.solve(A, v)
-    U = F[-6:-3]
+    U = F[-6:-3]  # Skal vises i plot
     ang_freq = F[-3:]
-    print("U", U)
-    print("omega", ang_freq)
     
-    # Evaluate i punkter uden for kuglen
+    # Evaluer i punkter uden for kuglen
     x_e = np.linspace(-3 * r, 3 * r, 25)
     X, Y = np.meshgrid(x_e, x_e)
     x_e = X.ravel()
@@ -275,17 +276,13 @@ def test_oseen_field_cartesian():
     v_e = v_e[:-6]  # Remove Forces
     v_e = np.reshape(v_e, (len(v_e)//3, 3), order="F")
 
-    # Return to squirmer frame by subtracting boundary conditions
-    #v_e[:, 0] -= 1
-    #v_e[:, 1] -= 1
-
     # Remove values inside squirmer
     r2 = np.sum(x_e**2, axis=1)
     v_e[r2 < r ** 2, :] = 0
     
-    # Compare to known field
+    # -- Compare to known field --
     # The known velocity field
-    y_field = 1 * x_e + 0.1
+    y_field = 1 * x_e + 0.1  # +0.1 for at undgå r = 0
     z_field = 1 * x_e + 0.1
     Z_field, Y_field = np.meshgrid(z_field, y_field)
     R_field = np.sqrt(Z_field**2 + Y_field**2)
@@ -302,13 +299,20 @@ def test_oseen_field_cartesian():
     uy_field[mask_squirmer] = 0
     uz_field[mask_squirmer] = 0
     
-    # Plot
+    # -- Plot --
     fig, ax = plt.subplots(ncols=1, nrows=1, dpi=150, figsize=(6,6))
     ax_oseen = ax
-    ax_oseen.quiver(x_e[:, 0], x_e[:, 1], v_e[:, 0], v_e[:, 1])
+    ax_oseen.quiver(x_e[:, 0], x_e[:, 1], v_e[:, 0], v_e[:, 1], color="red")
+    ax_oseen.set(xlabel="x", ylabel="y", title=r"With Conditions, Squirmer field, lab frame, $\tilde{B}_{11}$")
+    text_min = np.min(x_e)
+    text_max = np.max(x_e)
+    ax_oseen.text(text_min, text_max, s=f"U={np.round(U, 4)}", fontsize=12)
+    ax_oseen.text(text_min, text_max-0.3, s=f"$\omega$={np.round(ang_freq, 4)}", fontsize=12)
+    
     #ax_field.quiver(Y_field, Z_field, uy_field, uz_field, color="blue", label="Original Field")
     #ax_field.set(xlabel="y", ylabel="z")
     #ax_field.legend(loc="upper center")  
+    plt.savefig("fluid/images/condition_squirmerfield_labframe_B_tilde11.png")
     plt.show()
 
 
@@ -320,9 +324,8 @@ def test_oseen_given_field():
     x, y, z, _, _, area = canonical_fibonacci_lattice(N, r)
     
     # Boundary Conditions
-    vx = 0 * x
+    vx = 1 + 0 * x
     vy = 0 * x
-    vy = 1 + 0 * x
     vz = 0 * x
     
     # Stack
@@ -351,18 +354,26 @@ def test_oseen_given_field():
     v_e = A_e @ F
     v_e = v_e[:-6]  # Remove Forces
     v_e = np.reshape(v_e, (len(v_e)//3, 3), order="F")
-    print(v_e[:, 0])
+
     # Return to squirmer frame by subtracting boundary conditions
     #v_e[:, 0] -= 1
-    v_e[:, 1] -= 1
+    #v_e[:, 1] -= 1
 
     # Remove values inside squirmer
     r2 = np.sum(x_e**2, axis=1)
     v_e[r2 < r ** 2, :] = 0
     
-    # Plot
-    fig, ax = plt.subplots(dpi=150, figsize=(6,6))
-    ax.quiver(x_e[:, 0], x_e[:, 1], v_e[:, 0], v_e[:, 1])
+    # -- Plot --
+    fig, ax = plt.subplots(ncols=1, nrows=1, dpi=150, figsize=(6,6))
+    ax_oseen = ax
+    ax_oseen.quiver(x_e[:, 0], x_e[:, 1], v_e[:, 0], v_e[:, 1], color="red")
+    ax_oseen.set(xlabel="x", ylabel="y", title=r"With Conditions, Artificial field $v_x=1$, lab frame")
+    text_min = np.min(x_e)
+    text_max = np.max(x_e)
+    ax_oseen.text(text_min, text_max, s=f"U={np.round(U, 4)}", fontsize=12)
+    ax_oseen.text(text_min, text_max-0.3, s=f"$\omega$={np.round(ang_freq, 4)}", fontsize=12)
+
+    plt.savefig("fluid/images/condition_artificialfield_labframe.png")
     plt.show()
     
     
@@ -378,9 +389,9 @@ def test_oseen_given_force():
     # Source point and force
     xi = np.zeros(3).reshape(1, -1)
     F = np.zeros(9)  # Rotation and U makes bigger
-    #F[1] = 1.  # Force in y
-    F[-6] = 2.  # Background flow in x
-    F[-1] = -0.5  # Rotation along z-axis
+    F[0] = 1.  # Force in x
+    #F[-6] = 2.  # Background flow in x
+    #F[-1] = -0.5  # Rotation along z-axis
     
     x_e = np.stack((X, Y, Z)).T
     O = oseen_tensor(regularization_offset=eps, dA=0.5, viscosity=viscosity, 
@@ -391,13 +402,17 @@ def test_oseen_given_force():
         
     vx = v[:, 0]
     vy = v[:, 1]
-    fig, ax = plt.subplots(dpi=150, figsize=(8, 8))
-    ax.quiver(X, Y, vx, vy)
-    ax.set(xlabel="x", ylabel="y", title="Rotation, Translationshastighed, ")
+    
+    fig, ax = plt.subplots(dpi=150, figsize=(6, 6))
+    ax.quiver(X, Y, vx, vy, color="red")
+    ax.set(xlabel="x", ylabel="y", title="With Conditions, Artificial 'force' $F_x$, lab frame")
+    plt.savefig("fluid/images/condition_artificialforce_labframe.png")
     plt.show()
     
+    
 if __name__ == "__main__":
-    #test_oseen_field_cartesian()
+    test_oseen_field_cartesian()
     #test_oseen_given_field()
-    test_oseen_given_force()
+    #test_oseen_given_force()
+        
     
