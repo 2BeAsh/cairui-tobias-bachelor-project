@@ -1,5 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import field_velocity as fv
 
 
@@ -12,7 +11,7 @@ def canonical_fibonacci_lattice(N, radius):
 
     Returns:
         Tupple of three 1d-arrays and a float: Returns cartesian coordinates of the points distributed on the spherical surface, and the approximate area each point are given.
-        x, y, z, theta, phi, area 
+        x, y, z, area 
     """
     # Find spherical coordinates. 
     # Radius is contant, theta determined by golden ratio and phi is found using the Inverse Transform Method.
@@ -28,7 +27,7 @@ def canonical_fibonacci_lattice(N, radius):
     z = radius * np.cos(phi)
     # The area of each patch is approximated by surface area divided by number of points
     area = 4 * np.pi * radius ** 2 / N
-    return x, y, z, theta, phi, area 
+    return x, y, z, area 
 
 
 def discretized_sphere(N, radius):
@@ -182,15 +181,12 @@ def oseen_tensor(regularization_offset, dA, viscosity, evaluation_points, source
     return S 
 
 
-def force_on_sphere(N_sphere, distance_squirmer, max_mode, theta, phi, squirmer_radius, B, B_tilde, C, C_tilde, regularization_offset, viscosity, lab_frame=True):
+def force_on_sphere(N_sphere, max_mode, squirmer_radius, B, B_tilde, C, C_tilde, regularization_offset, viscosity, lab_frame=True):
     """Calculates the force vectors at N_sphere points on a sphere with radius squirmer_radius. 
 
     Args:
         N_sphere (int): Amount of points on the sphere. 
-        distance_squirmer (float): Euclidean distance from squirmer centrum to desired point.
         max_mode (int): The max Legendre mode available.
-        theta (float): vertial angle between.
-        phi (_type_): Horizontal angle
         squirmer_radius (float): Radius of squirmer.
         B ((max_mode, max_mode)-array): Matrix with the B mode values
         B_tilde ((max_mode, max_mode)-array)): Matrix with the B_tilde mode values
@@ -204,16 +200,18 @@ def force_on_sphere(N_sphere, distance_squirmer, max_mode, theta, phi, squirmer_
         (3N_sphere, 1)-array): Forces on the sphere. First N values are the x part, the next N the y and the last N the z part of the forces.
     """
     # Get the A matrix from the Oseen tensor
-    x_sphere, y_sphere, z_sphere, theta_sphere, phi_sphere, area = canonical_fibonacci_lattice(N_sphere, squirmer_radius)
+    x_sphere, y_sphere, z_sphere, area = canonical_fibonacci_lattice(N_sphere, squirmer_radius)
+    theta_sphere = np.arccos(z_sphere / squirmer_radius) 
+    phi_sphere = np.arctan2(y_sphere, x_sphere)
     x_e = np.stack((x_sphere, y_sphere, z_sphere)).T  # NOTE Brokker sig ikke selvom jeg ændrer på om () eller ej, samt transponeret eller ej
     A_oseen = oseen_tensor(regularization_offset, area, viscosity, evaluation_points=x_e)
     # Get velocities in each of the points
     u_x, u_y, u_z = fv.field_cartesian(N=max_mode, r=squirmer_radius, 
-                                    theta=theta_sphere, phi=phi_sphere, 
-                                    a=squirmer_radius, 
-                                    B=B, B_tilde=B_tilde, 
-                                    C=C, C_tilde=C_tilde, 
-                                    lab_frame=lab_frame)
+                                       theta=theta_sphere, phi=phi_sphere, 
+                                       a=squirmer_radius, 
+                                       B=B, B_tilde=B_tilde, 
+                                       C=C, C_tilde=C_tilde, 
+                                       lab_frame=lab_frame)
     u_comb = np.array([u_x, u_y, u_z, np.zeros(6)]).ravel()  # 6 zeros from Forces=0=Torque
     # Solve for the forces, A_oseen @ forces = u_comb
     force_arr = np.linalg.solve(A_oseen, u_comb)
@@ -231,12 +229,15 @@ def test_oseen_field_cartesian():
     B_tilde = np.zeros_like(B)
     C = np.zeros_like(B)
     C_tilde = np.zeros_like(B)
-    #B[1, 1] = 1
+    B[1, 1] = 1
     B_tilde[1, 1] = 1
     
     # x og v
-    x, y, z, theta, phi, area = canonical_fibonacci_lattice(N, r)
+    x, y, z, area = canonical_fibonacci_lattice(N, r)
+    theta = np.arccos(z / r)
+    phi = np.arctan2(y, x)
     u_x, u_y, u_z = fv.field_cartesian(max_mode, r, theta, phi, r, B, B_tilde, C, C_tilde)
+    
     """    VAR I TVIVL OM field_cartesian VIRKEDE, SÅ LAVEDE DET MANUELT, MEN DET GAV HELT SAMME RESULTAT
     # Manuelt find v
     B11 = 1
@@ -255,9 +256,12 @@ def test_oseen_field_cartesian():
     v = np.append(v, np.zeros(6))
 
     # Få Oseen matrix på overfladen og løs for kræfterne
+    import time
+    t1 = time.time()
     A = oseen_tensor(regularization_offset=eps, dA=area, viscosity=viscosity,
                      evaluation_points=x_surface)
     F = np.linalg.solve(A, v)
+    print(time.time() - t1)
     U = F[-6:-3]  # Skal vises i plot
     ang_freq = F[-3:]
     
@@ -321,8 +325,9 @@ def test_oseen_given_field():
     r = 1.
     eps = 0.1
     viscosity = 1
-    x, y, z, _, _, area = canonical_fibonacci_lattice(N, r)
-    
+    x, y, z, area = canonical_fibonacci_lattice(N, r)
+    theta = np.arccos(z / r)
+    phi = np.arctan2(y, x)
     # Boundary Conditions
     vx = 1 + 0 * x
     vy = 0 * x
@@ -411,6 +416,7 @@ def test_oseen_given_force():
     
     
 if __name__ == "__main__":
+    import matplotlib.pyplot as plt
     test_oseen_field_cartesian()
     #test_oseen_given_field()
     #test_oseen_given_force()
