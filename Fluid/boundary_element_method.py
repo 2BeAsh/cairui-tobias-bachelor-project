@@ -28,56 +28,9 @@ def canonical_fibonacci_lattice(N, radius):
     # The area of each patch is approximated by surface area divided by number of points
     area = 4 * np.pi * radius ** 2 / N
     return x, y, z, area 
-
-
-def discretized_sphere(N, radius):
-    """Calculate N points uniformly distributed on the surface of a sphere with given radius.
-    The calculation is done using a modified version of the canonical Fibonacci Lattice.
-    From: http://extremelearning.com.au/how-to-evenly-distribute-points-on-a-sphere-more-effectively-than-the-canonical-fibonacci-lattice/
-    And inspired by: https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere 
-
-    Args:
-        N (int): Number of points
-        radius (float): Radius of sphere.
-
-    Returns:
-        Tupple of three 1d-arrays and a float: Returns cartesian coordinates of the points distributed on the spherical surface, and the approximate area each point are given.
-    """
-    # Find best index offset based on N. 
-    if N < 80:
-        offset = 2.66
-    elif N < 1e3:
-        offset = 3.33
-    elif N < 4e4:
-        offset = 10
-    else:  # N > 40_000
-        offset = 25 
-    # Place the first two points and top and bottom of the sphere (0, 0, radius) and (0, 0, -radius)
-    x = np.empty(N)
-    y = np.empty_like(x)
-    z = np.empty_like(x)
-    x[:2] = 0
-    y[:2] = 0
-    z[0] = radius
-    z[1] = -radius
-        
-    # Find spherical coordinates. 
-    # Radius is contant, theta determined by golden ratio and phi is found using the Inverse Transform Method.
-    indices = np.arange(N-2)  # Two first points already placed, thus minus 2
-    golden_ratio = (1 + np.sqrt(5)) / 2 
-    theta = 2 * np.pi * indices / golden_ratio
-    phi = np.arccos(1 - 2 * (indices + offset) / (N - 1 + 2 * offset))
-    
-    # Convert to cartesian
-    x[2:] = radius * np.sin(phi) * np.cos(theta)
-    y[2:] = radius * np.sin(phi) * np.sin(theta)
-    z[2:] = radius * np.cos(phi)
-    # The area of each patch is approximated by surface area divided by number of points
-    area = 4 * np.pi * radius ** 2 / N
-    return x, y, z, theta, phi, area
     
 
-def oseen_tensor_surface(x, y, z, regularization_offset, dA, viscosity):
+def oseen_tensor_surface(x, y, z, regularization_offset, dA, viscosity):  # Mangler F = 0 = Torque
     """Find Oseen tensor for all multiple points on the surface of the squirmer.
 
     Args:
@@ -110,7 +63,7 @@ def oseen_tensor_surface(x, y, z, regularization_offset, dA, viscosity):
     S_off_diag[0:N, 2*N:3*N] = dx * dz
     S_off_diag[N:2*N, 2*N:3*N] = dy * dz
     
-    S = (S_diag + S_off_diag + S_off_diag.T) * oseen_factor / r_epsilon_cubed
+    S = (S_diag + S_off_diag + S_off_diag.T) * oseen_factor / r_epsilon_cubed  # NOTE r_eps er kun N,N men skal være 3N-3N
     return S 
 
 
@@ -215,7 +168,7 @@ def force_on_sphere(N_sphere, max_mode, squirmer_radius, B, B_tilde, C, C_tilde,
     u_comb = np.array([u_x, u_y, u_z, np.zeros(6)]).ravel()  # 6 zeros from Forces=0=Torque
     # Solve for the forces, A_oseen @ forces = u_comb
     force_arr = np.linalg.solve(A_oseen, u_comb)
-    return force_arr, u_comb 
+    return force_arr 
 
 
 def test_oseen_field_cartesian():
