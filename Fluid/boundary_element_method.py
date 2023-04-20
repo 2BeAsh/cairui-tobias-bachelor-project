@@ -190,19 +190,7 @@ def test_oseen_field_cartesian():
     theta = np.arccos(z / r)
     phi = np.arctan2(y, x)
     u_x, u_y, u_z = fv.field_cartesian(max_mode, r, theta, phi, r, B, B_tilde, C, C_tilde)
-    
-    """    VAR I TVIVL OM field_cartesian VIRKEDE, SÅ LAVEDE DET MANUELT, MEN DET GAV HELT SAMME RESULTAT
-    # Manuelt find v
-    B11 = 1
-    u_r = 4 / (3 * r ** 3) * B11 * np.sin(theta) * np.cos(phi)
-    u_theta = -2 / (3 * r ** 3) * B11 * np.cos(theta) * np.cos(phi)
-    u_phi = 2 / (3 * r ** 3) * B11 * np.sin(phi)
-    # Konverter
-    u_z = np.cos(theta) * u_r - np.sin(theta) * u_theta
-    u_y = u_r * np.sin(theta) * np.sin(phi) + u_theta * np.cos(theta) * np.sin(phi) + u_phi * np.cos(phi)
-    u_x = np.sin(theta) * np.cos(phi) * u_r + np.cos(theta) * np.cos(phi) * u_theta - np.sin(phi) * u_phi
-    # ---
-    """
+
     x_surface = np.stack((x, y, z)).T
     v = np.stack((u_x, u_y, u_z)).T
     v = np.reshape(v, -1, order="F")
