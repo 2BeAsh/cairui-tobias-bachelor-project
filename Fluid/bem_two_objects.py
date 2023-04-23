@@ -281,7 +281,8 @@ def test_2obj_point():
     plt.show()
 
 
-def plot_force():
+def plot_force_distance():
+    """Plots the surface forces on the target as the distance between squirmer and target is increased."""
     # Choose parameters
     eps = 0.1
     viscosity = 1
@@ -295,7 +296,7 @@ def plot_force():
     C = np.zeros_like(B)
     C_tilde = np.zeros_like(B)
     B[1, 1] = 1
-    dA = area = 4 * np.pi * squirmer_radius ** 2 / N1
+    dA = 4 * np.pi * squirmer_radius ** 2 / N1
     N2 = int(4 * np.pi * radius_obj2 ** 2 / dA)
 
     # Force
@@ -344,10 +345,125 @@ def plot_force():
     plt.show()
 
 
+def plot_force_quiver_both():
+    # Choose parameters
+    eps = 0.1
+    viscosity = 1
+    N1 = 480
+    max_mode = 3
+    squirmer_radius = 1
+    radius_obj2 = 0.4
+    x1_center = np.array([0, -0.5, 0])
+    x2_center = np.array([0, 1.5, 0.5])
+    B = np.zeros((max_mode+1, max_mode+1))
+    B_tilde = np.zeros_like(B)
+    C = np.zeros_like(B)
+    C_tilde = np.zeros_like(B)
+    B[1, 1] = 1
+    dA = 4 * np.pi * squirmer_radius ** 2 / N1
+    N2 = int(4 * np.pi * radius_obj2 ** 2 / dA)
+
+    # Force
+    force_with_condition, x1_surface, x2_surface = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, B, B_tilde, C, C_tilde, eps, viscosity, lab_frame=True, return_points=True)
+    force_obj1 = force_with_condition[:3*N1]
+    force_obj2 = force_with_condition[3*N1: 3*(N1+N2)]
+    
+    fx_plot = force_obj1[:N1].T  # First N1 points are x values, only plot every 5th point, transpose such that shapes match.
+    fy_plot = force_obj1[N1: 2*N1].T
+    fz_plot = force_obj1[2*N1: 3*N1].T
+    
+    fx2_plot = force_obj2[:N2].T  # First N2 points are x values, only plot every 5th point, transpose such that shapes match.
+    fy2_plot = force_obj2[N2: 2*N2].T
+    fz2_plot = force_obj2[2*N2: 3*N2].T
+    
+    # Plot forces 
+    ax = plt.figure(dpi=200, figsize=(6, 6)).add_subplot(projection="3d")
+    ax.quiver(x1_surface[:, 0][::5]+x1_center[0], x1_surface[:, 1][::5]+x1_center[1], x1_surface[:, 2][::5]+x1_center[2], 
+              fx_plot[::5], fy_plot[::5], fz_plot[::5], 
+              length=0.05, label="Squirmer, scale=0.05")
+    ax.quiver(x2_surface[:, 0]+x2_center[0], x2_surface[:, 1]+x2_center[1], x2_surface[:, 2]+x2_center[2], 
+              fx2_plot, fy2_plot, fz2_plot,
+               length=0.15, color="r", label="Target, scale=0.15")
+    ax.set(xlabel="x", ylabel="y", zlabel="z", xlim=(-2.3, 2.3), ylim=(-2.3, 2.3), zlim=(-2.3, 2.3), title=r"$B_{11}$ mode both objects")#xticks=[], yticks=[], zticks=[])
+    ax.legend(fontsize=7)
+    plt.show()
+
+
+def plot_force_quiver_squirmer():
+    # Choose parameters
+    eps = 0.1
+    viscosity = 1
+    N1 = 120
+    max_mode = 3
+    squirmer_radius = 1
+    radius_obj2 = 0.4
+    x1_center = np.array([0, 0, 0])
+    x2_center = np.array([0, 2, 0.5])
+    B = np.zeros((max_mode+1, max_mode+1))
+    B_tilde = np.zeros_like(B)
+    C = np.zeros_like(B)
+    C_tilde = np.zeros_like(B)
+    B[1, 1] = 1
+    dA = 4 * np.pi * squirmer_radius ** 2 / N1
+    N2 = int(4 * np.pi * radius_obj2 ** 2 / dA)
+
+    # Force
+    force_with_condition, x1_surface, x2_surface = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, B, B_tilde, C, C_tilde, eps, viscosity, lab_frame=True, return_points=True)
+    force_obj1 = force_with_condition[:3*N1]
+    
+    fx_plot = force_obj1[:N1].T  # First N1 points are x values, only plot every 5th point, transpose such that shapes match.
+    fy_plot = force_obj1[N1: 2*N1].T
+    fz_plot = force_obj1[2*N1: 3*N1].T
+    
+    # Plot forces 
+    ax = plt.figure(dpi=200, figsize=(6, 6)).add_subplot(projection="3d")
+    ax.quiver(x1_surface[:, 0]+x1_center[0], x1_surface[:, 1]+x1_center[1], x1_surface[:, 2]+x1_center[2], 
+              fx_plot, fy_plot, fz_plot, length=0.05)
+    ax.set(xlabel="x", ylabel="y", zlabel="z", xlim=(-1.2, 1.2), ylim=(-1.2, 1.2), zlim=(-1.2, 1.2), title=r"$B_{11}$ mode only squirmer")#xticks=[], yticks=[], zticks=[])
+    plt.show()
+
+
+def plot_force_quiver_target():
+    # Choose parameters
+    eps = 0.1
+    viscosity = 1
+    N1 = 480
+    max_mode = 3
+    squirmer_radius = 1
+    radius_obj2 = 0.4
+    x1_center = np.array([0, -0.5, 0])
+    x2_center = np.array([0, 1.5, 0.5])
+    B = np.zeros((max_mode+1, max_mode+1))
+    B_tilde = np.zeros_like(B)
+    C = np.zeros_like(B)
+    C_tilde = np.zeros_like(B)
+    B[1, 1] = 1
+    dA = 4 * np.pi * squirmer_radius ** 2 / N1
+    N2 = int(4 * np.pi * radius_obj2 ** 2 / dA)
+
+    # Force
+    force_with_condition, x1_surface, x2_surface = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, B, B_tilde, C, C_tilde, eps, viscosity, lab_frame=True, return_points=True)
+    force_obj2 = force_with_condition[3*N1: 3*(N1+N2)]
+    
+    fx2_plot = force_obj2[:N2].T  # First N2 points are x values, only plot every 5th point, transpose such that shapes match.
+    fy2_plot = force_obj2[N2: 2*N2].T
+    fz2_plot = force_obj2[2*N2: 3*N2].T
+    
+    # Plot forces 
+    ax = plt.figure(dpi=200, figsize=(6, 6)).add_subplot(projection="3d")
+    ax.quiver(x2_surface[:, 0]+x2_center[0], x2_surface[:, 1]+x2_center[1], x2_surface[:, 2]+x2_center[2], 
+              fx2_plot, fy2_plot, fz2_plot,
+               length=0.2, color="r")
+    ax.set(xlabel="x", ylabel="y", zlabel="z", xlim=(-0.5, 0.5), ylim=(1, 2), zlim=(0, 1), title=r"$B_{11}$ mode only target")#xticks=[], yticks=[], zticks=[])
+    plt.show()
+
+
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     from matplotlib.pyplot import Line2D
-    test_2obj_point()
-    plot_force()
-    
+    #test_2obj_point()
+    #plot_force_distance()
+    plot_force_quiver_both()
+    plot_force_quiver_squirmer()
+    plot_force_quiver_target()
     
