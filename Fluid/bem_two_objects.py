@@ -165,7 +165,7 @@ def force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_cen
         lab_frame (bool, optional): Wheter the velocities are in lab (True) or squirmer frame (False). Defaults to True.
 
     Returns:
-        (6N_sphere+12, 1)-array): Forces on the sphere. First N values are the x part, the next N the y and the last N the z part of the forces, then same for object 2 and +12 comes from conditions
+        (3(N1+N2)+12, 1)-array): Forces on the sphere. First N values are the x part, the next N the y and the last N the z part of the forces, then same for object 2 and +12 comes from conditions
     """
     # Get coordinates to points on the two surfaces
     x1, y1, z1, dA = bem.canonical_fibonacci_lattice(N1, squirmer_radius)
@@ -217,16 +217,15 @@ def test_2obj_surface():
 
 
 def test_2obj_point():
-    import matplotlib.pyplot as plt
     # Choose parameters
     eps = 0.1
     viscosity = 1
     N1 = 50
     max_mode = 3
     squirmer_radius = 1
-    radius_obj2 = 0.7
-    x1_center = np.array([0, 2, 0])  # NOTE feltet afhænger af hvor man sætter squirmer!
-    x2_center = np.array([0, 0, 0])
+    radius_obj2 = 0.4
+    x1_center = np.array([0, 0, 0]) 
+    x2_center = np.array([0, squirmer_radius+radius_obj2, 0])
     B = np.zeros((max_mode+1, max_mode+1))
     B_tilde = np.zeros_like(B)
     C = np.zeros_like(B)
@@ -282,7 +281,73 @@ def test_2obj_point():
     plt.show()
 
 
+def plot_force():
+    # Choose parameters
+    eps = 0.1
+    viscosity = 1
+    N1 = 50
+    max_mode = 3
+    squirmer_radius = 1
+    radius_obj2 = 0.4
+    x1_center = np.array([0, 0, 0])
+    B = np.zeros((max_mode+1, max_mode+1))
+    B_tilde = np.zeros_like(B)
+    C = np.zeros_like(B)
+    C_tilde = np.zeros_like(B)
+    B[1, 1] = 1
+    dA = area = 4 * np.pi * squirmer_radius ** 2 / N1
+    N2 = int(4 * np.pi * radius_obj2 ** 2 / dA)
+
+    # Force
+    # Loop through different x2_center vectors
+    x2_start_values = np.arange(squirmer_radius+radius_obj2, 4, 0.3)
+    
+    force_obj1 = np.empty((3*N1, len(x2_start_values)))
+    force_obj2 = np.empty((3*N2, len(x2_start_values)))
+    
+    for i, x2_val in enumerate(x2_start_values):
+        x2_center = np.array([x2_val, 0, 0])
+        force_with_condition = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, B, B_tilde, C, C_tilde, eps, viscosity, lab_frame=True)
+        force_obj1[:, i] = force_with_condition[:3*N1]
+        force_obj2[:, i] = force_with_condition[3*N1: 3*(N1+N2)]
+    
+    fx_plot = force_obj1[:N1, :][::5].T  # First N1 points are x values, only plot every 5th point, transpose such that shapes match.
+    fy_plot = force_obj1[N1: 2*N1, :][::5].T
+    fz_plot = force_obj1[2*N1: 3*N1, :][::5].T
+
+    fx2_plot = force_obj2[:N2, :][::5].T  # First N2 points are x values, only plot every 5th point, transpose such that shapes match.
+    fy2_plot = force_obj2[N2: 2*N2, :][::5].T
+    fz2_plot = force_obj2[2*N2: 3*N2, :][::5].T
+    
+    # Plot forces obj1 
+    fig, ax = plt.subplots(dpi=150, figsize=(8, 6))
+    ax.plot(x2_start_values, fx_plot, ".--", c="blue")
+    ax.plot(x2_start_values, fy_plot, ".--", c="red")
+    ax.plot(x2_start_values, fz_plot, ".--", c="green")
+    ax.set(xlabel="x distance squirmer-target center", ylabel="Force on squirmer", title="Squirmer force on every 5th point against distance")
+    # Legend
+    legend_elements = [Line2D([0], [0], color="blue", ls="dashdot", lw=3, label=r"f_x"),
+                       Line2D([0], [0], color="red", ls="dashdot", lw=3, label=r"f_y"),
+                       Line2D([0], [0], color="green", ls="dashdot", lw=3, label=r"f_z")]
+    ax.legend(handles=legend_elements)
+    fig.tight_layout()
+    plt.show()
+
+    # Plot forces obj2
+    fig2, ax2 = plt.subplots(dpi=150, figsize=(8, 6))
+    ax2.plot(x2_start_values, fx2_plot, ".--", c="blue")
+    ax2.plot(x2_start_values, fy2_plot, ".--", c="red")
+    ax2.plot(x2_start_values, fz2_plot, ".--", c="green")
+    ax2.set(xlabel="x distance squirmer-target center", ylabel="Force on target", title="Target force on every 5th point against distance")
+    ax2.legend(handles=legend_elements)
+    fig2.tight_layout()
+    plt.show()
+
+
 if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+    from matplotlib.pyplot import Line2D
     test_2obj_point()
+    plot_force()
     
     
