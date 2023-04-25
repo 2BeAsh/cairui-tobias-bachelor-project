@@ -200,6 +200,7 @@ def force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_cen
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     from matplotlib.pyplot import Line2D
+    from matplotlib.animation import FuncAnimation
 
     # -- Test functions --
     def test_2obj_surface():
@@ -348,17 +349,29 @@ if __name__ == "__main__":
         fig2.tight_layout()
         plt.show()
 
-
-    def plot_force_quiver_both():
+    
+    def plot_force_quiver_both(influence):
         # Choose parameters
         eps = 0.1
         viscosity = 1
         N1 = 480
         max_mode = 3
         squirmer_radius = 1
-        radius_obj2 = 0.4
-        x1_center = np.array([0, -0.5, 0])
-        x2_center = np.array([0, 1.5, 0.5])
+        x1_center = np.array([0, 0, 0])
+
+        if influence == "giga":
+            radius_obj2 = 1.5
+            x2_center = np.array([0.2, squirmer_radius+radius_obj2, 0])
+        elif influence == "high":
+            radius_obj2 = 0.8
+            x2_center = np.array([0.2, squirmer_radius+radius_obj2, 0])
+        elif influence == "mid":
+            radius_obj2 = 0.8
+            x2_center = np.array([0.2, squirmer_radius+radius_obj2+0.5, 0])
+        else: # low
+            radius_obj2 = 0.5
+            x2_center = np.array([0.2, squirmer_radius+radius_obj2+0.5, 0])
+        
         B = np.zeros((max_mode+1, max_mode+1))
         B_tilde = np.zeros_like(B)
         C = np.zeros_like(B)
@@ -388,31 +401,41 @@ if __name__ == "__main__":
         ax.quiver(x2_surface[:, 0]+x2_center[0], x2_surface[:, 1]+x2_center[1], x2_surface[:, 2]+x2_center[2], 
                 fx2_plot, fy2_plot, fz2_plot,
                 length=0.15, color="r", label="Target, scale=0.15")
-        ax.set(xlabel="x", ylabel="y", zlabel="z", xlim=(-2.3, 2.3), ylim=(-2.3, 2.3), zlim=(-2.3, 2.3), title=r"$B_{11}$ mode both objects")#xticks=[], yticks=[], zticks=[])
+        ax.set(xlabel="x", ylabel="y", zlabel="z", xlim=(-2.3, 2.3), ylim=(-2.3, 2.3), zlim=(-2.3, 2.3), title=fr"$B_{11}$ mode both objects, {influence} influence")#xticks=[], yticks=[], zticks=[])
         ax.legend(fontsize=7)
         plt.show()
 
 
-    def plot_force_quiver_squirmer():
+    def plot_force_quiver_squirmer(influence):
         # Choose parameters
         eps = 0.1
         viscosity = 1
-        N1 = 120
+        N1 = 200
         max_mode = 3
         squirmer_radius = 1
-        radius_obj2 = 0.4
         x1_center = np.array([0, 0, 0])
-        x2_center = np.array([0, 2, 0.5])
+
+        if influence == "giga":
+            radius_obj2 = 1.5
+            x2_center = np.array([0.2, squirmer_radius+radius_obj2, 0])
+        elif influence == "high":
+            radius_obj2 = 0.8
+            x2_center = np.array([0.2, squirmer_radius+radius_obj2, 0])
+        elif influence == "mid":
+            radius_obj2 = 0.8
+            x2_center = np.array([0.2, squirmer_radius+radius_obj2+0.5, 0])
+        else: # low
+            radius_obj2 = 0.5
+            x2_center = np.array([0.2, squirmer_radius+radius_obj2+0.5, 0])
+        
         B = np.zeros((max_mode+1, max_mode+1))
         B_tilde = np.zeros_like(B)
         C = np.zeros_like(B)
         C_tilde = np.zeros_like(B)
         B[1, 1] = 1
-        dA = 4 * np.pi * squirmer_radius ** 2 / N1
-        N2 = int(4 * np.pi * radius_obj2 ** 2 / dA)
 
         # Force
-        force_with_condition, x1_surface, x2_surface = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, B, B_tilde, C, C_tilde, eps, viscosity, lab_frame=True, return_points=True)
+        force_with_condition, x1_surface, _ = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, B, B_tilde, C, C_tilde, eps, viscosity, lab_frame=True, return_points=True)
         force_obj1 = force_with_condition[:3*N1]
         
         fx_plot = force_obj1[:N1].T  # First N1 points are x values, only plot every 5th point, transpose such that shapes match.
@@ -423,20 +446,37 @@ if __name__ == "__main__":
         ax = plt.figure(dpi=200, figsize=(6, 6)).add_subplot(projection="3d")
         ax.quiver(x1_surface[:, 0]+x1_center[0], x1_surface[:, 1]+x1_center[1], x1_surface[:, 2]+x1_center[2], 
                 fx_plot, fy_plot, fz_plot, length=0.05)
-        ax.set(xlabel="x", ylabel="y", zlabel="z", xlim=(-1.2, 1.2), ylim=(-1.2, 1.2), zlim=(-1.2, 1.2), title=r"$B_{11}$ mode only squirmer")#xticks=[], yticks=[], zticks=[])
+        center_dist = np.round(np.linalg.norm([x1_center, x2_center], ord=2), 2)
+        ax.scatter(x2_center[0], x2_center[1], x2_center[2], s=radius_obj2*100, c="red", label=f"target, radius={radius_obj2}, center dist={center_dist}")
+        ax.set(xlabel="x", ylabel="y", zlabel="z", xlim=(-1.2, 2.5), ylim=(-1.2, 2.5), zlim=(-1.2, 2.5), title=fr"$B_{11}$ mode only squirmer, {influence} influence")#xticks=[], yticks=[], zticks=[])
+        ax.legend(fontsize=8, loc="upper center")
+        figname = "fluid/images/" + "squirmer_force_field_" + influence + ".png"
+        plt.savefig(figname)
         plt.show()
 
 
-    def plot_force_quiver_target():
+    def plot_force_quiver_target(influence):
         # Choose parameters
         eps = 0.1
         viscosity = 1
         N1 = 480
         max_mode = 3
         squirmer_radius = 1
-        radius_obj2 = 0.4
-        x1_center = np.array([0, -0.5, 0])
-        x2_center = np.array([0, 1.5, 0.5])
+        x1_center = np.array([0, 0, 0])
+
+        if influence == "giga":
+            radius_obj2 = 1.5
+            x2_center = np.array([0.2, squirmer_radius+radius_obj2, 0])
+        elif influence == "high":
+            radius_obj2 = 0.8
+            x2_center = np.array([0.2, squirmer_radius+radius_obj2, 0])
+        elif influence == "mid":
+            radius_obj2 = 0.8
+            x2_center = np.array([0.2, squirmer_radius+radius_obj2+0.5, 0])
+        else: # low
+            radius_obj2 = 0.5
+            x2_center = np.array([0.2, squirmer_radius+radius_obj2+0.5, 0])
+            
         B = np.zeros((max_mode+1, max_mode+1))
         B_tilde = np.zeros_like(B)
         C = np.zeros_like(B)
@@ -446,7 +486,7 @@ if __name__ == "__main__":
         N2 = int(4 * np.pi * radius_obj2 ** 2 / dA)
 
         # Force
-        force_with_condition, x1_surface, x2_surface = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, B, B_tilde, C, C_tilde, eps, viscosity, lab_frame=True, return_points=True)
+        force_with_condition, _, x2_surface = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, B, B_tilde, C, C_tilde, eps, viscosity, lab_frame=True, return_points=True)
         force_obj2 = force_with_condition[3*N1: 3*(N1+N2)]
         
         fx2_plot = force_obj2[:N2].T  # First N2 points are x values, only plot every 5th point, transpose such that shapes match.
@@ -458,13 +498,85 @@ if __name__ == "__main__":
         ax.quiver(x2_surface[:, 0]+x2_center[0], x2_surface[:, 1]+x2_center[1], x2_surface[:, 2]+x2_center[2], 
                 fx2_plot, fy2_plot, fz2_plot,
                 length=0.2, color="r")
-        ax.set(xlabel="x", ylabel="y", zlabel="z", xlim=(-0.5, 0.5), ylim=(1, 2), zlim=(0, 1), title=r"$B_{11}$ mode only target")#xticks=[], yticks=[], zticks=[])
+        ax.set(xlabel="x", ylabel="y", zlabel="z", xlim=(-0.5, 0.5), ylim=(1, 2), zlim=(0, 1), title=fr"$B_{11}$ mode only target, {influence} influence")#xticks=[], yticks=[], zticks=[])
         plt.show()
 
 
+    def quiver_data_to_segments(X, Y, Z, u, v, w, length=1):
+        segments = (X, Y, Z, X+v*length, Y+u*length, Z+w*length)
+        segments = np.array(segments).reshape(6,-1)
+        return [[[x, y, z], [u, v, w]] for x, y, z, u, v, w in zip(*list(segments))]
+    
+    
+    def animate_force(radius_obj2):
+        # Choose parameters
+        eps = 0.1
+        viscosity = 1
+        N1 = 200
+        max_mode = 3
+        squirmer_radius = 1
+        x1_center = np.array([0, 0, 0])
+        
+        B = np.zeros((max_mode+1, max_mode+1))
+        B_tilde = np.zeros_like(B)
+        C = np.zeros_like(B)
+        C_tilde = np.zeros_like(B)
+        B[1, 1] = 1
+
+        # Force
+        total_radius = squirmer_radius+radius_obj2
+        x2_center_values = np.arange(total_radius+0.05, 4*total_radius, total_radius/4)
+        force_obj1 = np.empty((3*N1, len(x2_center_values)))
+        
+        for i, x2_center_y in enumerate(x2_center_values):
+            x2_center = np.array([0.2, x2_center_y, 0])
+        
+            force_with_condition, x1_surface, _ = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, B, B_tilde, C, C_tilde, eps, viscosity, lab_frame=True, return_points=True)
+            force_obj1[:, i] = force_with_condition[:3*N1]  # First 3N1 values are squirmer forces
+            
+        fx = force_obj1[:N1, :]  # First N1 points are x values
+        fy = force_obj1[N1: 2*N1, :]
+        fz = force_obj1[2*N1: 3*N1, :]
+        
+        x_quiv = x1_surface[:, 0]+x1_center[0]
+        y_quiv = x1_surface[:, 1]+x1_center[1]
+        z_quiv = x1_surface[:, 2]+x1_center[2]
+        
+        print(fx.shape)
+        print(x_quiv.shape)
+        
+        # Animation
+        fig = plt.figure(figsize=(6, 6), dpi=150)
+        ax = fig.add_subplot(projection="3d")
+        ax.set(xlim=(-2.5, 2.5), ylim=(-2.5, 2.5), zlim=(-2.5, 2.5),)
+        quiv_length = 0.1
+        # Initial image
+        quiv = ax.quiver(x_quiv, y_quiv, z_quiv, fx[:, 0], fy[:, 1], fz[:, 2], length=quiv_length)
+        point, = ax.plot(x2_center[0], x2_center_values[0], ls="", marker="o", color="r")
+        title = ax.set_title("Force field")
+        
+        # Update function
+        def animate(i):
+            # Quiver
+            segs = quiver_data_to_segments(x_quiv, y_quiv, z_quiv, fx[:, i], fy[:, i], fz[:, i], quiv_length)
+            quiv.set_segments(segs)
+            # Point
+            point.set_data(x2_center[0], x2_center_values[i])
+            point.set_3d_properties(x2_center[2])
+            # Text
+            title.set_text(f"Force field, time={i}")
+        
+        anim = FuncAnimation(fig, animate, interval=500, frames=len(x2_center_values))
+        #plt.draw()
+        #plt.show()
+        
+
     #test_2obj_point()
     #plot_force_distance()
-    plot_force_quiver_both()
-    plot_force_quiver_squirmer()
-    plot_force_quiver_target()
-        
+    #influence_list = ["low", "mid", "high", "giga"]
+    #for influence in influence_list:
+        #plot_force_quiver_both(influence)
+    #    plot_force_quiver_squirmer(influence)
+        #plot_force_quiver_target(influence)
+
+    animate_force(0.8)
