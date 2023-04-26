@@ -169,8 +169,8 @@ def force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_cen
     """
     # Get coordinates to points on the two surfaces
     x1, y1, z1, dA = bem.canonical_fibonacci_lattice(N1, squirmer_radius)
-    theta = np.arccos(z1 / squirmer_radius) 
-    phi = np.arctan2(y1, x1)
+    theta = np.arccos(z1 / squirmer_radius)  # [0, pi]
+    phi = np.arctan2(y1, x1)  # [0, 2*pi]
     x1_stacked = np.stack((x1, y1, z1)).T  
     
     N2 = int(4 * np.pi * radius_obj2 ** 2 / dA)  # Ensures object 1 and 2 has same dA
@@ -581,6 +581,33 @@ if __name__ == "__main__":
         anim.save(video_name, writer="Pillow")
         
 
+    def spherical_harmonic_test(radius_obj2, lm_pair):
+        from spherical_harmonics import spherical_harmonic_representation as SHR
+        # Choose parameters
+        eps = 0.1
+        viscosity = 1
+        N1 = 200
+        max_mode = 3
+        squirmer_radius = 1
+        x1_center = np.array([0, 0, 0])
+        # Modes
+        B = np.zeros((max_mode+1, max_mode+1))
+        B_tilde = np.zeros_like(B)
+        C = np.zeros_like(B)
+        C_tilde = np.zeros_like(B)
+        B[1, 1] = 1
+
+        # Force
+        total_radius = squirmer_radius+radius_obj2
+        x2_center = np.array([0, total_radius, 0.4])
+        
+        force_with_condition, x1_surface, _ = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, B, B_tilde, C, C_tilde, eps, viscosity, lab_frame=True, return_points=True)
+        force = force_with_condition[: 3*N1]        
+
+        # Plot coefficients against distance.
+        
+        
+    
     #test_2obj_point()
     #plot_force_distance()
     #influence_list = ["low", "mid", "high", "giga"]
@@ -589,4 +616,5 @@ if __name__ == "__main__":
         #plot_force_quiver_squirmer(influence)
         #plot_force_quiver_target(influence)
 
-    animate_force(radius_obj2=1.5)
+    #animate_force(radius_obj2=1.5)
+    spherical_harmonic_test(0.8, [[1, 0], [2, 0]])
