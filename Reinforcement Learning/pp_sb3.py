@@ -22,7 +22,7 @@ from stable_baselines3.common.evaluation import evaluate_policy
 
 # Load custom fluid functions
 sys.path.append('./Fluid')
-import fluid_module as fm
+import field_velocity as fv
 import power_factor as pf
 
 
@@ -178,6 +178,10 @@ class PredatorPreyEnv(gym.Env):
             B_tilde_11 = action[1] / self.B_max        
             mode_info = [B_01, B_tilde_11]
         
+        # To replace the above setup
+        
+        
+        
         # -- Movement --
         # Convert to polar coordinates and get the cartesian velocity of the flow.
 
@@ -188,7 +192,7 @@ class PredatorPreyEnv(gym.Env):
         C_tilde = np.zeros_like(B)
         B[0, 1] = B_01
         B_tilde[1, 1] = B_tilde_11
-        _, velocity_y, velocity_z = fm.field_cartesian(N=self.legendre_modes, r=r, 
+        _, velocity_y, velocity_z = fv.field_cartesian(N=self.legendre_modes, r=r, 
                                                        theta=theta, phi=np.pi/2,
                                                        a=self.squirmer_radius, 
                                                        B=B, B_tilde=B_tilde, 
