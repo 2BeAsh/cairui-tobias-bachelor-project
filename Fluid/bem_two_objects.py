@@ -581,33 +581,61 @@ if __name__ == "__main__":
         anim.save(video_name, writer="Pillow")
         
 
-    def spherical_harmonic_test(radius_obj2, lm_pair):
-        from spherical_harmonics import spherical_harmonic_representation as SHR
+    def spherical_harmonic_test(radius_obj2, ml_pair):
+        import spherical_harmonics as sh
         # Choose parameters
         eps = 0.1
         viscosity = 1
         N1 = 200
         max_mode = 3
         squirmer_radius = 1
+        tot_radius = squirmer_radius + radius_obj2
         x1_center = np.array([0, 0, 0])
+        x2_center_values = np.arange(tot_radius+0.1, 4*tot_radius, tot_radius/4)
         # Modes
         B = np.zeros((max_mode+1, max_mode+1))
         B_tilde = np.zeros_like(B)
         C = np.zeros_like(B)
         C_tilde = np.zeros_like(B)
-        B[1, 1] = 1
+        B[1, 1] = 1        
+        
+        # Calculate force to get the expansion coefficients
+        f_ml = np.empty((len(ml_pair), len(x2_center_values)))
+        
+        # Loop through each target position distance
+        for i, x2_center_y in enumerate(x2_center_values):  
+            x2_center = np.array([0.2, x2_center_y, 0])
+            
+            # Force    
+            force_with_condition, x1_surface, _ = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, B, B_tilde, C, C_tilde, eps, viscosity, lab_frame=True, return_points=True)
+            force = force_with_condition[: 3*N1]        
+            force_magnitude = np.sqrt(force[: N1]**2 + force[N1: 2*N1]**2 + force[2*N1: 3*N1]**2)
 
-        # Force
-        total_radius = squirmer_radius+radius_obj2
-        x2_center = np.array([0, total_radius, 0.4])
-        
-        force_with_condition, x1_surface, _ = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, B, B_tilde, C, C_tilde, eps, viscosity, lab_frame=True, return_points=True)
-        force = force_with_condition[: 3*N1]        
+            # Get angular coordinates
+            x = x1_surface[:, 0]
+            y = x1_surface[:, 1]
+            z = x1_surface[:, 2]
+            theta = np.arccos(z / squirmer_radius)  # [0, pi]
+            phi = np.arctan2(y, x)  # [0, 2*pi]
+            
+            # Get expansion coefficients for each ml value at this target position
+            for j, ml in enumerate(ml_pair):
+                f_ml[j, i] = sh.expansion_coefficient_ml(ml[0], ml[1], force_magnitude, phi, theta).real
 
-        # Plot coefficients against distance.
+        # Plot
+        fig, ax = plt.subplots(dpi=150, figsize=(6, 6))
+        ax.plot(x2_center_values, f_ml.T, ".")
+        ax.set(xlabel="Target y position", ylabel="f_ml coefficient", title="First five expansion coefficients against y-position")
         
+        # legend
+        ml_str = []
+        for ml in ml_pair:
+            ml_val_str = f"m={ml[0]}, l={ml[1]}"
+            ml_str.append(ml_val_str)
+        ax.legend(ml_str)
+        plt.show()
+            
         
-    
     #test_2obj_point()
     #plot_force_distance()
     #influence_list = ["low", "mid", "high", "giga"]
@@ -617,4 +645,6 @@ if __name__ == "__main__":
         #plot_force_quiver_target(influence)
 
     #animate_force(radius_obj2=1.5)
-    spherical_harmonic_test(0.8, [[1, 0], [2, 0]])
+    radius = 0.8
+    ml_pair = np.array([[0, 0], [-1, 1], [0, 1], [1, 1], [-2, 2]])
+    spherical_harmonic_test(radius, ml_pair)
