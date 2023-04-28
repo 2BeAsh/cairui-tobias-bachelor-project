@@ -178,8 +178,8 @@ class PredatorPreyEnv(gym.Env):
             B_tilde_11 = action[1] / self.B_max        
             mode_info = [B_01, B_tilde_11]
         
-        # To replace the above setup
-        
+        # To be added to the above setup
+        # Create matricies with cos(action) that match the shape of the power factors
         
         
         # -- Movement --
@@ -397,10 +397,10 @@ lab_frame = True
 train_total_steps = int(8e5)
 render_mode = "human"
 
-#check_model(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
+check_model(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
 #train(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame, train_total_steps)
 #show_result(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame, render_mode)
-plot_info(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
+#plot_info(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
 
 
 # tensorboard --logdir=.
