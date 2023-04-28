@@ -1,6 +1,6 @@
 import numpy as np
 import field_velocity as fv
-import boundary_element_method as bem
+import bem
 
 
 def difference_vectors(x_1, x_2=None):
