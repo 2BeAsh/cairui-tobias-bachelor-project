@@ -1,7 +1,8 @@
+# The boundary element method without the Force=0=Torque conditiond
 import numpy as np
 import matplotlib.pyplot as plt
 import field_velocity as fv
-from boundary_element_method import canonical_fibonacci_lattice
+from bem import canonical_fibonacci_lattice
 
 
 def oseen_tensor_nobc(regularization_offset, dA, viscosity, evaluation_points, source_points=None):
