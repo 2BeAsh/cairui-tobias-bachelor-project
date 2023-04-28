@@ -12,28 +12,28 @@ def constant_power_factor(squirmer_radius, viscosity):
         _type_: _description_
     """
     max_mode = 4  # Higest value for n
-    n = np.arange(1, max_mode+1)
+    n = np.arange(max_mode+1)  # Even though n cannot be 0, easier to keep track of indices and later code assumes starts at 0
     m = np.arange(max_mode+1)
     mode_factors = np.zeros((4, len(n), len(m)))  # [Mode, n, m]
     
     n1_common_factor = 64 / (3 * squirmer_radius ** 5) * np.pi * viscosity
-    n2 = n[1:]
+    n2 = n[2:]
     m0_common_factor = 4 * n2 * (n2 + 1) * np.pi * viscosity / (squirmer_radius ** (2*n2 + 1))
     m1 = m[1:]
     n2m1_common_factor = 2 * n2[:, None] * (n2[:, None] + 1) * factorial(n2[:, None]+m1[None, :]) * np.pi * n2[:, None] / (squirmer_radius ** (2*n2[:, None] + 1) * factorial(n2[:, None]-m1[None, :]))
     n2m1_common_factor = np.tril(n2m1_common_factor, k=1)
         
     # n == 1
-    mode_factors[0, 0, :2] = n1_common_factor  # B10 and #B11
-    mode_factors[1, 0, 1] = n1_common_factor  # B_tilde11
+    mode_factors[0, 1, :2] = n1_common_factor  # B10 and #B11
+    mode_factors[1, 1, 1] = n1_common_factor  # B_tilde11
     # m == 0, n>=2
-    mode_factors[0, 1:, 0] = 4 / (n2 ** 2 * squirmer_radius ** 2) * m0_common_factor  # B n>=2 m=0
-    mode_factors[2, 1:, 0] = (n2 + 2) / (2 * n2 + 1) * m0_common_factor  # C n>=2 m=0
+    mode_factors[0, 2:, 0] = 4 / (n2 ** 2 * squirmer_radius ** 2) * m0_common_factor  # B n>=2 m=0
+    mode_factors[2, 2:, 0] = (n2 + 2) / (2 * n2 + 1) * m0_common_factor  # C n>=2 m=0
     # m>=1, n>=2
-    mode_factors[0, 1:, 1:] = 4 / (np.pi ** 2 * squirmer_radius) * n2m1_common_factor
-    mode_factors[1, 1:, 1:] = mode_factors[0, 1:, 1:]
-    mode_factors[2, 1:, 1:] = (n2[:, None] + 2) / (2 * n2[:, None] + 1) * n2m1_common_factor
-    mode_factors[3, 1:, 1:] = mode_factors[2, 1:, 1:]
+    mode_factors[0, 2:, 1:] = 4 / (np.pi ** 2 * squirmer_radius) * n2m1_common_factor
+    mode_factors[1, 2:, 1:] = mode_factors[0, 2:, 1:]
+    mode_factors[2, 2:, 1:] = (n2[:, None] + 2) / (2 * n2[:, None] + 1) * n2m1_common_factor
+    mode_factors[3, 2:, 1:] = mode_factors[2, 2:, 1:]
 
     # Remove all cases where m>n. Upper triangular part shifted by 1 sat to zero, as n start at 1 and m at 0
     mode_factors = np.tril(mode_factors, k=1)
@@ -42,4 +42,4 @@ def constant_power_factor(squirmer_radius, viscosity):
 
 if __name__ == "__main__":
     factors = constant_power_factor(squirmer_radius=1.5, viscosity=1)
-    #print(np.array_str(factors, precision=2, suppress_small=True))  # Easier to compare when printing fewer decimalts    
+    print(np.array_str(factors, precision=2, suppress_small=True))  # Easier to compare when printing fewer decimalts    
