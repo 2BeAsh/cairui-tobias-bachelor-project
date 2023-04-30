@@ -20,15 +20,16 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.evaluation import evaluate_policy
 
-# Load custom fluid functions
+# Load custom functions
 sys.path.append('./Fluid')
-import fluid_module as fm
-import power_factor as pf
+import field_velocity
+import power_consumption
+import n_sphere
 
 
 # Environment
 class PredatorPreyEnv(gym.Env):
-    """Gym environment for a predator-prey system in a fluid. The frame of reference is """
+    """Gym environment for a predator-prey system in a fluid."""
 
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
@@ -48,6 +49,7 @@ class PredatorPreyEnv(gym.Env):
         self.charac_time = 3 * self.squirmer_radius ** 4 / (4 * self.B_max) # characteristic time
         tau = 0.3  # Seconds per iteration. 
         self.dt = tau / self.charac_time
+        self.viscosity = 1
         
         # Rendering
         self.scale_canvas = scale_canvas  # Makes canvas this times smaller
@@ -59,11 +61,15 @@ class PredatorPreyEnv(gym.Env):
 
         # -- Define action and observation space --
         # Actions: Strength of Legendre Modes
-        assert cap_modes in [True, False, "constant"]
-        if cap_modes:  # Capped, sum(modes) <= 1
+        assert cap_modes in ["less", "uncapped", "constant", "constant power"]
+        if cap_modes == "less":  # Capped, sum(modes) <= 1 - "less than one"
             action_shape=(3,)  # 3 parameters that determines strength of modes
-        elif cap_modes == "constant":  # Capped, sum(modes) = 1
+        elif cap_modes == "constant":  # Capped, sum(modes) = 1. Only two modes
             action_shape = (1,)  # alpha, distribution of the two modes
+        elif cap_modes == "constant power":
+            number_of_modes = 45  # Counted from power factors.
+            action_shape = (number_of_modes-1,)  # Weight of each mode. Skal nok reduceres til færre actions, dvs. færre modes.
+            pass
         else:  # Uncapped
             action_shape = (2,)  # The two modes
         self.action_space = spaces.Box(low=-1, high=1, shape=action_shape, dtype=np.float32)
@@ -164,39 +170,51 @@ class PredatorPreyEnv(gym.Env):
         # Agent changes velocity at target's position
         # Target is moved by velocity
         # Target's only movement is by the Squirmer's influence, does not diffuse
-
         # -- Action setup --
-        if self.cap_modes:
-            B_01, B_tilde_11  = (action[1] + 1) / 2 * np.sin(action[0] * np.pi), (action[2] + 1) / 2 * np.cos(action[0] * np.pi)
-            mode_info = [B_01, B_tilde_11]
-        elif self.cap_modes == "constant":
-            B_01 = np.sin(action * np.pi)
-            B_tilde_11 = np.cos(action * np.pi)
-            mode_info = [B_01, B_tilde_11]
-        else:
-            B_01 = action[0] / self.B_max
-            B_tilde_11 = action[1] / self.B_max        
-            mode_info = [B_01, B_tilde_11]
-        
-        # -- Movement --
-        # Convert to polar coordinates and get the cartesian velocity of the flow.
-
-        r, theta = self._cartesian_to_polar()
         B = np.zeros((self.legendre_modes+1, self.legendre_modes+1))
         B_tilde = np.zeros_like(B)
         C = np.zeros_like(B)
         C_tilde = np.zeros_like(B)
-        B[0, 1] = B_01
-        B_tilde[1, 1] = B_tilde_11
-        _, velocity_y, velocity_z = fm.field_cartesian(N=self.legendre_modes, r=r, 
+        if self.cap_modes == "less":
+            B_10, B_tilde_11  = (action[1] + 1) / 2 * np.sin(action[0] * np.pi), (action[2] + 1) / 2 * np.cos(action[0] * np.pi)
+            B[1, 0] = B_01 
+            B_tilde[1, 1] = B_tilde_11
+            mode_array = np.array([B, B_tilde, C, C_tilde])
+        elif self.cap_modes == "constant":
+            B_01 = np.sin(action * np.pi)
+            B_tilde_11 = np.cos(action * np.pi)
+            B[0, 1] = B_01  # NOTE burde det ikke være 1, 0 ???
+            B_tilde[1, 1] = B_tilde_11
+            mode_array = np.array([B, B_tilde, C, C_tilde])
+        elif self.cap_modes == "constant power":
+            # Modes are equal to n-sphere coordinates divided by the square root of the mode factors
+            # NOTE har man brug for at kvadrere noget? 
+            max_power = 1
+            x_n_sphere = n_sphere.angular_to_cartesian(action, max_power)
+            mode_factors = power_consumption.constant_power_factor(squirmer_radius, self.viscosity)
+            mode_non_zero = mode_factors.nonzero()
+            mode_array = np.zeros_like(mode_factors)
+            mode_array[mode_non_zero] = x_n_sphere / np.sqrt(mode_factors[mode_non_zero].ravel())
+        else:  # Uncapped
+            B_01 = action[0] / self.B_max
+            B_tilde_11 = action[1] / self.B_max        
+            B[0, 1] = B_01  # NOTE burde det ikke være 1, 0 ???
+            B_tilde[1, 1] = B_tilde_11
+            mode_array = np.array([B, B_tilde, C, C_tilde])
+        
+        # -- Movement --
+        # Convert to polar coordinates and get the cartesian velocity of the flow.
+        r, theta = self._cartesian_to_polar()
+        _, velocity_y, velocity_z = field_velocity.field_cartesian(max_mode=self.legendre_modes, r=r, 
                                                        theta=theta, phi=np.pi/2,
-                                                       a=self.squirmer_radius, 
-                                                       B=B, B_tilde=B_tilde, 
-                                                       C=C, C_tilde=C_tilde, 
-                                                       lab_frame=self.lab_frame)
+                                                       squirmer_radius=self.squirmer_radius, 
+                                                       mode_array=mode_array, lab_frame=self.lab_frame)
         velocity = np.array([velocity_y, velocity_z], dtype=np.float32) / self.charac_velocity
         self._target_position = self._target_position + velocity * self.dt 
-        
+
+        B_01 = mode_array[0, 0, 1]
+        B_tilde_11 = mode_array[1, 1, 1]
+        mode_info = [B_01, B_tilde_11]        
         if self.lab_frame:
             squirmer_velocity = np.array([B_tilde_11, -B_01], dtype=np.float32) 
             self._agent_position = self._agent_position + squirmer_velocity * self.dt 
@@ -387,16 +405,16 @@ spawn_radius = 5
 legendre_modes = 2  # DOES NOT WORK FOR >2
 scale_canvas = 1.4  # Makes everything factor smaller / zoomed out
 start_angle = np.pi/ 2
-cap_modes = True  # True, False, "constant"
+cap_modes = "constant power"  # "less", "uncapped", "constant", "constant power"
 lab_frame = True
 
 train_total_steps = int(8e5)
 render_mode = "human"
 
-#check_model(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
+check_model(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
 #train(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame, train_total_steps)
 #show_result(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame, render_mode)
-plot_info(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
+#plot_info(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
 
 
 # tensorboard --logdir=.
