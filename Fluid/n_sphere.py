@@ -6,8 +6,8 @@ def angular_to_cartesian(phi, radius):
     Taken from: https://stackoverflow.com/questions/20133318/n-sphere-coordinate-system-to-cartesian-coordinate-system
 
     Args:
-        phi (ndarray): Angular coordinates, phi_1, phi_2, ..., phi_n
-        radius (float): Radius of sphere
+        phi (ndarray): Angular coordinates, phi_1, phi_2, ..., phi_n-1
+        radius (float): Radius of the sphere
     """
     # Add extra term to phi
     phi_expanded = np.concatenate((np.array([2*np.pi]), phi))  # using 2pi saves one operation in the cosine part
