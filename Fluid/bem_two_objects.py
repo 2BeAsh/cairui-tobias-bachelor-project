@@ -149,7 +149,7 @@ def oseen_tensor_two_objects(x_1, x_2, x_eval, x1_center, x2_center, dA, regular
     return S
     
 
-def force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, B, B_tilde, C, C_tilde, regularization_offset, viscosity, lab_frame=True, return_points=False):
+def force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, mode_array, regularization_offset, viscosity, lab_frame=True, return_points=False):
     """Calculates the force vectors at N_sphere points on a sphere with radius squirmer_radius. 
 
     Args:
@@ -180,11 +180,10 @@ def force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_cen
     A_oseen = oseen_tensor_surface_two_objects(x1_stacked, x2_stacked, x1_center, x2_center,
                                                dA, regularization_offset, viscosity)
     # Get velocities in each of the points for both objects
-    ux1, uy1, uz1 = fv.field_cartesian(N=max_mode, r=squirmer_radius, 
+    ux1, uy1, uz1 = fv.field_cartesian(max_mode, r=squirmer_radius, 
                                        theta=theta, phi=phi, 
-                                       a=squirmer_radius, 
-                                       B=B, B_tilde=B_tilde, 
-                                       C=C, C_tilde=C_tilde, 
+                                       squirmer_radius=squirmer_radius, 
+                                       mode_array=mode_array,
                                        lab_frame=lab_frame)
     u_comb = np.array([ux1, uy1, uz1]).ravel()  
     u_comb = np.append(u_comb, np.zeros(12 + 3*N2))  # 2*6 zeros from Forces=0=Torqus + 3N2 zeros as Object 2 no own velocity
@@ -588,7 +587,7 @@ if __name__ == "__main__":
         viscosity = 1
         N1 = 200
         max_mode = 3
-        squirmer_radius = 1
+        squirmer_radius = 1.1
         tot_radius = squirmer_radius + radius_obj2
         x1_center = np.array([0, 0, 0])
         x2_center_values = np.arange(tot_radius+0.1, 4*tot_radius, tot_radius/4)
@@ -597,7 +596,8 @@ if __name__ == "__main__":
         B_tilde = np.zeros_like(B)
         C = np.zeros_like(B)
         C_tilde = np.zeros_like(B)
-        B[1, 1] = 1        
+        B[1, 1] = 1    
+        mode_array = np.array([B, B_tilde, C, C_tilde])
         
         # Calculate force to get the expansion coefficients
         f_ml = np.empty((len(ml_pair), len(x2_center_values)))
@@ -607,7 +607,7 @@ if __name__ == "__main__":
             x2_center = np.array([0.2, x2_center_y, 0])
             
             # Force    
-            force_with_condition, x1_surface, _ = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, B, B_tilde, C, C_tilde, eps, viscosity, lab_frame=True, return_points=True)
+            force_with_condition, x1_surface, _ = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, mode_array, eps, viscosity, lab_frame=True, return_points=True)
             force = force_with_condition[: 3*N1]        
             force_magnitude = np.sqrt(force[: N1]**2 + force[N1: 2*N1]**2 + force[2*N1: 3*N1]**2)
 
@@ -620,7 +620,10 @@ if __name__ == "__main__":
             
             # Get expansion coefficients for each ml value at this target position
             for j, ml in enumerate(ml_pair):
-                f_ml[j, i] = sh.expansion_coefficient_ml(ml[0], ml[1], force_magnitude, phi, theta).real
+                print("")
+                print(f"ml = {ml}")
+                print(sh.expansion_coefficient_ml(ml[0], ml[1], force_magnitude, phi, theta))
+                f_ml[j, i] = sh.expansion_coefficient_ml(ml[0], ml[1], force_magnitude, phi, theta)
 
         # Plot
         fig, ax = plt.subplots(dpi=150, figsize=(6, 6))

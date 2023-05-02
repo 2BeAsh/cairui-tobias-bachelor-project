@@ -43,9 +43,7 @@ def field_polar(max_mode, r, theta, phi, squirmer_radius, mode_array):
                                 - B_tilde[1, 1] * np.cos(phi))
 
     # Calculate associated Legendre polynomials for all possible m and n values, evaluated in all theta values
-    if isinstance(theta, np.float32):  # NOTE this implimentation is rather ugly.
-        theta = [theta]
-    LP = np.empty(shape=(max_mode-2+1, max_mode+1, len(theta)))  # n values, m values, theta values
+    LP = np.empty(shape=(max_mode-2+1, max_mode+1, np.size(theta)))  # n values, m values, theta values
     LP_sin_m = np.empty_like(LP)
     LP_deriv_sin = np.empty_like(LP)
     for n in range(2, max_mode+1):
@@ -146,4 +144,4 @@ if __name__ ==  "__main__":
     regularization_offset = 0.05
     viscosity = 1
     
-    print(field_polar(max_mode, distance_squirmer, theta, phi, squirmer_radius, mode_array))
+    #print(field_polar(max_mode, distance_squirmer, theta, phi, squirmer_radius, mode_array))

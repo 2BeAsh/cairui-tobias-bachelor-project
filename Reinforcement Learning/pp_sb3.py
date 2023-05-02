@@ -403,9 +403,9 @@ def plot_info(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start
 squirmer_radius = 1
 spawn_radius = 5
 legendre_modes = 2  # DOES NOT WORK FOR >2
-scale_canvas = 1.4  # Makes everything factor smaller / zoomed out
+scale_canvas = 1.4  # Makes everything on the canvas a factor smaller / zoomed out
 start_angle = np.pi/ 2
-cap_modes = "constant power"  # "less", "uncapped", "constant", "constant power"
+cap_modes = "constant power"  # Options: "less", "uncapped", "constant", "constant power"
 lab_frame = True
 
 train_total_steps = int(8e5)
@@ -417,4 +417,5 @@ check_model(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_a
 #plot_info(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
 
 
+# If wants to see reward over time, write the following in cmd in the log directory
 # tensorboard --logdir=.

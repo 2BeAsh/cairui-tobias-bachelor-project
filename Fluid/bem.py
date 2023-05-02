@@ -170,196 +170,196 @@ def force_on_sphere(N_sphere, max_mode, squirmer_radius, B, B_tilde, C, C_tilde,
     force_arr = np.linalg.solve(A_oseen, u_comb)
     return force_arr 
 
-
-def test_oseen_field_cartesian():
-    # Parametre
-    N = 150
-    r = 1.
-    eps = 0.1
-    viscosity = 1
-    max_mode = 2
-    B = np.zeros((max_mode+1, max_mode+1))
-    B_tilde = np.zeros_like(B)
-    C = np.zeros_like(B)
-    C_tilde = np.zeros_like(B)
-    B[1, 1] = 1
-    B_tilde[1, 1] = 1
-    
-    # x og v
-    x, y, z, area = canonical_fibonacci_lattice(N, r)
-    theta = np.arccos(z / r)
-    phi = np.arctan2(y, x)
-    u_x, u_y, u_z = fv.field_cartesian(max_mode, r, theta, phi, r, B, B_tilde, C, C_tilde)
-
-    x_surface = np.stack((x, y, z)).T
-    v = np.stack((u_x, u_y, u_z)).T
-    v = np.reshape(v, -1, order="F")
-    v = np.append(v, np.zeros(6))
-
-    # Få Oseen matrix på overfladen og løs for kræfterne
-    import time
-    t1 = time.time()
-    A = oseen_tensor(regularization_offset=eps, dA=area, viscosity=viscosity,
-                     evaluation_points=x_surface)
-    F = np.linalg.solve(A, v)
-    print(time.time() - t1)
-    U = F[-6:-3]  # Skal vises i plot
-    ang_freq = F[-3:]
-    
-    # Evaluer i punkter uden for kuglen
-    x_e = np.linspace(-3 * r, 3 * r, 25)
-    X, Y = np.meshgrid(x_e, x_e)
-    x_e = X.ravel()
-    y_e = Y.ravel()
-    z_e = 0 * X.ravel()
-    x_e = np.stack((x_e, y_e, z_e)).T
-    
-    # Get Oseen and solve for velocities using earlier force
-    A_e = oseen_tensor(regularization_offset=eps, dA=area, viscosity=viscosity,
-                     evaluation_points=x_e, source_points=x_surface)
-    v_e = A_e @ F
-    v_e = v_e[:-6]  # Remove Forces
-    v_e = np.reshape(v_e, (len(v_e)//3, 3), order="F")
-
-    # Remove values inside squirmer
-    r2 = np.sum(x_e**2, axis=1)
-    v_e[r2 < r ** 2, :] = 0
-    
-    # -- Compare to known field --
-    # The known velocity field
-    y_field = 1 * x_e + 0.1  # +0.1 for at undgå r = 0
-    z_field = 1 * x_e + 0.1
-    Z_field, Y_field = np.meshgrid(z_field, y_field)
-    R_field = np.sqrt(Z_field**2 + Y_field**2)
-    Theta = np.arctan2(Y_field, Z_field) + np.pi
-    Phi = np.ones(np.shape(Theta)) * np.pi/2
-
-    ux_field, uy_field, uz_field = fv.field_cartesian(max_mode, R_field.flatten(), Theta.flatten(), Phi.flatten(), 
-                                                r, B, B_tilde, C, C_tilde, lab_frame=True)
-    ux_field = ux_field.reshape(np.shape(R_field))
-    uy_field = uy_field.reshape(np.shape(R_field))
-    uz_field = uz_field.reshape(np.shape(R_field))
-    mask_squirmer = R_field < r
-    ux_field[mask_squirmer] = 0
-    uy_field[mask_squirmer] = 0
-    uz_field[mask_squirmer] = 0
-    
-    # -- Plot --
-    fig, ax = plt.subplots(ncols=1, nrows=1, dpi=150, figsize=(6,6))
-    ax_oseen = ax
-    ax_oseen.quiver(x_e[:, 0], x_e[:, 1], v_e[:, 0], v_e[:, 1], color="red")
-    ax_oseen.set(xlabel="x", ylabel="y", title=r"With Conditions, Squirmer field, lab frame, $\tilde{B}_{11}$")
-    text_min = np.min(x_e)
-    text_max = np.max(x_e)
-    ax_oseen.text(text_min, text_max, s=f"U={np.round(U, 4)}", fontsize=12)
-    ax_oseen.text(text_min, text_max-0.3, s=f"$\omega$={np.round(ang_freq, 4)}", fontsize=12)
-    
-    #ax_field.quiver(Y_field, Z_field, uy_field, uz_field, color="blue", label="Original Field")
-    #ax_field.set(xlabel="y", ylabel="z")
-    #ax_field.legend(loc="upper center")  
-    plt.savefig("fluid/images/condition_squirmerfield_labframe_B_tilde11.png")
-    plt.show()
-
-
-def test_oseen_given_field():
-    N = 250
-    r = 1.
-    eps = 0.1
-    viscosity = 1
-    x, y, z, area = canonical_fibonacci_lattice(N, r)
-    theta = np.arccos(z / r)
-    phi = np.arctan2(y, x)
-    # Boundary Conditions
-    vx = 1 + 0 * x
-    vy = 0 * x
-    vz = 0 * x
-    
-    # Stack
-    x = np.stack((x, y, z)).T
-    v = np.stack((vx, vy, vz)).T
-    v = np.reshape(v, -1, order="F")
-    v = np.append(v, np.zeros(6))  # From force=0=Torque
-
-    # Få Oseen matrix på overfladen og løs for kræfterne
-    A = oseen_tensor(regularization_offset=eps, dA=area, viscosity=viscosity,
-                     evaluation_points=x)
-    F = np.linalg.solve(A, v)
-    U = F[-6:-3]
-    ang_freq = F[-3:]
-    # Evaluate i punkter uden for kuglen
-    x_e = np.linspace(-3 * r, 3 * r, 25)
-    X, Y = np.meshgrid(x_e, x_e)
-    x_e = X.ravel()
-    y_e = Y.ravel()
-    z_e = 0 * X.ravel()
-    x_e = np.stack((x_e, y_e, z_e)).T
-    
-    # Get Oseen and solve for velocities using earlier force
-    A_e = oseen_tensor(regularization_offset=eps, dA=area, viscosity=viscosity,
-                     evaluation_points=x_e, source_points=x)
-    v_e = A_e @ F
-    v_e = v_e[:-6]  # Remove Forces
-    v_e = np.reshape(v_e, (len(v_e)//3, 3), order="F")
-
-    # Return to squirmer frame by subtracting boundary conditions
-    #v_e[:, 0] -= 1
-    #v_e[:, 1] -= 1
-
-    # Remove values inside squirmer
-    r2 = np.sum(x_e**2, axis=1)
-    v_e[r2 < r ** 2, :] = 0
-    
-    # -- Plot --
-    fig, ax = plt.subplots(ncols=1, nrows=1, dpi=150, figsize=(6,6))
-    ax_oseen = ax
-    ax_oseen.quiver(x_e[:, 0], x_e[:, 1], v_e[:, 0], v_e[:, 1], color="red")
-    ax_oseen.set(xlabel="x", ylabel="y", title=r"With Conditions, Artificial field $v_x=1$, lab frame")
-    text_min = np.min(x_e)
-    text_max = np.max(x_e)
-    ax_oseen.text(text_min, text_max, s=f"U={np.round(U, 4)}", fontsize=12)
-    ax_oseen.text(text_min, text_max-0.3, s=f"$\omega$={np.round(ang_freq, 4)}", fontsize=12)
-
-    plt.savefig("fluid/images/condition_artificialfield_labframe.png")
-    plt.show()
-    
-    
-def test_oseen_given_force():
-    eps = 0.1
-    viscosity = 1
-    xx = np.linspace(-2, 2, 25)
-    X, Y = np.meshgrid(xx, xx)
-    X = X.ravel()
-    Y = Y.ravel()
-    Z = 0 * X
-    
-    # Source point and force
-    xi = np.zeros(3).reshape(1, -1)
-    F = np.zeros(9)  # Rotation and U makes bigger
-    F[0] = 1.  # Force in x
-    #F[-6] = 2.  # Background flow in x
-    #F[-1] = -0.5  # Rotation along z-axis
-    
-    x_e = np.stack((X, Y, Z)).T
-    O = oseen_tensor(regularization_offset=eps, dA=0.5, viscosity=viscosity, 
-                        evaluation_points=x_e, source_points=xi)
-    v = O @ F
-    v = v[:-6]  # Remove force and torque
-    v = np.reshape(v, (len(v)//3, 3), order='F')
-        
-    vx = v[:, 0]
-    vy = v[:, 1]
-    
-    fig, ax = plt.subplots(dpi=150, figsize=(6, 6))
-    ax.quiver(X, Y, vx, vy, color="red")
-    ax.set(xlabel="x", ylabel="y", title="With Conditions, Artificial 'force' $F_x$, lab frame")
-    plt.savefig("fluid/images/condition_artificialforce_labframe.png")
-    plt.show()
     
     
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
+
+    def test_oseen_field_cartesian():
+        # Parametre
+        N = 150
+        r = 1.
+        eps = 0.1
+        viscosity = 1
+        max_mode = 2
+        B = np.zeros((max_mode+1, max_mode+1))
+        B_tilde = np.zeros_like(B)
+        C = np.zeros_like(B)
+        C_tilde = np.zeros_like(B)
+        B[1, 1] = 1
+        B_tilde[1, 1] = 1
+        
+        # x og v
+        x, y, z, area = canonical_fibonacci_lattice(N, r)
+        theta = np.arccos(z / r)
+        phi = np.arctan2(y, x)
+        u_x, u_y, u_z = fv.field_cartesian(max_mode, r, theta, phi, r, B, B_tilde, C, C_tilde)
+
+        x_surface = np.stack((x, y, z)).T
+        v = np.stack((u_x, u_y, u_z)).T
+        v = np.reshape(v, -1, order="F")
+        v = np.append(v, np.zeros(6))
+
+        # Få Oseen matrix på overfladen og løs for kræfterne
+        import time
+        t1 = time.time()
+        A = oseen_tensor(regularization_offset=eps, dA=area, viscosity=viscosity,
+                        evaluation_points=x_surface)
+        F = np.linalg.solve(A, v)
+        print(time.time() - t1)
+        U = F[-6:-3]  # Skal vises i plot
+        ang_freq = F[-3:]
+        
+        # Evaluer i punkter uden for kuglen
+        x_e = np.linspace(-3 * r, 3 * r, 25)
+        X, Y = np.meshgrid(x_e, x_e)
+        x_e = X.ravel()
+        y_e = Y.ravel()
+        z_e = 0 * X.ravel()
+        x_e = np.stack((x_e, y_e, z_e)).T
+        
+        # Get Oseen and solve for velocities using earlier force
+        A_e = oseen_tensor(regularization_offset=eps, dA=area, viscosity=viscosity,
+                        evaluation_points=x_e, source_points=x_surface)
+        v_e = A_e @ F
+        v_e = v_e[:-6]  # Remove Forces
+        v_e = np.reshape(v_e, (len(v_e)//3, 3), order="F")
+
+        # Remove values inside squirmer
+        r2 = np.sum(x_e**2, axis=1)
+        v_e[r2 < r ** 2, :] = 0
+        
+        # -- Compare to known field --
+        # The known velocity field
+        y_field = 1 * x_e + 0.1  # +0.1 for at undgå r = 0
+        z_field = 1 * x_e + 0.1
+        Z_field, Y_field = np.meshgrid(z_field, y_field)
+        R_field = np.sqrt(Z_field**2 + Y_field**2)
+        Theta = np.arctan2(Y_field, Z_field) + np.pi
+        Phi = np.ones(np.shape(Theta)) * np.pi/2
+
+        ux_field, uy_field, uz_field = fv.field_cartesian(max_mode, R_field.flatten(), Theta.flatten(), Phi.flatten(), 
+                                                    r, B, B_tilde, C, C_tilde, lab_frame=True)
+        ux_field = ux_field.reshape(np.shape(R_field))
+        uy_field = uy_field.reshape(np.shape(R_field))
+        uz_field = uz_field.reshape(np.shape(R_field))
+        mask_squirmer = R_field < r
+        ux_field[mask_squirmer] = 0
+        uy_field[mask_squirmer] = 0
+        uz_field[mask_squirmer] = 0
+        
+        # -- Plot --
+        fig, ax = plt.subplots(ncols=1, nrows=1, dpi=150, figsize=(6,6))
+        ax_oseen = ax
+        ax_oseen.quiver(x_e[:, 0], x_e[:, 1], v_e[:, 0], v_e[:, 1], color="red")
+        ax_oseen.set(xlabel="x", ylabel="y", title=r"With Conditions, Squirmer field, lab frame, $\tilde{B}_{11}$")
+        text_min = np.min(x_e)
+        text_max = np.max(x_e)
+        ax_oseen.text(text_min, text_max, s=f"U={np.round(U, 4)}", fontsize=12)
+        ax_oseen.text(text_min, text_max-0.3, s=f"$\omega$={np.round(ang_freq, 4)}", fontsize=12)
+        
+        #ax_field.quiver(Y_field, Z_field, uy_field, uz_field, color="blue", label="Original Field")
+        #ax_field.set(xlabel="y", ylabel="z")
+        #ax_field.legend(loc="upper center")  
+        plt.savefig("fluid/images/condition_squirmerfield_labframe_B_tilde11.png")
+        plt.show()
+
+
+    def test_oseen_given_field():
+        N = 250
+        r = 1.
+        eps = 0.1
+        viscosity = 1
+        x, y, z, area = canonical_fibonacci_lattice(N, r)
+        theta = np.arccos(z / r)
+        phi = np.arctan2(y, x)
+        # Boundary Conditions
+        vx = 1 + 0 * x
+        vy = 0 * x
+        vz = 0 * x
+        
+        # Stack
+        x = np.stack((x, y, z)).T
+        v = np.stack((vx, vy, vz)).T
+        v = np.reshape(v, -1, order="F")
+        v = np.append(v, np.zeros(6))  # From force=0=Torque
+
+        # Få Oseen matrix på overfladen og løs for kræfterne
+        A = oseen_tensor(regularization_offset=eps, dA=area, viscosity=viscosity,
+                        evaluation_points=x)
+        F = np.linalg.solve(A, v)
+        U = F[-6:-3]
+        ang_freq = F[-3:]
+        # Evaluate i punkter uden for kuglen
+        x_e = np.linspace(-3 * r, 3 * r, 25)
+        X, Y = np.meshgrid(x_e, x_e)
+        x_e = X.ravel()
+        y_e = Y.ravel()
+        z_e = 0 * X.ravel()
+        x_e = np.stack((x_e, y_e, z_e)).T
+        
+        # Get Oseen and solve for velocities using earlier force
+        A_e = oseen_tensor(regularization_offset=eps, dA=area, viscosity=viscosity,
+                        evaluation_points=x_e, source_points=x)
+        v_e = A_e @ F
+        v_e = v_e[:-6]  # Remove Forces
+        v_e = np.reshape(v_e, (len(v_e)//3, 3), order="F")
+
+        # Return to squirmer frame by subtracting boundary conditions
+        #v_e[:, 0] -= 1
+        #v_e[:, 1] -= 1
+
+        # Remove values inside squirmer
+        r2 = np.sum(x_e**2, axis=1)
+        v_e[r2 < r ** 2, :] = 0
+        
+        # -- Plot --
+        fig, ax = plt.subplots(ncols=1, nrows=1, dpi=150, figsize=(6,6))
+        ax_oseen = ax
+        ax_oseen.quiver(x_e[:, 0], x_e[:, 1], v_e[:, 0], v_e[:, 1], color="red")
+        ax_oseen.set(xlabel="x", ylabel="y", title=r"With Conditions, Artificial field $v_x=1$, lab frame")
+        text_min = np.min(x_e)
+        text_max = np.max(x_e)
+        ax_oseen.text(text_min, text_max, s=f"U={np.round(U, 4)}", fontsize=12)
+        ax_oseen.text(text_min, text_max-0.3, s=f"$\omega$={np.round(ang_freq, 4)}", fontsize=12)
+
+        plt.savefig("fluid/images/condition_artificialfield_labframe.png")
+        plt.show()
+        
+        
+    def test_oseen_given_force():
+        eps = 0.1
+        viscosity = 1
+        xx = np.linspace(-2, 2, 25)
+        X, Y = np.meshgrid(xx, xx)
+        X = X.ravel()
+        Y = Y.ravel()
+        Z = 0 * X
+        
+        # Source point and force
+        xi = np.zeros(3).reshape(1, -1)
+        F = np.zeros(9)  # Rotation and U makes bigger
+        F[0] = 1.  # Force in x
+        #F[-6] = 2.  # Background flow in x
+        #F[-1] = -0.5  # Rotation along z-axis
+        
+        x_e = np.stack((X, Y, Z)).T
+        O = oseen_tensor(regularization_offset=eps, dA=0.5, viscosity=viscosity, 
+                            evaluation_points=x_e, source_points=xi)
+        v = O @ F
+        v = v[:-6]  # Remove force and torque
+        v = np.reshape(v, (len(v)//3, 3), order='F')
+            
+        vx = v[:, 0]
+        vy = v[:, 1]
+        
+        fig, ax = plt.subplots(dpi=150, figsize=(6, 6))
+        ax.quiver(X, Y, vx, vy, color="red")
+        ax.set(xlabel="x", ylabel="y", title="With Conditions, Artificial 'force' $F_x$, lab frame")
+        plt.savefig("fluid/images/condition_artificialforce_labframe.png")
+        plt.show()        
+
     test_oseen_field_cartesian()
     #test_oseen_given_field()
     #test_oseen_given_force()
-        
-    
+
