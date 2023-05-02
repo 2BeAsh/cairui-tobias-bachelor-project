@@ -1,9 +1,10 @@
 import numpy as np
 from scipy.special import sph_harm
 
+
 def real_sph_harm(m, l, phi, theta):
     """Real expression of spherical harmonics defined by its complex analgoue. 
-
+    Formula: https://en.wikipedia.org/wiki/Spherical_harmonics#Real_form
     Args:
         m (_type_): _description_
         l (_type_): _description_
@@ -20,7 +21,8 @@ def real_sph_harm(m, l, phi, theta):
                                  + sph_harm(m, l, phi, theta))  # Condon-Shortley phase included in sph_harm.        
     else:  # m < 0
         return 1j / np.sqrt(2) * (sph_harm(m, l, phi, theta) 
-                                    - sph_harm(-m, l, phi, theta))
+                                  - sph_harm(-m, l, phi, theta))
+
 
 def expansion_coefficient_ml(m, l, func_val, phi, theta):
     """Numerically integrate the expansion coefficient expression.  
@@ -71,11 +73,13 @@ def spherical_harmonic_representation(ml_pair, func_val, x_surface, radius):
     
     
 if __name__ == "__main__":
-    ml_pair = [[0, 0], [0, 1], [0, 2]]
+    ml_pair = [[0, 0], [0, 1], [0, 2], [-1, 1]]
     x_surface = np.arange(21).reshape(-1, 3)
     force = 3 * x_surface[:, 0] + 0.5 * x_surface[:, 1] + 3 * x_surface[:, 2]
     radius = np.max(x_surface)
     
-    
-    print(spherical_harmonic_representation(ml_pair, force, x_surface, radius))
+    phi = np.linspace(0, 2*np.pi, len(force))
+    theta = np.linspace(0, np.pi, len(force))
+    print(expansion_coefficient_ml(1, 1, force, phi, theta))
+    #print(spherical_harmonic_representation(ml_pair, force, x_surface, radius))
     
