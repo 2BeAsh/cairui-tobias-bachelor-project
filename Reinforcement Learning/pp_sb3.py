@@ -24,7 +24,6 @@ from stable_baselines3.common.evaluation import evaluate_policy
 sys.path.append('./Fluid')
 import field_velocity
 import power_consumption
-import n_sphere
 
 
 # Environment
@@ -177,7 +176,7 @@ class PredatorPreyEnv(gym.Env):
         C_tilde = np.zeros_like(B)
         if self.cap_modes == "less":
             B_10, B_tilde_11  = (action[1] + 1) / 2 * np.sin(action[0] * np.pi), (action[2] + 1) / 2 * np.cos(action[0] * np.pi)
-            B[1, 0] = B_01 
+            B[1, 0] = B_10
             B_tilde[1, 1] = B_tilde_11
             mode_array = np.array([B, B_tilde, C, C_tilde])
         elif self.cap_modes == "constant":
@@ -190,7 +189,7 @@ class PredatorPreyEnv(gym.Env):
             # Modes are equal to n-sphere coordinates divided by the square root of the mode factors
             # NOTE har man brug for at kvadrere noget? 
             max_power = 1
-            x_n_sphere = n_sphere.angular_to_cartesian(action, max_power)
+            x_n_sphere = power_consumption.n_sphere_angular_to_cartesian(action, max_power)
             mode_factors = power_consumption.constant_power_factor(squirmer_radius, self.viscosity)
             mode_non_zero = mode_factors.nonzero()
             mode_array = np.zeros_like(mode_factors)
