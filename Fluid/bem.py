@@ -134,7 +134,7 @@ def oseen_tensor(regularization_offset, dA, viscosity, evaluation_points, source
     return S 
 
 
-def force_on_sphere(N_sphere, max_mode, squirmer_radius, B, B_tilde, C, C_tilde, regularization_offset, viscosity, lab_frame=True):
+def force_on_sphere(N_sphere, max_mode, squirmer_radius, mode_array, regularization_offset, viscosity, lab_frame=True):
     """Calculates the force vectors at N_sphere points on a sphere with radius squirmer_radius. 
 
     Args:
@@ -159,13 +159,13 @@ def force_on_sphere(N_sphere, max_mode, squirmer_radius, B, B_tilde, C, C_tilde,
     x_e = np.stack((x_sphere, y_sphere, z_sphere)).T  # NOTE Brokker sig ikke selvom jeg ændrer på om () eller ej, samt transponeret eller ej
     A_oseen = oseen_tensor(regularization_offset, area, viscosity, evaluation_points=x_e)
     # Get velocities in each of the points
-    u_x, u_y, u_z = fv.field_cartesian(N=max_mode, r=squirmer_radius, 
+    u_x, u_y, u_z = fv.field_cartesian(max_mode, r=squirmer_radius, 
                                        theta=theta_sphere, phi=phi_sphere, 
-                                       a=squirmer_radius, 
-                                       B=B, B_tilde=B_tilde, 
-                                       C=C, C_tilde=C_tilde, 
+                                       squirmer_radius=squirmer_radius,
+                                       mode_array=mode_array,
                                        lab_frame=lab_frame)
-    u_comb = np.array([u_x, u_y, u_z, np.zeros(6)]).ravel()  # 6 zeros from Forces=0=Torque
+    u_comb = np.array([u_x, u_y, u_z]).ravel()  # 6 zeros from Forces=0=Torque
+    u_comb = np.append(u_comb, np.zeros(6))
     # Solve for the forces, A_oseen @ forces = u_comb
     force_arr = np.linalg.solve(A_oseen, u_comb)
     return force_arr 
