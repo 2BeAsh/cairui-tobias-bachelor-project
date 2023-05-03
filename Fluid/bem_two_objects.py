@@ -153,13 +153,10 @@ def force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_cen
     """Calculates the force vectors at N_sphere points on a sphere with radius squirmer_radius. 
 
     Args:
-        N_sphere (int): Amount of points on the sphere. 
+        N1 (int): Amount of object 1 points.
         max_mode (int): The max Legendre mode available.
         squirmer_radius (float): Radius of squirmer.
-        B ((max_mode, max_mode)-array): Matrix with the B mode values
-        B_tilde ((max_mode, max_mode)-array)): Matrix with the B_tilde mode values
-        C ((max_mode, max_mode)-array)): Matrix with the C mode values
-        C_tilde ((max_mode, max_mode)-array)): Matrix with the C_tilde mode values
+        mode_array: list of mode arrays 
         regularization_offset (float): epsilon that "blobs" the delta function at singularities
         viscosity (float): Viscosity of the fluid.
         lab_frame (bool, optional): Wheter the velocities are in lab (True) or squirmer frame (False). Defaults to True.
@@ -194,6 +191,39 @@ def force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_cen
     if return_points:
         return force_arr, x1_stacked, x2_stacked
     return force_arr 
+
+
+def force_average_change(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, mode_array, regularization_offset, viscosity, lab_frame=True):
+    """Calculate the force difference between when there is a target and not, plus a Gaussian noise.
+
+    Args:
+        N1 (int): Amount of object 1 points.
+        max_mode (int): The max Legendre mode available.
+        squirmer_radius (float): Radius of squirmer.
+        mode_array: list of mode arrays 
+        regularization_offset (float): epsilon that "blobs" the delta function at singularities
+        viscosity (float): Viscosity of the fluid.
+        lab_frame (bool, optional): Wheter the velocities are in lab (True) or squirmer frame (False). Defaults to True.
+
+    Returns:
+        _type_: _description_
+    """
+    # Force difference
+    force_with_target, x, _ = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center,
+                                                        mode_array, regularization_offset, viscosity, lab_frame, return_points=True)
+    force_without_target = bem.force_on_sphere(N1, max_mode, squirmer_radius, mode_array, regularization_offset, viscosity, lab_frame)
+    force_difference = force_with_target[:3*N1] - force_without_target[:3*N1]
+    force_difference = force_difference.reshape(-1, 3)
+    
+    # Gaussian noise
+    mean = np.mean(force_with_target) / 10  # 10 is chosen arbitrarily
+    std = np.std(force_with_target) / 10
+    #force_difference += np.random.normal(mean, std, size=force_difference.shape)  NOTE husk at uncomment
+    
+    # Average direction of change
+    weights = np.linalg.norm(force_difference, axis=1, ord=2)
+    x_average = np.sum(weights[:, None] * x, axis=0)  # Not normalized by N1 !
+    return x_average
 
 
 if __name__ == "__main__":
@@ -235,9 +265,10 @@ if __name__ == "__main__":
         C = np.zeros_like(B)
         C_tilde = np.zeros_like(B)
         B[1, 1] = 1
+        mode_array = np.array([B, B_tilde, C, C_tilde])
         
         # Force
-        force_with_condition, x1_surface, x2_surface = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, B, B_tilde, C, C_tilde, eps, viscosity, lab_frame=True, return_points=True)
+        force_with_condition, x1_surface, x2_surface = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, mode_array, eps, viscosity, lab_frame=True, return_points=True)
         translation = force_with_condition[-12: -6]
         rotation = force_with_condition[-6:]
         force = force_with_condition[:-12]  # Remove translation and rotation
@@ -648,6 +679,56 @@ if __name__ == "__main__":
         #plot_force_quiver_target(influence)
 
     #animate_force(radius_obj2=1.5)
-    radius = 0.8
-    ml_pair = np.array([[0, 0], [-1, 1], [0, 1], [1, 1], [-2, 2]])
-    spherical_harmonic_test(radius, ml_pair)
+    #radius = 0.8
+    #ml_pair = np.array([[0, 0], [-1, 1], [0, 1], [1, 1], [-2, 2]])
+    #spherical_harmonic_test(radius, ml_pair)
+    
+    
+    eps = 0.1
+    viscosity = 1
+    N1 = 200
+    max_mode = 3
+    squirmer_radius = 1
+    radius_obj2 = 1.5
+    tot_radius = squirmer_radius + radius_obj2
+    x1_center = np.array([0, 0, 0])
+    x2_center = np.array([0, 1.5*tot_radius, 0])
+    # Modes
+    B = np.zeros((max_mode+1, max_mode+1))
+    B_tilde = np.zeros_like(B)
+    C = np.zeros_like(B)
+    C_tilde = np.zeros_like(B)
+    C[0, 2] = 1    
+    mode_array = np.array([B, B_tilde, C, C_tilde])
+
+    #print(force_average_change(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, mode_array, eps, viscosity, lab_frame=True))
+    
+    def plot_average_force(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, mode_array, eps, viscosity, lab_frame=True):
+        force_with_target, x, _ = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center,
+                                                            mode_array, eps, viscosity, lab_frame, return_points=True)
+        #force_without_target = bem.force_on_sphere(N1, max_mode, squirmer_radius, mode_array, eps, viscosity, lab_frame)
+        force_without_target = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, np.array([10, 10, 10]),
+                                                            mode_array, eps, viscosity, lab_frame)
+        force_difference = force_with_target[:3*N1] - force_without_target[:3*N1]
+        force_difference = force_difference.reshape(-1, 3)        
+        average_force = force_average_change(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, mode_array, eps, viscosity, lab_frame)
+        
+        difference = True
+        
+        # Plot
+        fig = plt.figure(dpi=150, figsize=(6, 6))
+        ax = fig.add_subplot(projection="3d")
+        ax.set(xlabel="x", ylabel="y", zlabel="z")
+        if difference:
+            ax.quiver(x[:, 0], x[:, 1], x[:, 2], 
+                    force_difference[:, 0], force_difference[:, 1], force_difference[:, 2])
+            ax.quiver(x1_center[0], x1_center[1], x1_center[2],  
+                    average_force[0], average_force[1], average_force[2], color="red")        
+        else:
+            ax.quiver(x[:, 0], x[:, 1], x[:, 2], 
+                      force_with_target[: N1], force_with_target[N1: 2*N1], force_with_target[2*N1: 3*N1], length=0.05)
+                    
+        fig.tight_layout()
+        plt.show()
+    
+    plot_average_force(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, mode_array, eps, viscosity, lab_frame=True)
