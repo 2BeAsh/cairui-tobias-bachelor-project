@@ -171,7 +171,6 @@ def force_on_sphere(N_sphere, max_mode, squirmer_radius, mode_array, regularizat
     return force_arr 
 
     
-    
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
