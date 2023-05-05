@@ -43,14 +43,14 @@ def field_polar(max_mode, r, theta, phi, squirmer_radius, mode_array):
                                 - B_tilde[1, 1] * np.cos(phi))
 
     # Calculate associated Legendre polynomials for all possible m and n values, evaluated in all theta values
-    LP = np.empty(shape=(max_mode-2+1, max_mode+1, np.size(theta)))  # n values, m values, theta values
-    LP_sin_m = np.empty_like(LP)
-    LP_deriv_sin = np.empty_like(LP)
+    LP = np.zeros((max_mode+1, max_mode+1, np.size(theta)))  # n values, m values, theta values
+    LP_sin_m = np.zeros_like(LP)
+    LP_deriv_sin = np.zeros_like(LP)
     for n in range(2, max_mode+1):
         for m in range(max_mode+1):
-            LP[n-2, m, :] = alp.associated_legendre_poly(n, m, theta)  # ALP "Associated Legende Polynomial"
-            LP_sin_m[n-2, m, :] = alp.associated_legendre_poly_m_sin(n, m, theta)  # ALP times m times sin(theta)
-            LP_deriv_sin[n-2, m, :] = alp.associated_legendre_poly_deriv_sin(n, m, theta)  # Derivative of ALP times sin(theta)
+            LP[m, n, :] = alp.associated_legendre_poly(n, m, theta)
+            LP_sin_m[m, n, :] = alp.associated_legendre_poly_m_sin(n, m, theta)  # ALP times m times sin(theta)
+            LP_deriv_sin[m, n, :] = alp.associated_legendre_poly_deriv_sin(n, m, theta)  # Derivative of ALP times sin(theta)
     
     # Expand phi dimensions for matrix multiplication
     phi = np.expand_dims(phi, axis=0)
@@ -59,9 +59,9 @@ def field_polar(max_mode, r, theta, phi, squirmer_radius, mode_array):
     for n in np.arange(2, max_mode+1):
         m_arr = np.expand_dims(np.arange(n+1), axis=1)
         # Set up modes and ALP matrices
-        LP_matrix = LP[n-2, :n+1, :]  # Minimum n value in LP is n=2
-        LP_sin_m_matrix = LP_sin_m[n-2, :n+1, :]
-        LP_deriv_sin_matrix = LP_deriv_sin[n-2, :n+1, :]
+        LP_matrix = LP[:n+1, n, :]  # m, n, theta
+        LP_sin_m_matrix = LP_sin_m[:n+1, n, :]
+        LP_deriv_sin_matrix = LP_deriv_sin[:n+1, n, :]
         B_arr = np.expand_dims(B[:n+1, n], axis=1)  # Extra dimension needed for proper multiplication
         B_tilde_arr = np.expand_dims(B_tilde[:n+1, n], axis=1)
         C_arr = np.expand_dims(C[:n+1, n], axis=1)
@@ -132,8 +132,8 @@ if __name__ ==  "__main__":
     N_sphere = 10
     distance_squirmer = 1
     max_mode = 4
-    theta = np.array([0, 0.5, 1, 1.5]) * np.pi
-    phi = np.array([0, 0.5, 1, 1.5]) * np.pi * 1.5 + 0.1
+    theta = np.array([0, 0.5, 1, 1.5, 2]) * np.pi
+    phi = np.array([0, 0.5, 1, 1.5, 2]) * np.pi * 1.5 + 0.1
     squirmer_radius = 1
     B = np.random.uniform(size=(max_mode+1, max_mode+1))
     B_tilde = B / 2
@@ -144,4 +144,4 @@ if __name__ ==  "__main__":
     regularization_offset = 0.05
     viscosity = 1
     
-    #print(field_polar(max_mode, distance_squirmer, theta, phi, squirmer_radius, mode_array))
+    print(field_polar(max_mode, distance_squirmer, theta, phi, squirmer_radius, mode_array))
