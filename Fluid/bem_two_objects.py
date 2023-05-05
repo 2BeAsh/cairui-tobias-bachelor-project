@@ -192,74 +192,29 @@ def force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_cen
         return force_arr, x1_stacked, x2_stacked
     return force_arr 
 
+        
+def average_change_direction(N, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, mode_array, regularization_offset, viscosity):
+    # Force difference
+    force, x_vec, _ = force_surface_two_objects(N, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, 
+                                      mode_array, regularization_offset, viscosity, return_points=True)
+    force_no_target = bem.force_on_sphere(N, max_mode, squirmer_radius, mode_array, regularization_offset, viscosity)
 
-def force_average_change(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, mode_array, regularization_offset, viscosity, lab_frame=True):
-    """Calculate the force difference between when there is a target and not, plus a Gaussian noise.
-
-    Args:
-        N1 (int): Amount of object 1 points.
-        max_mode (int): The max Legendre mode available.
-        squirmer_radius (float): Radius of squirmer.
-        mode_array: list of mode arrays 
-        regularization_offset (float): epsilon that "blobs" the delta function at singularities
-        viscosity (float): Viscosity of the fluid.
-        lab_frame (bool, optional): Wheter the velocities are in lab (True) or squirmer frame (False). Defaults to True.
-
-    Returns:
-        _type_: _description_
-    """
-    # Force                            
-    force_with_target, x, _ = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, mode_array, regularization_offset, viscosity, lab_frame=True, return_points=True)
-    fx = force_with_target[:N1].T
-    fy = force_with_target[N1: 2*N1].T
-    fz = force_with_target[2*N1: 3*N1].T        
+    dfx = force[:N] - force_no_target[:N]
+    dfy = force[N: 2*N] - force_no_target[N: 2*N]
+    dfz = force[2*N: 3*N] - force_no_target[2*N: 3*N]
     
-    # Force difference 
-    force_no_target = bem.force_on_sphere(N1, max_mode, squirmer_radius, mode_array, regularization_offset, viscosity)
-    fx_no = force_no_target[:N1].T
-    fy_no = force_no_target[N1: 2*N1].T
-    fz_no = force_no_target[2*N1: 3*N1].T        
-
-    fx_diff = fx - fx_no
-    fy_diff = fy - fy_no
-    fz_diff = fz - fz_no
-    
-    # Gaussian noise
-    mean = np.mean(force_with_target) / 10  # 10 is chosen arbitrarily
-    std = np.std(force_with_target) / 10
-    # fx_diff += np.random.normal(mean, std, size=N1)  NOTE husk at uncomment når resten virker
-    # fy_diff += np.random.normal(mean, std, size=N1)
-    # fz_diff += np.random.normal(mean, std, size=N1)
-    
-    # Average direction of change
-    weight = np.sqrt(fx_diff ** 2 + fy_diff ** 2 + fz_diff ** 2)
-    x_average = np.sum(x * weight[:, None], axis=1)  # No normalization, 1 / N1
-    
-    component_wise = True
-    sum_force = False
-    if component_wise:
-        f_diff = np.stack([fx_diff, fy_diff, fz_diff])
-        x_average = np.sum(x * f_diff.T, axis=1)
-    elif sum_force:
-        x_average = np.stack([fx_diff.sum(), fy_diff.sum(), fz_diff.sum()])
-
-    return x_average
-
-
-
-def average_force_direction(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, mode_array, regularization_offset, viscosity):
-    # Forces, with and without target
-    force_with, x_surface, _ = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, mode_array, regularization_offset, viscosity, lab_frame=True, return_points=True)
-    force_without = bem.force_on_sphere(N1, max_mode, squirmer_radius, mode_array, regularization_offset, viscosity)
-    force_diff = force_with[:3*N1] - force_without[:3*N1]
-    force_diff = np.reshape(force_diff, x_surface.shape)
+    # Gaussian Noise
+    mean_noise = np.mean([dfx, dfy, dfz]) / 10  # 10 is chosen arbitrarily. NOTE should probably not depend on magnitude. All modes should have same noise.
+    std_noise = np.std([dfx, dfy, dfz]) / 10
+    dfx += np.random.normal(mean_noise, std_noise)
+    dfy += np.random.normal(mean_noise, std_noise)
+    dfz += np.random.normal(mean_noise, std_noise)
     
     # Weights
-    weight = np.sqrt(np.sum(force_diff**2, axis=1))
-    x_average = np.sum(x_surface * weight[:, None], axis=0)
-    return x_average
-    
-    
+    weight = np.sqrt(dfx ** 2 + dfy ** 2 + dfz ** 2)
+    f_average = np.sum(weight[:, None] * x_vec, axis=0)
+    f_average_norm = f_average / np.linalg.norm(f_average, ord=2)  
+    return f_average_norm
 
 
 if __name__ == "__main__":
@@ -407,7 +362,7 @@ if __name__ == "__main__":
         radius_obj2 = 1.5
         total_radius = squirmer_radius+radius_obj2
         x1_center = np.array([0, 0, 0])
-        x2_center = np.array([0.2, 1.5*total_radius, 0])
+        x2_center = np.array([0, 1.5*total_radius, 0])
         # Modes
         B = np.zeros((max_mode+1, max_mode+1))
         B_tilde = np.zeros_like(B)
@@ -432,7 +387,7 @@ if __name__ == "__main__":
         fy_diff = fy - fy_no
         fz_diff = fz - fz_no
         
-        x_change = average_force_direction(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, np.array([B, B_tilde, C, C_tilde]), eps, viscosity)
+        x_change = average_change_direction(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, np.array([B, B_tilde, C, C_tilde]), eps, viscosity)
         
         x_quiv = x1_surface[:, 0] + x1_center[0]
         y_quiv = x1_surface[:, 1] + x1_center[1]
@@ -446,9 +401,9 @@ if __name__ == "__main__":
         ax.set(xlabel="x", ylabel="y", zlabel="z")
 
         if difference:
-            ax.quiver(x_quiv, y_quiv, z_quiv, fx_diff, fy_diff, fz_diff, color="b", length=2)
+            ax.quiver(x_quiv, y_quiv, z_quiv, fx_diff, fy_diff, fz_diff, color="b")
             ax.quiver(x1_center[0], x1_center[1], x1_center[2],
-                      x_change[0], x_change[1], x_change[2], color="green", length=20)
+                      x_change[0], x_change[1], x_change[2], color="green")
             ax.set(xlim=(-squirmer_radius, squirmer_radius), ylim=(-squirmer_radius, squirmer_radius), zlim=(-squirmer_radius, squirmer_radius))
 
         else:
@@ -458,7 +413,6 @@ if __name__ == "__main__":
             ax.legend([f"Target radius={radius_obj2}", f"Squirmer Radius={squirmer_radius}"], fontsize=8)
         ax.set_title("Force field")
         plt.show()      
-        
-        
+                
         
     force_difference()

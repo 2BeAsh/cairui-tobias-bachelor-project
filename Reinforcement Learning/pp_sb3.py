@@ -1,5 +1,5 @@
 """ Notes
-Make predator prey custom environment from bottom.
+- Observation space skal inkludere de modes den tog i sidste time step.
 """
 # Imports
 import numpy as np
