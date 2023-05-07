@@ -102,7 +102,7 @@ class PredatorPreyEnv(gym.Env):
         # Modes are equal to n-sphere coordinates divided by the square root of the mode factors
         max_power = 1
         x_n_sphere = power_consumption.n_sphere_angular_to_cartesian(action, max_power)
-        mode_factors = power_consumption.constant_power_factor(squirmer_radius, self.viscosity)  # Tilføj så kun går op til max_mode, ikke 4 mode
+        mode_factors = power_consumption.constant_power_factor(squirmer_radius, self.viscosity, self.max_mode)
         mode_non_zero = mode_factors.nonzero()
         mode_array = np.zeros_like(mode_factors)
         mode_array[mode_non_zero] = x_n_sphere / np.sqrt(mode_factors[mode_non_zero].ravel())
@@ -112,8 +112,8 @@ class PredatorPreyEnv(gym.Env):
 
         # -- Update values --
         observation = self._array_float(self._average_direction_change(mode_array), shape=(3,))
-        info = {}
-        done = True  # Only one time step
+        info = {"action": action}
+        done = True  # Only one time step as the system does not evolve over time
         
         return observation, reward, done, info
 
@@ -138,7 +138,8 @@ def train(N_surface_points, squirmer_radius, target_radius, max_mode, train_tota
 
 
 # Skal rettes til denne opsætning
-def plot_info(N_surface_points, squirmer_radius, target_radius, max_mode):
+# Til visualisering kunne man plotte de top tre modes (dvs de tre modes som igennem actions blev vægtet højest) over iterationer. 
+def plot_mode_vs_time(N_surface_points, squirmer_radius, target_radius, max_mode):
     """Arguments should match that of the loaded model for correct results"""
     # Load model and create environment
     model = PPO.load("ppo_predator_prey_direction")
@@ -146,66 +147,49 @@ def plot_info(N_surface_points, squirmer_radius, target_radius, max_mode):
 
     # Run and render model
     obs = env.reset()
-    done = False
-    
-    mode_list = []
-    reward_list = []
-    
-    while not done:
-        action, _states = model.predict(obs)
-        obs, reward, done, info = env.step(action)        
-        mode_list.append(info["modes"])
-        reward_list.append(reward)
+
+    action_list = []
         
-    modes = np.array(mode_list)
-    reward_arr = np.array(reward_list)
+    action, _states = model.predict(obs)
+    obs, reward, done, info = env.step(action)        
+    action_list.append(action)
+    
+    actions = np.array(action_list)
     
     # Plot mode values over time
-    fig_mode, ax_mode = plt.subplots(dpi=150, figsize=(8, 6))
-    ax_mode.plot(modes, "--.")
-    ax_mode.set(xlabel="Time", ylabel="Mode values", title="Mode values against time")
-    ax_mode.legend([r"$B_{01}$", r"$\tilde{B}_{11}$"])
+    fig_mode, ax_mode = plt.subplots(dpi=200, figsize=(8, 12))
+    ax_mode.plot(actions, "--.")
+    ax_mode.set(xlabel="Time", ylabel="Mode weight", title="Mode weights against time")
+    legend = [r"$B_{01}$", r"$B_{02}$", r"$B_{03}$", r"$B_{04}$", r"$B_{11}$", r"$B_{12}$", r"$B_{13}$", 
+              r"$B_{14}$", r"$B_{22}$", r"$B_{23}$", r"$B_{24}$", r"$B_{33}$", r"$B_{34}$", r"$B_{44}$",
+                
+              r"$B_{tilde,11}$", r"$B_{tilde,12}$", r"$B_{tilde,13}$", r"$B_{tilde,14}$", r"$B_{tilde,22}$", 
+              r"$B_{tilde,23}$", r"$B_{tilde,24}$", r"$B_{tilde,33}$", r"$B_{tilde,34}$", r"$B_{tilde,44}$",
+              
+              r"$C_{02}$", r"$C_{03}$", r"$C_{04}$", r"$C_{12}$", r"$C_{13}$", r"$C_{14}$", 
+              r"$C_{22}$", r"$C_{23}$", r"$C_{24}$", r"$C_{33}$", r"$C_{34}$", r"$C_{44}$",
+              
+              r"$C_{tilde,12}$", r"$C_{tilde,13}$", r"$C_{tilde,14}$", r"$C_{tilde,22}$", 
+              r"$C_{tilde,23}$", r"$C_{tilde,24}$", r"$C_{tilde,33}$", r"$C_{tilde,34}$", r"$C_{tilde,44}$",
+              ]
+    ax_mode.legend(legend, fontsize=5)
     fig_mode.tight_layout()
     plt.show()
     plt.close()
     
-    # Plot target and agent position over time
-    fig_pos, ax_pos = plt.subplots(dpi=150, figsize=(3, 6))
-    color_target = cm.Reds(np.linspace(0, 1, len(target_pos[:, 0])))  # Colors gets darker with time. 
-    color_agent = cm.Blues(np.linspace(0, 1, len(agent_pos[:, 0])))
-    ax_pos.scatter(target_pos[:, 0], target_pos[:, 1], s=15, label="Target", facecolor="none", edgecolors=color_target)
-    ax_pos.scatter(agent_pos[:, 0], agent_pos[:, 1], s=8000, label="Agent", facecolor="none", edgecolors=color_agent)
-    ax_pos.set(xlabel="x", ylabel="y", xlim=(-1, 1), title="Agent and target position over time")
-    # Making a good looking legend
-    agent_legend_marker = mlines.Line2D(xdata=[], ydata=[], marker=".", markersize=10, linestyle="none", fillstyle="none", color="navy", label="Agent")
-    target_legend_marker = mlines.Line2D(xdata=[], ydata=[], marker=".", markersize=5, linestyle="none", fillstyle="none", color="firebrick", label="Target")
-    ax_pos.legend(handles=[agent_legend_marker, target_legend_marker])
-    fig_pos.tight_layout()
-    plt.show()
-    plt.close()
-                
-    # Plot reward over time
-    fig_reward, ax_reward = plt.subplots(dpi=150, figsize=(8, 6))
-    ax_reward.plot(time, reward_arr, ".--", label="Reward")
-    ax_reward.set(xlabel="Time", ylabel="Reward", title="Agent Reward against time")
-    ax_reward.legend()
-    
-    fig_reward.tight_layout()     
-    plt.show()
-
 
 # -- Run the code --
 # Parameters
-N_surface_points = 100
+N_surface_points = 80
 squirmer_radius = 1
 target_radius = 1.1
 max_mode = 4
 
-train_total_steps = int(1e5)
+train_total_steps = int(0.4e5)
 
-check_model(N_surface_points, squirmer_radius, target_radius, max_mode)
-#train(N_surface_points, squirmer_radius, target_radius, max_mode, train_total_steps)
-#plot_info(N_surface_points, squirmer_radius, target_radius, max_mode)
+#check_model(N_surface_points, squirmer_radius, target_radius, max_mode)
+train(N_surface_points, squirmer_radius, target_radius, max_mode, train_total_steps)
+#plot_mode_vs_time(N_surface_points, squirmer_radius, target_radius, max_mode)
 
 
 # If wants to see reward over time, write the following in cmd in the log directory
