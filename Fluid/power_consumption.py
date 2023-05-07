@@ -45,9 +45,10 @@ def constant_power_factor(squirmer_radius, viscosity, max_mode):
     n2 = n[2:]
     m0_common_factor = 4 * n2 * (n2 + 1) * np.pi * viscosity / (squirmer_radius ** (2*n2 + 1))
     m1 = m[1:]
-    n2m1_common_factor = (2 * n2[None, :] * (n2[None, :] + 1) * factorial(n2[None, :]+m1[:, None]) * np.pi * n2[None, :] 
-                          / (squirmer_radius ** (2*n2[None, :] + 1) * factorial(n2[None, :]-m1[:, None])))
-    n2m1_common_factor = np.tril(n2m1_common_factor, k=1)
+    with np.errstate(divide='ignore'):  # Removes the divide by zero right after. 
+        n2m1_common_factor = (2 * n2[None, :] * (n2[None, :] + 1) * factorial(n2[None, :]+m1[:, None]) * np.pi * n2[None, :] 
+                            / (squirmer_radius ** (2*n2[None, :] + 1) * factorial(n2[None, :]-m1[:, None])))
+    n2m1_common_factor = np.triu(n2m1_common_factor, k=-1)  # remove m > n cases
         
     # n == 1
     mode_factors[0, :2, 1] = n1_common_factor  # B01 and #B11
@@ -69,4 +70,7 @@ def constant_power_factor(squirmer_radius, viscosity, max_mode):
 
 if __name__ == "__main__":
     factors = constant_power_factor(squirmer_radius=1.5, viscosity=1, max_mode=4)
+    #print(np.count_nonzero(factors))
+    factors_non_zero = factors[np.nonzero(factors)].ravel()
     print(np.array_str(factors, precision=2, suppress_small=True))  # Easier to compare when printing fewer decimalts    
+    print(np.array_str(factors_non_zero, precision=2, suppress_small=True))
