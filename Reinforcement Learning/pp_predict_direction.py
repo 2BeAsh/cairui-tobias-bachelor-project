@@ -185,7 +185,7 @@ squirmer_radius = 1
 target_radius = 1.1
 max_mode = 4
 
-train_total_steps = int(0.4e5)
+train_total_steps = int(2e5)
 
 #check_model(N_surface_points, squirmer_radius, target_radius, max_mode)
 train(N_surface_points, squirmer_radius, target_radius, max_mode, train_total_steps)
