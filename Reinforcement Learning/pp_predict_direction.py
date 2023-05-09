@@ -139,8 +139,20 @@ def train(N_surface_points, squirmer_radius, target_radius, max_mode, train_tota
 
 # Skal rettes til denne opsætning
 # Til visualisering kunne man plotte de top tre modes (dvs de tre modes som igennem actions blev vægtet højest) over iterationer. 
-def plot_mode_vs_time(N_surface_points, squirmer_radius, target_radius, max_mode):
-    """Arguments should match that of the loaded model for correct results"""
+def plot_mode_vs_time(N_surface_points, N_iter, squirmer_radius, target_radius, max_mode):
+    """Plot the actions taken at different iterations. Actions correspond to the weight/importance a mode is given.
+    Color goes from bright to dark with increasing n and m values."""
+    
+    B_names = [r"$B_{01}$", r"$B_{02}$", r"$B_{03}$", r"$B_{04}$", r"$B_{11}$", r"$B_{12}$", r"$B_{13}$", 
+               r"$B_{14}$", r"$B_{22}$", r"$B_{23}$", r"$B_{24}$", r"$B_{33}$", r"$B_{34}$", r"$B_{44}$",]
+    B_tilde_names = [r"$B_{tilde,11}$", r"$B_{tilde,12}$", r"$B_{tilde,13}$", r"$B_{tilde,14}$", r"$B_{tilde,22}$", 
+                     r"$B_{tilde,23}$", r"$B_{tilde,24}$", r"$B_{tilde,33}$", r"$B_{tilde,34}$", r"$B_{tilde,44}$",]
+    C_names = [r"$C_{02}$", r"$C_{03}$", r"$C_{04}$", r"$C_{12}$", r"$C_{13}$", r"$C_{14}$", 
+               r"$C_{22}$", r"$C_{23}$", r"$C_{24}$", r"$C_{33}$", r"$C_{34}$", r"$C_{44}$",]
+    C_tilde_names = [r"$C_{tilde,12}$", r"$C_{tilde,13}$", r"$C_{tilde,14}$", r"$C_{tilde,22}$", 
+                     r"$C_{tilde,23}$", r"$C_{tilde,24}$", r"$C_{tilde,33}$", r"$C_{tilde,34}$", r"$C_{tilde,44}$",]
+    
+    
     # Load model and create environment
     model = PPO.load("ppo_predator_prey_direction")
     env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, max_mode)
@@ -148,18 +160,33 @@ def plot_mode_vs_time(N_surface_points, squirmer_radius, target_radius, max_mode
     # Run and render model
     obs = env.reset()
 
-    action_list = []
-        
-    action, _states = model.predict(obs)
-    obs, reward, done, info = env.step(action)        
-    action_list.append(action)
+    B_actions = np.empty((N_iter, len(B_names)))
+    B_tilde_actions = np.empty((N_iter, len(B_tilde_names)))
+    C_actions = np.empty((N_iter, len(C_names)))
+    C_tilde_actions = np.empty((N_iter, len(C_tilde_names)))
     
-    actions = np.array(action_list)
     
-    # Plot mode values over time
-    fig_mode, ax_mode = plt.subplots(dpi=200, figsize=(8, 12))
-    ax_mode.plot(actions, "--.")
-    ax_mode.set(xlabel="Time", ylabel="Mode weight", title="Mode weights against time")
+    for i in range(N_iter):
+        action, _states = model.predict(obs)
+        obs, reward, done, info = env.step(action)
+        B_actions[i, :] = action[: len(B_names)]
+        B_tilde_actions[i, :] = action[len(B_names): len(B_names)+len(B_tilde_names)]
+        C_actions[i, :] = action[len(B_names)+len(B_tilde_names) : len(B_names)+len(B_tilde_names)+len(C_names)]
+        C_tilde_actions[i, :] = action[-len(C_tilde_actions): -1]
+    
+    # Plot mode values over iterations
+    fig, ax = plt.subplots(dpi=200, figsize=(8, 12))
+    ax.set(xlabel="Time", ylabel="Mode weight", title="Mode weights against time", xlim=(-0.5, N_iter-0.5))
+
+    B_line = ax.plot(np.arange(N_iter), B_actions, "--.", label=B_names)
+    B_tilde_line = ax.plot(np.arange(N_iter), B_tilde_actions, "--.", label=B_tilde_names)
+
+    # Legend
+    lines = ax.get_lines()
+    B_legend = plt.legend(lines[i] for i in np.arange())
+    # https://stackoverflow.com/questions/12761806/matplotlib-2-different-legends-on-same-graph
+    
+    
     legend = [r"$B_{01}$", r"$B_{02}$", r"$B_{03}$", r"$B_{04}$", r"$B_{11}$", r"$B_{12}$", r"$B_{13}$", 
               r"$B_{14}$", r"$B_{22}$", r"$B_{23}$", r"$B_{24}$", r"$B_{33}$", r"$B_{34}$", r"$B_{44}$",
                 
@@ -172,10 +199,9 @@ def plot_mode_vs_time(N_surface_points, squirmer_radius, target_radius, max_mode
               r"$C_{tilde,12}$", r"$C_{tilde,13}$", r"$C_{tilde,14}$", r"$C_{tilde,22}$", 
               r"$C_{tilde,23}$", r"$C_{tilde,24}$", r"$C_{tilde,33}$", r"$C_{tilde,34}$", r"$C_{tilde,44}$",
               ]
-    ax_mode.legend(legend, fontsize=5)
-    fig_mode.tight_layout()
+    
+    fig.tight_layout()
     plt.show()
-    plt.close()
     
 
 # -- Run the code --
@@ -184,12 +210,13 @@ N_surface_points = 80
 squirmer_radius = 1
 target_radius = 1.1
 max_mode = 4
+N_iter = 2
 
 train_total_steps = int(2e5)
 
 #check_model(N_surface_points, squirmer_radius, target_radius, max_mode)
-train(N_surface_points, squirmer_radius, target_radius, max_mode, train_total_steps)
-#plot_mode_vs_time(N_surface_points, squirmer_radius, target_radius, max_mode)
+#train(N_surface_points, squirmer_radius, target_radius, max_mode, train_total_steps)
+plot_mode_vs_time(N_surface_points, N_iter, squirmer_radius, target_radius, max_mode)
 
 
 # If wants to see reward over time, write the following in cmd in the log directory
