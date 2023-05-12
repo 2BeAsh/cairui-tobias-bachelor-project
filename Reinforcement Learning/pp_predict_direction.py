@@ -149,8 +149,8 @@ def train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noi
     model.save("ppo_predator_prey_direction")
 
 
-# Skal rettes til denne opsætning
-# Til visualisering kunne man plotte de top tre modes (dvs de tre modes som igennem actions blev vægtet højest) over iterationer. 
+
+#Plotter alle i én figur
 def plot_mode_vs_time(N_surface_points, N_iter, squirmer_radius, target_radius, max_mode, sensor_noise):
     """Plot the actions taken at different iterations. Actions correspond to the weight/importance a mode is given.
     Color goes from bright to dark with increasing n and m values."""
@@ -232,7 +232,8 @@ def plot_mode_vs_time(N_surface_points, N_iter, squirmer_radius, target_radius, 
     plt.show()
     
     
-def plot_mode_choice(N_surface_points, N_iter, squirmer_radius, target_radius, max_mode, sensor_noise):
+# Opdeler i fire subplots, enten efter n eller mode
+def plot_mode_choice(N_surface_points, N_iter, squirmer_radius, target_radius, max_mode, sensor_noise, seperate_modes=True):
     """Plot the actions taken at different iterations. Actions correspond to the weight/importance a mode is given.
     Color goes from bright to dark with increasing n and m values."""
     # Add more colors
@@ -291,15 +292,14 @@ def plot_mode_choice(N_surface_points, N_iter, squirmer_radius, target_radius, m
         axis.legend(label, fontsize=4, bbox_to_anchor=(1.05, 1), 
                     loc='upper left', borderaxespad=0.)
 
-        
-    seperate_letters = False
-    seperate_n = True
-    if seperate_letters:
+
+    if seperate_modes:
         fill_axis(ax1, B_actions, ".", B_names, title=r"$B$ weights")
         fill_axis(ax2, B_tilde_actions, ".", B_tilde_names, title=r"$\tilde{B}$ weights")
         fill_axis(ax3, C_actions, ".", C_names, title=r"$C$ weights")
         fill_axis(ax4, C_tilde_actions, ".", C_tilde_names, title=r"$\tilde{C}$ weights")
-    elif seperate_n:
+        figname = f"mode_weight_seperate_mode_noise{sensor_noise}.png"
+    else:  # Seperate n
         n1_names = [r"$B_{01}$", r"$B_{11}$", 
                     r"$\tilde{B}_{01}$"]
         n2_names = [r"$B_{02}$", r"$B_{12}$", r"$B_{22}$", 
@@ -338,6 +338,8 @@ def plot_mode_choice(N_surface_points, N_iter, squirmer_radius, target_radius, m
                         C_actions[i, 2], C_actions[i, 5], C_actions[i, 8], C_actions[i, 10], C_actions[i, 11],
                         C_tilde_actions[i, 2], C_tilde_actions[i, 5], C_tilde_actions[i, 7], C_tilde_actions[i, 8]
             ]
+            figname = f"mode_weight_seperate_n_noise{sensor_noise}.png"
+            
         fill_axis(ax1, n1, ".", n1_names, title=r"$n=1$ weights")
         fill_axis(ax2, n2, ".", n2_names, title=r"$n=2$ weights")
         fill_axis(ax3, n3, ".", n3_names, title=r"$n=3$ weights")
@@ -352,9 +354,9 @@ def plot_mode_choice(N_surface_points, N_iter, squirmer_radius, target_radius, m
     ax3.set_xticklabels(xticks, rotation=20, size=5)
     ax4.set(xlabel="Iteration", xticks=(np.arange(N_iter)), yticks=[])
     ax4.set_xticklabels(xticks, rotation=20, size=5)
-    plt.title(f"Noise = {sensor_noise}")
-    
+    fig.suptitle(f"Mode weight over iterations, Noise = {sensor_noise}", fontsize=10)
     fig.tight_layout()
+    plt.savefig("Reinforcement Learning/Recordings/Images/" + figname)
     plt.show()
 
 # -- Run the code --
@@ -364,18 +366,18 @@ squirmer_radius = 1
 target_radius = 1.1
 max_mode = 4
 N_iter = 5
-sensor_noise = 0.05  
+sensor_noise = 0.1
 # Sensor noise resultater:
-    # 0.2 200k skridt: Oscillerer 0.5
-    # 0.15 100k skridt: Oscillerer 0.55
-    # 0.05 300k skridt:  
+    # 0.2 200k skridt, maxmode 4: Oscillerer 0.5
+    # 0.15 100k skridt, maxmode 4: Oscillerer 0.55
+    # 0.10 160k skridt, maxmode 4: 
+    # 0.05 300k skridt, maxmode 4: Konvergerer og oscillerer 8.25
 
-train_total_steps = int(3e5)
+train_total_steps = int(1.6e5)
 
 #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise)
 train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, train_total_steps)
-#plot_mode_vs_time(N_surface_points, N_iter, squirmer_radius, target_radius, max_mode, sensor_noise)
-#plot_mode_choice(N_surface_points, N_iter, squirmer_radius, target_radius, max_mode, sensor_noise)
+#plot_mode_choice(N_surface_points, N_iter, squirmer_radius, target_radius, max_mode, sensor_noise, seperate_modes=False)
 
 
 # If wants to see reward over time, write the following in cmd in the log directory
