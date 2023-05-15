@@ -51,7 +51,10 @@ class PredatorPreyEnv(gym.Env):
         
         # -- Define action and observation space --
         # Actions: Strength of Legendre Modes
-        number_of_modes = 45  # Counted from power factors.
+        if max_mode == 4:
+            number_of_modes = 45  # Counted from power factors.
+        elif max_mode == 3:
+            number_of_modes = 27
         action_shape = (number_of_modes-1,)  # Weight of each mode. -1 because radius fixed. Skal måske reduceres til færre actions, dvs. færre modes.
         self.action_space = spaces.Box(low=-1, high=1, shape=action_shape, dtype=np.float32)
 
@@ -241,6 +244,29 @@ def plot_mode_choice(N_surface_points, N_iter, squirmer_radius, target_radius, m
                                                         'purple', 'pink', 'brown', 'orange', 'teal', 'coral', 'lightblue', 
                                                         'lime', 'lavender', 'turquoise', 'darkgreen', 'tan', 'salmon', 'gold'])
 
+    # Names
+    B_names = []
+    B_tilde_names = []
+    C_names = []
+    C_tilde_names = []
+    for i in range(max_mode+1):
+        for j in range(i, max_mode+1):
+            B_str = r"$B_{" + str(i) + str(j) + r"}$"
+            B_names.append(B_str)
+            
+            if i > 0:
+                B_tilde_str = r"$\tilde{B}_{" + str(i) + str(j) + r"}$"
+                C_str = r"$C_{" + str(i) + str(j) + r"}$"
+                B_tilde_names.append(B_tilde_str)
+                C_names.append(C_str)
+            elif i > 1:
+                C_tilde_str = r"$\tilde{C}_{" + str(i) + str(j) + r"}$"
+                C_tilde_names.append(C_tilde_str)
+            
+    print(B_names)
+    print(B_tilde_names)
+    print(C_names)
+    print(C_tilde_names)            
     B_names = [r"$B_{01}$", r"$B_{02}$", r"$B_{03}$", r"$B_{04}$", r"$B_{11}$", r"$B_{12}$", r"$B_{13}$", 
                r"$B_{14}$", r"$B_{22}$", r"$B_{23}$", r"$B_{24}$", r"$B_{33}$", r"$B_{34}$", r"$B_{44}$",]
     B_tilde_names = [r"$\tilde{B}_{11}$", r"$\tilde{B}_{12}$", r"$\tilde{B}_{13}$", r"$\tilde{B}_{14}$", r"$\tilde{B}_{22}$", 
@@ -323,27 +349,34 @@ def plot_mode_choice(N_surface_points, N_iter, squirmer_radius, target_radius, m
             n1[i, :] = [B_actions[i, 0], B_actions[i, 4], 
                         B_tilde_actions[i, 0]
             ]
-            n2[i, :] = [B_actions[i, 1], B_actions[i, 5], B_actions[i, 8], 
-                        B_tilde_actions[i, 1], B_tilde_actions[i, 4],
-                        C_actions[i, 0], C_actions[i, 3], C_actions[i, 6],
-                        C_tilde_actions[i, 0], C_tilde_actions[i, 3]
-            ]            
-            n3[i, :] = [B_actions[i, 2], B_actions[i, 6], B_actions[i, 9], B_actions[i, 11],
-                        B_tilde_actions[i, 2], B_tilde_actions[i, 5], B_tilde_actions[i, 7], 
-                        C_actions[i, 1], C_actions[i, 4], C_actions[i, 7], C_actions[i, 9],
-                        C_tilde_actions[i, 1], C_tilde_actions[i, 4], C_tilde_actions[i, 6]
-            ]
-            n4[i, :] = [B_actions[i, 3], B_actions[i, 7], B_actions[i, 10], B_actions[i, 12], B_actions[i, 13],
-                        B_tilde_actions[i, 3], B_tilde_actions[i, 6], B_tilde_actions[i, 8], B_tilde_actions[i, 9],
-                        C_actions[i, 2], C_actions[i, 5], C_actions[i, 8], C_actions[i, 10], C_actions[i, 11],
-                        C_tilde_actions[i, 2], C_tilde_actions[i, 5], C_tilde_actions[i, 7], C_tilde_actions[i, 8]
-            ]
+            fill_axis(ax1, n1, ".", n1_names, title=r"$n=1$ weights")
+
+            if max_mode > 1:
+                n2[i, :] = [B_actions[i, 1], B_actions[i, 5], B_actions[i, 8], 
+                            B_tilde_actions[i, 1], B_tilde_actions[i, 4],
+                            C_actions[i, 0], C_actions[i, 3], C_actions[i, 6],
+                            C_tilde_actions[i, 0], C_tilde_actions[i, 3]
+                ]            
+                fill_axis(ax2, n2, ".", n2_names, title=r"$n=2$ weights")
+                
+            if max_mode > 2:
+                n3[i, :] = [B_actions[i, 2], B_actions[i, 6], B_actions[i, 9], B_actions[i, 11],
+                            B_tilde_actions[i, 2], B_tilde_actions[i, 5], B_tilde_actions[i, 7], 
+                            C_actions[i, 1], C_actions[i, 4], C_actions[i, 7], C_actions[i, 9],
+                            C_tilde_actions[i, 1], C_tilde_actions[i, 4], C_tilde_actions[i, 6]
+                ]
+                fill_axis(ax3, n3, ".", n3_names, title=r"$n=3$ weights")
+
+            if max_mode > 3:
+                n4[i, :] = [B_actions[i, 3], B_actions[i, 7], B_actions[i, 10], B_actions[i, 12], B_actions[i, 13],
+                            B_tilde_actions[i, 3], B_tilde_actions[i, 6], B_tilde_actions[i, 8], B_tilde_actions[i, 9],
+                            C_actions[i, 2], C_actions[i, 5], C_actions[i, 8], C_actions[i, 10], C_actions[i, 11],
+                            C_tilde_actions[i, 2], C_tilde_actions[i, 5], C_tilde_actions[i, 7], C_tilde_actions[i, 8]
+                ]
+                fill_axis(ax4, n4, ".", n4_names, title=r"$n=4$ weights")
+
             figname = f"mode_weight_seperate_n_noise{sensor_noise}.png"
             
-        fill_axis(ax1, n1, ".", n1_names, title=r"$n=1$ weights")
-        fill_axis(ax2, n2, ".", n2_names, title=r"$n=2$ weights")
-        fill_axis(ax3, n3, ".", n3_names, title=r"$n=3$ weights")
-        fill_axis(ax4, n4, ".", n4_names, title=r"$n=4$ weights")
     
     xticks = []
     for reward in rewards:
@@ -364,16 +397,19 @@ def plot_mode_choice(N_surface_points, N_iter, squirmer_radius, target_radius, m
 N_surface_points = 80
 squirmer_radius = 1
 target_radius = 1.1
-max_mode = 4
+max_mode = 3
 N_iter = 5
 sensor_noise = 0.1
-# Sensor noise resultater:
-    # 0.2 200k skridt, maxmode 4: Oscillerer 0.5
-    # 0.15 100k skridt, maxmode 4: Oscillerer 0.55
-    # 0.10 160k skridt, maxmode 4: 
-    # 0.05 300k skridt, maxmode 4: Konvergerer og oscillerer 8.25
+# -- Sensor noise resultater: --
+# Max mode 4:
+    # 0.20, 200k skridt: Oscillerer 0.5
+    # 0.15, 100k skridt: Oscillerer 0.55
+    # 0.10, 160k skridt: ikke konvergeret endnu
+    # 0.05, 300k skridt: Konvergerer og oscillerer 0.825
+# Max mode 3:
+    # 0.1, 200k skridt: 
 
-train_total_steps = int(1.6e5)
+train_total_steps = int(2e5)
 
 #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise)
 train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, train_total_steps)
