@@ -1,5 +1,5 @@
 """ Notes
-Make predator prey custom environment from bottom.
+- Observation space skal inkludere de modes den tog i sidste time step.
 """
 # Imports
 import numpy as np
@@ -24,7 +24,6 @@ from stable_baselines3.common.evaluation import evaluate_policy
 sys.path.append('./Fluid')
 import field_velocity
 import power_consumption
-import n_sphere
 
 
 # Environment
@@ -177,7 +176,7 @@ class PredatorPreyEnv(gym.Env):
         C_tilde = np.zeros_like(B)
         if self.cap_modes == "less":
             B_10, B_tilde_11  = (action[1] + 1) / 2 * np.sin(action[0] * np.pi), (action[2] + 1) / 2 * np.cos(action[0] * np.pi)
-            B[1, 0] = B_01 
+            B[1, 0] = B_10
             B_tilde[1, 1] = B_tilde_11
             mode_array = np.array([B, B_tilde, C, C_tilde])
         elif self.cap_modes == "constant":
@@ -190,7 +189,7 @@ class PredatorPreyEnv(gym.Env):
             # Modes are equal to n-sphere coordinates divided by the square root of the mode factors
             # NOTE har man brug for at kvadrere noget? 
             max_power = 1
-            x_n_sphere = n_sphere.angular_to_cartesian(action, max_power)
+            x_n_sphere = power_consumption.n_sphere_angular_to_cartesian(action, max_power)
             mode_factors = power_consumption.constant_power_factor(squirmer_radius, self.viscosity)
             mode_non_zero = mode_factors.nonzero()
             mode_array = np.zeros_like(mode_factors)
@@ -403,9 +402,9 @@ def plot_info(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start
 squirmer_radius = 1
 spawn_radius = 5
 legendre_modes = 2  # DOES NOT WORK FOR >2
-scale_canvas = 1.4  # Makes everything factor smaller / zoomed out
+scale_canvas = 1.4  # Makes everything on the canvas a factor smaller / zoomed out
 start_angle = np.pi/ 2
-cap_modes = "constant power"  # "less", "uncapped", "constant", "constant power"
+cap_modes = "constant power"  # Options: "less", "uncapped", "constant", "constant power"
 lab_frame = True
 
 train_total_steps = int(8e5)
@@ -417,4 +416,5 @@ check_model(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_a
 #plot_info(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
 
 
+# If wants to see reward over time, write the following in cmd in the log directory
 # tensorboard --logdir=.

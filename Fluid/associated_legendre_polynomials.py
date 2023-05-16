@@ -12,6 +12,7 @@ def associated_legendre_poly(n, m, x):
     Returns:
         (1d array of floats size x): P_n^m(x)
     """
+    assert n <= 4
     if n == 1 and m == 0:
         return np.cos(x)
     elif n == 2 and m == 0:
@@ -53,6 +54,7 @@ def associated_legendre_poly_m_sin(n, m, x):
     Returns:
         (1d array of floats size x): P_n^m(x) * m / sin(x)
     """
+    assert n <= 4
     if n == 1 and m == 0:
         return np.cos(x)
     elif n == 2 and m == 0:
@@ -94,6 +96,7 @@ def associated_legendre_poly_deriv_sin(n, m, x):
     Returns:
         (1d array of floats size x): P'_n^m(x) * sin(x)
     """
+    assert n <= 4
     if n == 1 and m == 0:
         return 1 * np.sin(x)
     elif n == 2 and m == 0: #done
