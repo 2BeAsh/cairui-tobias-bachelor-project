@@ -152,7 +152,7 @@ def train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noi
     
     
 # Opdeler i fire subplots, enten efter n eller mode
-def plot_action_choice(N_surface_points, N_iter, squirmer_radius, target_radius, max_mode, sensor_noise, seperate_modes=True):
+def plot_action_choice(N_surface_points, N_iter, squirmer_radius, target_radius, max_mode, sensor_noise, PPO_number, seperate_modes=True):
     """Plot the actions taken at different iterations. Actions correspond to the weight/importance a mode is given.
     Color goes from bright to dark with increasing n and m values."""
     # Add more colors
@@ -353,7 +353,6 @@ def plot_mode_choice(N_surface_points, N_iter, squirmer_radius, target_radius, m
     rewards = np.empty((N_iter))
     guessed_angles = np.empty((N_iter))
     # Load model and create environment
-    PPO_number = 8
     model_path = f"Reinforcement Learning/Training/Logs_direction/PPO_{PPO_number}/predict_direction"
     model = PPO.load(model_path)
     env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise)
@@ -374,7 +373,6 @@ def plot_mode_choice(N_surface_points, N_iter, squirmer_radius, target_radius, m
         mode_array = np.zeros_like(power_factors)
         mode_array[power_non_zero] = x_n_sphere / np.sqrt(power_factors[power_non_zero].ravel())
         
-        # OBS CHECK OM RAVELLING PASSER MED NAVNENE AF MODES
         B_actions[i, :] = mode_array[0][np.nonzero(mode_array[0])]
         B_tilde_actions[i, :] = mode_array[1][np.nonzero(mode_array[1])]
         C_actions[i, :] = mode_array[2][np.nonzero(mode_array[2])]
@@ -389,7 +387,7 @@ def plot_mode_choice(N_surface_points, N_iter, squirmer_radius, target_radius, m
 
 
     def fill_axis(axis, y, marker, label, title):        
-        axis.set(xticks=[], title=(title, 7), ylim=(-0.25, 0.25))
+        axis.set(xticks=[], title=(title, 7), ylim=(-0.17, 0.17))
         axis.set_title(title, fontsize=7)
         axis.plot(y, marker=marker, ls="--", lw=0.75)
         axis.legend(label, fontsize=4, bbox_to_anchor=(1.05, 1), 
@@ -401,7 +399,7 @@ def plot_mode_choice(N_surface_points, N_iter, squirmer_radius, target_radius, m
         fill_axis(ax2, B_tilde_actions, ".", B_tilde_names, title=r"$\tilde{B}$ weights")
         fill_axis(ax3, C_actions, ".", C_names, title=r"$C$ weights")
         fill_axis(ax4, C_tilde_actions, ".", C_tilde_names, title=r"$\tilde{C}$ weights")
-        figname = f"mode_seperate_mode_noise{sensor_noise}.png"
+        figname = f"mode_seperate_mode_noise{sensor_noise}_maxmode{max_mode}.png"
     else:  # Seperate n
         n1_names = [r"$B_{01}$", r"$B_{11}$", 
                     r"$\tilde{B}_{01}$"]
@@ -458,7 +456,7 @@ def plot_mode_choice(N_surface_points, N_iter, squirmer_radius, target_radius, m
     guessed_angles = guessed_angles * 180 / np.pi
     xticks = []
     for reward, guess_angle in zip(rewards, guessed_angles):
-        tick_str = f"Reward: {np.round(reward, 2)}\nAngle: {np.round(guess_angle, 2)}"
+        tick_str = f"Reward: {np.round(reward, 2)}\nGuessed Angle: {np.round(guess_angle, 2)}"
         xticks.append(tick_str)
     
     ax2.set(yticks=[])
@@ -479,8 +477,9 @@ target_radius = 1.1
 max_mode = 3
 N_iter = 5
 viscosity = 1
-sensor_noise = 0.05
-train_total_steps = int(10)
+sensor_noise = 0.01
+PPO_number = 9  # For which model to load when plotting, after training
+train_total_steps = int(1.6e5)
 
 # -- Sensor noise resultater: --
 # Max mode 4:
@@ -490,7 +489,6 @@ train_total_steps = int(10)
     # 0.05, 300k skridt: Konvergerer og oscillerer 0.825
 # Max mode 3:
     # 0.1, 200k skridt: 
-
 
 
 #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise)
