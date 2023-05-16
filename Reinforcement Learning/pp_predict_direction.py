@@ -399,7 +399,7 @@ def plot_mode_choice(N_surface_points, N_iter, squirmer_radius, target_radius, m
         fill_axis(ax2, B_tilde_actions, ".", B_tilde_names, title=r"$\tilde{B}$ weights")
         fill_axis(ax3, C_actions, ".", C_names, title=r"$C$ weights")
         fill_axis(ax4, C_tilde_actions, ".", C_tilde_names, title=r"$\tilde{C}$ weights")
-        figname = f"mode_seperate_mode_noise{sensor_noise}_maxmode{max_mode}.png"
+        figname = f"mode_seperate_mode_noise{sensor_noise}_maxmode{max_mode}_targetradius{target_radius}.png"
     else:  # Seperate n
         n1_names = [r"$B_{01}$", r"$B_{11}$", 
                     r"$\tilde{B}_{01}$"]
@@ -473,12 +473,12 @@ def plot_mode_choice(N_surface_points, N_iter, squirmer_radius, target_radius, m
 # Parameters
 N_surface_points = 80
 squirmer_radius = 1
-target_radius = 1.1
+target_radius = 0.5
 max_mode = 3
 N_iter = 5
 viscosity = 1
 sensor_noise = 0.01
-PPO_number = 9  # For which model to load when plotting, after training
+PPO_number = 10  # For which model to load when plotting, after training
 train_total_steps = int(1.6e5)
 
 # -- Sensor noise resultater: --
@@ -494,7 +494,7 @@ train_total_steps = int(1.6e5)
 #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise)
 #train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, train_total_steps)
 #plot_action_choice(N_surface_points, N_iter, squirmer_radius, target_radius, max_mode, sensor_noise, seperate_modes=False)
-plot_mode_choice(N_surface_points, N_iter, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, seperate_modes=True)
+#plot_mode_choice(N_surface_points, N_iter, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, seperate_modes=True)
 
 # If wants to see reward over time, write the following in cmd in the log directory
 # tensorboard --logdir=.
