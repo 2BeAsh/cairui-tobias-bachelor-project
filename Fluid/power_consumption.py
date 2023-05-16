@@ -45,7 +45,7 @@ def constant_power_factor(squirmer_radius, viscosity, max_mode):
     n2 = n[2:]
     m0_common_factor = 4 * n2 * (n2 + 1) * np.pi * viscosity / (squirmer_radius ** (2*n2 + 1))
     m1 = m[1:]
-    with np.errstate(divide='ignore'):  # Removes the divide by zero right after. 
+    with np.errstate(divide='ignore'):  # Removes the divide by zero right after, so no need for warning
         n2m1_common_factor = (2 * n2[None, :] * (n2[None, :] + 1) * factorial(n2[None, :]+m1[:, None]) * np.pi * n2[None, :] 
                             / (squirmer_radius ** (2*n2[None, :] + 1) * factorial(n2[None, :]-m1[:, None])))
     n2m1_common_factor = np.triu(n2m1_common_factor, k=-1)  # remove m > n cases
