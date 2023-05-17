@@ -43,7 +43,7 @@ def oseen_tensor_surface_two_objects(x_1, x_2, x1_center, x2_center, dA, regular
 
     Args:
         x_1 ((N, 3)-array): Coordinates for each point on the first object's surface centered around (0,0,0)
-        x_1 ((N, 3)-array): Coordinates for each point on the second object's surface centered around (0,0,0)
+        x_2 ((N, 3)-array): Coordinates for each point on the second object's surface centered around (0,0,0)
         center_vector (3, 1)-array: Vector that points from object 1's center to object 2's center
         epsilon (float): The regularization offset
         dA (float): Area of each patch, assumed the same for all points
@@ -359,13 +359,13 @@ if __name__ == "__main__":
         radius_obj2 = 1.5
         total_radius = squirmer_radius+radius_obj2
         x1_center = np.array([0, 0, 0])
-        x2_center = np.array([0, 1.5*total_radius, 0])
+        x2_center = np.array([0, 0.6*total_radius, 0.9*total_radius])
         # Modes
         B = np.zeros((max_mode+1, max_mode+1))
         B_tilde = np.zeros_like(B)
         C = np.zeros_like(B)
         C_tilde = np.zeros_like(B)
-        B_tilde[1, 2] = 1
+        B[0, 1] = 1
 
         # Force                            
         force_with_condition, x1_surface, _ = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, np.array([B, B_tilde, C, C_tilde]), eps, viscosity, lab_frame=True, return_points=True)
