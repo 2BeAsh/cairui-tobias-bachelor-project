@@ -73,4 +73,4 @@ if __name__ == "__main__":
     #print(np.count_nonzero(factors))
     factors_non_zero = factors[np.nonzero(factors)].ravel()
     print(np.array_str(factors, precision=2, suppress_small=True))  # Easier to compare when printing fewer decimalts    
-    print(np.array_str(factors_non_zero, precision=2, suppress_small=True))
+    #print(np.array_str(factors_non_zero, precision=2, suppress_small=True))
