@@ -282,7 +282,7 @@ max_mode = 3
 N_iter = 5
 viscosity = 1
 sensor_noise = 0.01
-train_total_steps = int(1.5e5)
+train_total_steps = int(1.6e5)
 
 PPO_number = 10  # For which model to load when plotting, after training
 
