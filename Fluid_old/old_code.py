@@ -117,3 +117,159 @@ def discretized_sphere(N, radius):
     # The area of each patch is approximated by surface area divided by number of points
     area = 4 * np.pi * radius ** 2 / N
     return x, y, z, theta, phi, area
+
+
+
+# Fra Prediction træning plot
+# Opdeler i fire subplots, enten efter n eller mode
+def plot_action_choice(N_surface_points, N_iter, squirmer_radius, target_radius, max_mode, sensor_noise, PPO_number, seperate_modes=True):
+    """Plot the actions taken at different iterations. Actions correspond to the weight/importance a mode is given.
+    Color goes from bright to dark with increasing n and m values."""
+    # Add more colors
+    mpl.rcParams["axes.prop_cycle"] = mpl.cycler(color=['blue', 'green', 'red', 'cyan', 'magenta', 'yellow', 'black', 
+                                                        'purple', 'pink', 'brown', 'orange', 'teal', 'coral', 'lightblue', 
+                                                        'lime', 'lavender', 'turquoise', 'darkgreen', 'tan', 'salmon', 'gold'])
+
+    # Names
+    B_names = []
+    B_tilde_names = []
+    C_names = []
+    C_tilde_names = []
+    for i in range(max_mode+1):
+        for j in range(i, max_mode+1):
+            B_str = r"$B_{" + str(i) + str(j) + r"}$"
+            B_names.append(B_str)
+            
+            if i > 0:
+                B_tilde_str = r"$\tilde{B}_{" + str(i) + str(j) + r"}$"
+                C_str = r"$C_{" + str(i) + str(j) + r"}$"
+                B_tilde_names.append(B_tilde_str)
+                C_names.append(C_str)
+            elif i > 1:
+                C_tilde_str = r"$\tilde{C}_{" + str(i) + str(j) + r"}$"
+                C_tilde_names.append(C_tilde_str)
+            
+    B_names = [r"$B_{01}$", r"$B_{02}$", r"$B_{03}$", r"$B_{04}$", r"$B_{11}$", r"$B_{12}$", r"$B_{13}$", 
+               r"$B_{14}$", r"$B_{22}$", r"$B_{23}$", r"$B_{24}$", r"$B_{33}$", r"$B_{34}$", r"$B_{44}$",]
+    B_tilde_names = [r"$\tilde{B}_{11}$", r"$\tilde{B}_{12}$", r"$\tilde{B}_{13}$", r"$\tilde{B}_{14}$", r"$\tilde{B}_{22}$", 
+                     r"$\tilde{B}_{23}$", r"$\tilde{B}_{24}$", r"$\tilde{B}_{33}$", r"$\tilde{B}_{34}$", r"$\tilde{B}_{44}$",]
+    C_names = [r"$C_{02}$", r"$C_{03}$", r"$C_{04}$", r"$C_{12}$", r"$C_{13}$", r"$C_{14}$", 
+               r"$C_{22}$", r"$C_{23}$", r"$C_{24}$", r"$C_{33}$", r"$C_{34}$", r"$C_{44}$",]
+    C_tilde_names = [r"$\tilde{C}_{12}$", r"$\tilde{C}_{13}$", r"$\tilde{C}_{14}$", r"$\tilde{C}_{22}$", 
+                     r"$\tilde{C}_{23}$", r"$\tilde{C}_{24}$", r"$\tilde{C}_{33}$", r"$\tilde{C}_{34}$", r"$\tilde{C}_{44}$",]
+    
+    B_len = len(B_names)
+    B_tilde_len = len(B_tilde_names)
+    C_len = len(C_names)
+    C_tilde_len = len(C_tilde_names)
+    
+    B_actions = np.empty((N_iter, B_len))
+    B_tilde_actions = np.empty((N_iter, B_tilde_len))
+    C_actions = np.empty((N_iter, C_len))
+    C_tilde_actions = np.empty((N_iter, C_tilde_len))
+    
+    rewards = np.empty((N_iter))
+    
+    # Load model and create environment
+    model = PPO.load("ppo_predator_prey_direction")
+    env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise)
+    
+    # Run model N_iter times
+    obs = env.reset()
+    for i in range(N_iter):
+        action, _states = model.predict(obs)
+        obs, reward, done, info = env.step(action)
+        B_actions[i, :] = action[: B_len]
+        B_tilde_actions[i, :] = action[B_len: B_len+B_tilde_len]
+        C_actions[i, :] = action[B_len+B_tilde_len : B_len+B_tilde_len+C_len]
+        C_tilde_actions[i, :] = action[-C_tilde_len:]
+        rewards[i] = reward
+        
+    # Plot
+    fig, ax = plt.subplots(nrows=2, ncols=2, dpi=200)
+    ax1 = ax[0, 0]
+    ax2 = ax[0, 1]
+    ax3 = ax[1, 0]
+    ax4 = ax[1, 1]
+
+
+    def fill_axis(axis, y, marker, label, title):        
+        axis.set(xticks=[], title=(title, 7))
+        axis.set_title(title, fontsize=7)
+        axis.plot(np.abs(y), marker=marker, ls="--", lw=0.75)
+        axis.legend(label, fontsize=4, bbox_to_anchor=(1.05, 1), 
+                    loc='upper left', borderaxespad=0.)
+
+
+    if seperate_modes:
+        fill_axis(ax1, B_actions, ".", B_names, title=r"$B$ weights")
+        fill_axis(ax2, B_tilde_actions, ".", B_tilde_names, title=r"$\tilde{B}$ weights")
+        fill_axis(ax3, C_actions, ".", C_names, title=r"$C$ weights")
+        fill_axis(ax4, C_tilde_actions, ".", C_tilde_names, title=r"$\tilde{C}$ weights")
+        figname = f"mode_weight_seperate_mode_noise{sensor_noise}.png"
+    else:  # Seperate n
+        n1_names = [r"$B_{01}$", r"$B_{11}$", 
+                    r"$\tilde{B}_{01}$"]
+        n2_names = [r"$B_{02}$", r"$B_{12}$", r"$B_{22}$", 
+                    r"$\tilde{B}_{12}$", r"$\tilde{B}_{22}$",
+                    r"$C_{02}$", r"$C_{12}$", r"$C_{22}$",
+                    r"$\tilde{C}_{12}$", r"$\tilde{C}_{22}$"]
+        n3_names = [r"$B_{03}$", r"$B_{13}$", r"$B_{23}$", r"$B_{33}$",
+                    r"$\tilde{B}_{13}$", r"$\tilde{B}_{23}$", r"$\tilde{B}_{33}$", 
+                    r"$C_{03}$", r"$C_{13}$", r"$C_{23}$", r"$C_{33}$",
+                    r"$\tilde{C}_{13}$", r"$\tilde{C}_{23}$", r"$\tilde{C}_{33}$"]
+        n4_names = [r"$B_{04}$", r"$B_{14}$", r"$B_{24}$", r"$B_{34}$", r"$B_{44}$",
+                    r"$\tilde{B}_{14}$", r"$\tilde{B}_{24}$", r"$\tilde{B}_{34}$", r"$\tilde{B}_{44}$",
+                    r"$C_{04}$", r"$C_{14}$", r"$C_{24}$", r"$C_{34}$", r"$C_{44}$",
+                    r"$\tilde{C}_{14}$", r"$\tilde{C}_{24}$", r"$\tilde{C}_{34}$", r"$\tilde{C}_{44}$"]
+        
+        n1 = np.empty((N_iter, len(n1_names)))
+        n2 = np.empty((N_iter, len(n2_names)))
+        n3 = np.empty((N_iter, len(n3_names)))
+        n4 = np.empty((N_iter, len(n4_names)))
+        for i in range(N_iter):
+            n1[i, :] = [B_actions[i, 0], B_actions[i, 4], 
+                        B_tilde_actions[i, 0]
+            ]
+            fill_axis(ax1, n1, ".", n1_names, title=r"$n=1$ weights")
+
+            if max_mode > 1:
+                n2[i, :] = [B_actions[i, 1], B_actions[i, 5], B_actions[i, 8], 
+                            B_tilde_actions[i, 1], B_tilde_actions[i, 4],
+                            C_actions[i, 0], C_actions[i, 3], C_actions[i, 6],
+                            C_tilde_actions[i, 0], C_tilde_actions[i, 3]
+                ]            
+                fill_axis(ax2, n2, ".", n2_names, title=r"$n=2$ weights")
+                
+            if max_mode > 2:
+                n3[i, :] = [B_actions[i, 2], B_actions[i, 6], B_actions[i, 9], B_actions[i, 11],
+                            B_tilde_actions[i, 2], B_tilde_actions[i, 5], B_tilde_actions[i, 7], 
+                            C_actions[i, 1], C_actions[i, 4], C_actions[i, 7], C_actions[i, 9],
+                            C_tilde_actions[i, 1], C_tilde_actions[i, 4], C_tilde_actions[i, 6]
+                ]
+                fill_axis(ax3, n3, ".", n3_names, title=r"$n=3$ weights")
+
+            if max_mode > 3:
+                n4[i, :] = [B_actions[i, 3], B_actions[i, 7], B_actions[i, 10], B_actions[i, 12], B_actions[i, 13],
+                            B_tilde_actions[i, 3], B_tilde_actions[i, 6], B_tilde_actions[i, 8], B_tilde_actions[i, 9],
+                            C_actions[i, 2], C_actions[i, 5], C_actions[i, 8], C_actions[i, 10], C_actions[i, 11],
+                            C_tilde_actions[i, 2], C_tilde_actions[i, 5], C_tilde_actions[i, 7], C_tilde_actions[i, 8]
+                ]
+                fill_axis(ax4, n4, ".", n4_names, title=r"$n=4$ weights")
+
+            figname = f"mode_weight_seperate_n_noise{sensor_noise}.png"
+            
+    
+    xticks = []
+    for reward in rewards:
+        xticks.append(f"Reward: {np.round(reward, 2)}")
+    
+    ax2.set(yticks=[])
+    ax3.set(xlabel="Iteration", xticks=(np.arange(N_iter)))
+    ax3.set_xticklabels(xticks, rotation=20, size=5)
+    ax4.set(xlabel="Iteration", xticks=(np.arange(N_iter)), yticks=[])
+    ax4.set_xticklabels(xticks, rotation=20, size=5)
+    fig.suptitle(f"Mode weight over iterations, Noise = {sensor_noise}", fontsize=10)
+    fig.tight_layout()
+    plt.savefig("Reinforcement Learning/Recordings/Images/" + figname)
+    plt.show()
