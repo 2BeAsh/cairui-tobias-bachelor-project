@@ -256,7 +256,7 @@ def plot_mode_choice(N_surface_points, squirmer_radius, target_radius, max_mode,
     guessed_angles = guessed_angles * 180 / np.pi
     xticks = []
     for reward, guess_angle in zip(rewards, guessed_angles):
-        tick_str = f"Reward: {np.round(reward, 2)}\nGuessed Angle: {np.round(guess_angle, 2)}"
+        tick_str = f"R: {np.round(reward, 2)}, " + r"$\theta_g$: " + str(np.round(guess_angle, 2))
         xticks.append(tick_str)
     
     ax2.set(yticks=[])
@@ -264,7 +264,7 @@ def plot_mode_choice(N_surface_points, squirmer_radius, target_radius, max_mode,
     ax3.set_xticklabels(xticks, rotation=20, size=5)
     ax4.set(xlabel="Iteration", xticks=(np.arange(N_iter)), yticks=[])
     ax4.set_xticklabels(xticks, rotation=20, size=5)
-    fig.suptitle(f"Mode over iterations, Noise = {sensor_noise}, True angle = {np.round(angle * 180 / np.pi, 2)}", fontsize=10)
+    fig.suptitle(fr"Mode over iterations, Noise = {sensor_noise}, $\theta =${np.round(angle * 180 / np.pi, 2)}", fontsize=10)
     fig.tight_layout()
     
     figname = f"noise{sensor_noise}_maxmode{max_mode}_targetradius{target_radius}.png"            
@@ -278,14 +278,14 @@ N_surface_points = 80
 squirmer_radius = 1
 target_radius = 0.5
 tot_radius = squirmer_radius + target_radius
-target_initial_position = [2.7, 0]
+target_initial_position = [1.25*tot_radius, 0]
 max_mode = 3
 N_iter = 10
 viscosity = 1
 sensor_noise = 0.01
 train_total_steps = int(1e5)
 
-PPO_number = 11  # For which model to load when plotting, after training
+PPO_number = 14  # For which model to load when plotting, after training
 
 # -- Sensor noise resultater: --
 # Max mode 4:
@@ -298,8 +298,8 @@ PPO_number = 11  # For which model to load when plotting, after training
 
 
 #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position)
-train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, train_total_steps)
-#plot_mode_choice(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, N_iter, PPO_number, viscosity)
+#train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, train_total_steps)
+plot_mode_choice(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, N_iter, PPO_number, viscosity)
 
 # If wants to see reward over time, write the following in cmd in the log directory
 # tensorboard --logdir=.
