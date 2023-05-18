@@ -100,7 +100,6 @@ class PredatorPreyEnv(gym.Env):
 
         # Initial positions
         self._agent_position = self._array_float([0, 0], shape=(2,))  # Agent in center
-        tot_radius = self.squirmer_radius + self.target_radius
         self._target_position = self._array_float(self.target_initial_position, shape=(2,))
         
         # Initial observation is no field
@@ -116,6 +115,8 @@ class PredatorPreyEnv(gym.Env):
         max_power = 1
         x_n_sphere = power_consumption.n_sphere_angular_to_cartesian(action, max_power)  # Makes sure sums to 1
         power_factors = power_consumption.constant_power_factor(squirmer_radius, self.viscosity, self.max_mode)  # Power factors in front of modes
+        power_factors[0] *= 10
+        power_factors[0] *= 0.1
         power_non_zero = power_factors.nonzero()
         mode_array = np.zeros_like(power_factors)
         mode_array[power_non_zero] = x_n_sphere / np.sqrt(power_factors[power_non_zero].ravel())
@@ -277,14 +278,14 @@ N_surface_points = 80
 squirmer_radius = 1
 target_radius = 0.5
 tot_radius = squirmer_radius + target_radius
-target_initial_position = [0, 1.25*tot_radius,]
+target_initial_position = [2.7, 0]
 max_mode = 3
-N_iter = 5
+N_iter = 10
 viscosity = 1
 sensor_noise = 0.01
-train_total_steps = int(1.3e5)
+train_total_steps = int(1e5)
 
-PPO_number = 10  # For which model to load when plotting, after training
+PPO_number = 11  # For which model to load when plotting, after training
 
 # -- Sensor noise resultater: --
 # Max mode 4:
@@ -298,7 +299,7 @@ PPO_number = 10  # For which model to load when plotting, after training
 
 #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position)
 train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, train_total_steps)
-#plot_mode_choice(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, N_iter PPO_number, viscosity)
+#plot_mode_choice(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, N_iter, PPO_number, viscosity)
 
 # If wants to see reward over time, write the following in cmd in the log directory
 # tensorboard --logdir=.
