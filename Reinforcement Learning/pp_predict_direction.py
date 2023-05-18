@@ -30,22 +30,22 @@ class PredatorPreyEnv(gym.Env):
     """Gym environment for a predator-prey system in a fluid."""
 
 
-    def __init__(self, N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise):
+    def __init__(self, N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position):
         #super().__init__() - ingen anelse om hvorfor jeg havde skrevet det eller hvor det kommer fra?
         # -- Variables --
         # Model
         self.N_surface_points = N_surface_points
         self.squirmer_radius = squirmer_radius
         self.target_radius = target_radius
-        self.max_mode = max_mode # Max available legendre modes. The minus 1 comes from different definitons. 
+        self.max_mode = max_mode # Max available legendre modes. 
         self.sensor_noise = sensor_noise
+        self.target_initial_position = target_initial_position
         
         # Parameters
         self.regularization_offset = 0.1  # "Width" of blob delta functions.
         self.B_max = 1
         self.viscosity = 1
         self.lab_frame = True
-        self.charac_time = 3 * self.squirmer_radius ** 4 / (4 * self.B_max)
         self.epsilon = 0.05  # Extra catch distance, because velocities blow up near squirmer
         self.catch_radius = self.squirmer_radius + self.epsilon
         
@@ -101,7 +101,7 @@ class PredatorPreyEnv(gym.Env):
         # Initial positions
         self._agent_position = self._array_float([0, 0], shape=(2,))  # Agent in center
         tot_radius = self.squirmer_radius + self.target_radius
-        self._target_position = self._array_float([0.9*tot_radius, 0.6*tot_radius], shape=(2,))  # Location arbitraty but fixed
+        self._target_position = self._array_float(self.target_initial_position, shape=(2,))
         
         # Initial observation is no field
         observation = self._array_float([0, 0, 0], shape=(3,))
@@ -131,8 +131,8 @@ class PredatorPreyEnv(gym.Env):
         return observation, reward, done, info
 
 
-def check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise):
-    env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise)
+def check_model(N_surface_points, squirmer_radius, target_radius, max_mode, target_initial_position, sensor_noise):
+    env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, max_mode, target_initial_position, sensor_noise)
     print("-- SB3 CHECK ENV: --")
     if check_env(env) == None:
         print("   The Environment is compatible with SB3")
@@ -140,8 +140,8 @@ def check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sens
         print(check_env(env))
 
 
-def train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, train_total_steps):
-    env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise)
+def train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, train_total_steps):
+    env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position)
 
     # Train with SB3
     log_path = os.path.join("Reinforcement Learning", "Training", "Logs_direction")
@@ -149,6 +149,14 @@ def train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noi
     model.learn(total_timesteps=train_total_steps)
     model_path = os.path.join(log_path, "predict_direction")
     model.save(model_path)
+    
+    # Save parameters in csv file
+    file_path = os.path.join(log_path, "system_parameters.csv")
+    file = open(file_path, "w")
+    file_data = f"Surface Points {N_surface_points}, Squirmer Radius {squirmer_radius}, Target radius {target_radius}, Max Mode {max_mode}, Noise {sensor_noise}, Target position {target_initial_position}, Centers distance {np.linalg.norm(target_initial_position, ord=2)}, Train Steps {train_total_steps}"
+    file.write(file_data)
+    file.close()
+    
     
     
 # Opdeler i fire subplots, enten efter n eller mode
@@ -305,7 +313,7 @@ def plot_action_choice(N_surface_points, N_iter, squirmer_radius, target_radius,
     plt.show()
 
 
-def plot_mode_choice(N_surface_points, N_iter, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, seperate_modes=True):
+def plot_mode_choice(N_surface_points, N_iter, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, PPO_number, viscosity):
     """Plot the modes taken at different iterations."""
     # Add more colors
     mpl.rcParams["axes.prop_cycle"] = mpl.cycler(color=['blue', 'green', 'red', 'cyan', 'magenta', 'yellow', 'black', 
@@ -394,64 +402,10 @@ def plot_mode_choice(N_surface_points, N_iter, squirmer_radius, target_radius, m
                     loc='upper left', borderaxespad=0.)
 
 
-    if seperate_modes:
-        fill_axis(ax1, B_actions, ".", B_names, title=r"$B$ weights")
-        fill_axis(ax2, B_tilde_actions, ".", B_tilde_names, title=r"$\tilde{B}$ weights")
-        fill_axis(ax3, C_actions, ".", C_names, title=r"$C$ weights")
-        fill_axis(ax4, C_tilde_actions, ".", C_tilde_names, title=r"$\tilde{C}$ weights")
-        figname = f"mode_seperate_mode_noise{sensor_noise}_maxmode{max_mode}_targetradius{target_radius}.png"
-    else:  # Seperate n
-        n1_names = [r"$B_{01}$", r"$B_{11}$", 
-                    r"$\tilde{B}_{01}$"]
-        n2_names = [r"$B_{02}$", r"$B_{12}$", r"$B_{22}$", 
-                    r"$\tilde{B}_{12}$", r"$\tilde{B}_{22}$",
-                    r"$C_{02}$", r"$C_{12}$", r"$C_{22}$",
-                    r"$\tilde{C}_{12}$", r"$\tilde{C}_{22}$"]
-        n3_names = [r"$B_{03}$", r"$B_{13}$", r"$B_{23}$", r"$B_{33}$",
-                    r"$\tilde{B}_{13}$", r"$\tilde{B}_{23}$", r"$\tilde{B}_{33}$", 
-                    r"$C_{03}$", r"$C_{13}$", r"$C_{23}$", r"$C_{33}$",
-                    r"$\tilde{C}_{13}$", r"$\tilde{C}_{23}$", r"$\tilde{C}_{33}$"]
-        n4_names = [r"$B_{04}$", r"$B_{14}$", r"$B_{24}$", r"$B_{34}$", r"$B_{44}$",
-                    r"$\tilde{B}_{14}$", r"$\tilde{B}_{24}$", r"$\tilde{B}_{34}$", r"$\tilde{B}_{44}$",
-                    r"$C_{04}$", r"$C_{14}$", r"$C_{24}$", r"$C_{34}$", r"$C_{44}$",
-                    r"$\tilde{C}_{14}$", r"$\tilde{C}_{24}$", r"$\tilde{C}_{34}$", r"$\tilde{C}_{44}$"]
-        
-        n1 = np.empty((N_iter, len(n1_names)))
-        n2 = np.empty((N_iter, len(n2_names)))
-        n3 = np.empty((N_iter, len(n3_names)))
-        n4 = np.empty((N_iter, len(n4_names)))
-        for i in range(N_iter):
-            n1[i, :] = [B_actions[i, 0], B_actions[i, 4], 
-                        B_tilde_actions[i, 0]
-            ]
-            fill_axis(ax1, n1, ".", n1_names, title=r"$n=1$ weights")
-
-            if max_mode > 1:
-                n2[i, :] = [B_actions[i, 1], B_actions[i, 5], B_actions[i, 8], 
-                            B_tilde_actions[i, 1], B_tilde_actions[i, 4],
-                            C_actions[i, 0], C_actions[i, 3], C_actions[i, 6],
-                            C_tilde_actions[i, 0], C_tilde_actions[i, 3]
-                ]            
-                fill_axis(ax2, n2, ".", n2_names, title=r"$n=2$ weights")
-                
-            if max_mode > 2:
-                n3[i, :] = [B_actions[i, 2], B_actions[i, 6], B_actions[i, 9], B_actions[i, 11],
-                            B_tilde_actions[i, 2], B_tilde_actions[i, 5], B_tilde_actions[i, 7], 
-                            C_actions[i, 1], C_actions[i, 4], C_actions[i, 7], C_actions[i, 9],
-                            C_tilde_actions[i, 1], C_tilde_actions[i, 4], C_tilde_actions[i, 6]
-                ]
-                fill_axis(ax3, n3, ".", n3_names, title=r"$n=3$ weights")
-
-            if max_mode > 3:
-                n4[i, :] = [B_actions[i, 3], B_actions[i, 7], B_actions[i, 10], B_actions[i, 12], B_actions[i, 13],
-                            B_tilde_actions[i, 3], B_tilde_actions[i, 6], B_tilde_actions[i, 8], B_tilde_actions[i, 9],
-                            C_actions[i, 2], C_actions[i, 5], C_actions[i, 8], C_actions[i, 10], C_actions[i, 11],
-                            C_tilde_actions[i, 2], C_tilde_actions[i, 5], C_tilde_actions[i, 7], C_tilde_actions[i, 8]
-                ]
-                fill_axis(ax4, n4, ".", n4_names, title=r"$n=4$ weights")
-
-            figname = f"mode_seperate_n_noise{sensor_noise}.png"
-            
+    fill_axis(ax1, B_actions, ".", B_names, title=r"$B$ weights")
+    fill_axis(ax2, B_tilde_actions, ".", B_tilde_names, title=r"$\tilde{B}$ weights")
+    fill_axis(ax3, C_actions, ".", C_names, title=r"$C$ weights")
+    fill_axis(ax4, C_tilde_actions, ".", C_tilde_names, title=r"$\tilde{C}$ weights")
     
     guessed_angles = guessed_angles * 180 / np.pi
     xticks = []
@@ -466,20 +420,25 @@ def plot_mode_choice(N_surface_points, N_iter, squirmer_radius, target_radius, m
     ax4.set_xticklabels(xticks, rotation=20, size=5)
     fig.suptitle(f"Mode over iterations, Noise = {sensor_noise}, True angle = {np.round(angle * 180 / np.pi, 2)}", fontsize=10)
     fig.tight_layout()
+    
+    figname = f"noise{sensor_noise}_maxmode{max_mode}_targetradius{target_radius}.png"            
     plt.savefig("Reinforcement Learning/Recordings/Images/" + figname)
     plt.show()
+
 
 # -- Run the code --
 # Parameters
 N_surface_points = 80
 squirmer_radius = 1
 target_radius = 0.5
+tot_radius = squirmer_radius + target_radius
+target_initial_position = [1.8*tot_radius, 0]
 max_mode = 3
 N_iter = 5
 viscosity = 1
 sensor_noise = 0.01
 PPO_number = 10  # For which model to load when plotting, after training
-train_total_steps = int(1.6e5)
+train_total_steps = int(1.5e5)
 
 # -- Sensor noise resultater: --
 # Max mode 4:
@@ -491,10 +450,9 @@ train_total_steps = int(1.6e5)
     # 0.1, 200k skridt: 
 
 
-#check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise)
-#train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, train_total_steps)
-#plot_action_choice(N_surface_points, N_iter, squirmer_radius, target_radius, max_mode, sensor_noise, seperate_modes=False)
-#plot_mode_choice(N_surface_points, N_iter, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, seperate_modes=True)
+#check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position)
+train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, train_total_steps)
+#plot_mode_choice(N_surface_points, N_iter, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, viscosity)
 
 # If wants to see reward over time, write the following in cmd in the log directory
 # tensorboard --logdir=.
