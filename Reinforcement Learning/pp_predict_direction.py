@@ -364,14 +364,14 @@ N_surface_points = 80
 squirmer_radius = 1
 target_radius = 0.8
 tot_radius = squirmer_radius + target_radius
-target_initial_position = [1.5*tot_radius, 0]
+target_initial_position = [0, 1.5*tot_radius]
 max_mode = 3
 N_iter = 10
 viscosity = 1
 sensor_noise = 0.1
 train_total_steps = int(1.3e5)
 
-PPO_number = 15  # For which model to load when plotting, after training
+PPO_number = 19  # For which model to load when plotting, after training
 
 # -- Sensor noise resultater: --
 # Max mode 4:
