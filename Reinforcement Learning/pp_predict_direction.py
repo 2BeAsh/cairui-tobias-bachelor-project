@@ -113,10 +113,10 @@ class PredatorPreyEnv(gym.Env):
         # Actions are the available modes.
         # Modes are equal to n-sphere coordinates divided by the square root of the mode factors
         max_power = 1
-        x_n_sphere = power_consumption.n_sphere_angular_to_cartesian(action, max_power)  # Makes sure sums to 1
+        phi_n_sphere = action * np.pi / 2
+        phi_n_sphere[-1] = action[-1] * np.pi
+        x_n_sphere = power_consumption.n_sphere_angular_to_cartesian(phi_n_sphere, max_power)  # Makes sure sums to 1
         power_factors = power_consumption.constant_power_factor(squirmer_radius, self.viscosity, self.max_mode)  # Power factors in front of modes
-        power_factors[0] *= 10
-        power_factors[0] *= 0.1
         power_non_zero = power_factors.nonzero()
         mode_array = np.zeros_like(power_factors)
         mode_array[power_non_zero] = x_n_sphere / np.sqrt(power_factors[power_non_zero].ravel())
@@ -158,15 +158,8 @@ def train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noi
     file.write(file_data)
     file.close()
     
-
-def plot_mode_choice(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, N_iter, PPO_number, viscosity):
-    """Plot the modes taken at different iterations."""
-    # Add more colors
-    mpl.rcParams["axes.prop_cycle"] = mpl.cycler(color=['blue', 'green', 'red', 'cyan', 'magenta', 'yellow', 'black', 
-                                                        'purple', 'pink', 'brown', 'orange', 'teal', 'coral', 'lightblue', 
-                                                        'lime', 'lavender', 'turquoise', 'darkgreen', 'tan', 'salmon', 'gold'])
-
-    # Names
+    
+def mode_names(max_mode):
     B_names = []
     B_tilde_names = []
     C_names = []
@@ -185,32 +178,24 @@ def plot_mode_choice(N_surface_points, squirmer_radius, target_radius, max_mode,
                 if j > 1:
                     C_tilde_str = r"$\tilde{C}_{" + str(i) + str(j) + r"}$"
                     C_tilde_names.append(C_tilde_str)
-            
-    #B_names = [r"$B_{01}$", r"$B_{02}$", r"$B_{03}$", r"$B_{04}$", r"$B_{11}$", r"$B_{12}$", r"$B_{13}$", 
-    #           r"$B_{14}$", r"$B_{22}$", r"$B_{23}$", r"$B_{24}$", r"$B_{33}$", r"$B_{34}$", r"$B_{44}$",]
-    #B_tilde_names = [r"$\tilde{B}_{11}$", r"$\tilde{B}_{12}$", r"$\tilde{B}_{13}$", r"$\tilde{B}_{14}$", r"$\tilde{B}_{22}$", 
-    #                 r"$\tilde{B}_{23}$", r"$\tilde{B}_{24}$", r"$\tilde{B}_{33}$", r"$\tilde{B}_{34}$", r"$\tilde{B}_{44}$",]
-    #C_names = [r"$C_{02}$", r"$C_{03}$", r"$C_{04}$", r"$C_{12}$", r"$C_{13}$", r"$C_{14}$", 
-    #           r"$C_{22}$", r"$C_{23}$", r"$C_{24}$", r"$C_{33}$", r"$C_{34}$", r"$C_{44}$",]
-    #C_tilde_names = [r"$\tilde{C}_{12}$", r"$\tilde{C}_{13}$", r"$\tilde{C}_{14}$", r"$\tilde{C}_{22}$", 
-    #                 r"$\tilde{C}_{23}$", r"$\tilde{C}_{24}$", r"$\tilde{C}_{33}$", r"$\tilde{C}_{34}$", r"$\tilde{C}_{44}$",]
-    
-    B_len = len(B_names)
-    B_tilde_len = len(B_tilde_names)
-    C_len = len(C_names)
-    C_tilde_len = len(C_tilde_names)
-    B_actions = np.empty((N_iter, B_len))
-    B_tilde_actions = np.empty((N_iter, B_tilde_len))
-    C_actions = np.empty((N_iter, C_len))
-    C_tilde_actions = np.empty((N_iter, C_tilde_len))
-    
-    rewards = np.empty((N_iter))
-    guessed_angles = np.empty((N_iter))
+                    
+    return B_names, B_tilde_names, C_names, C_tilde_names
+
+
+def mode_iteration(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, N_iter, PPO_number, viscosity, mode_lengths):
     # Load model and create environment
     model_path = f"Reinforcement Learning/Training/Logs_direction/PPO_{PPO_number}/predict_direction"
     model = PPO.load(model_path)
     env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position)
     
+    B_actions = np.empty((N_iter, mode_lengths[0]))
+    B_tilde_actions = np.empty((N_iter, mode_lengths[1]))
+    C_actions = np.empty((N_iter, mode_lengths[2]))
+    C_tilde_actions = np.empty((N_iter, mode_lengths[3]))
+
+    rewards = np.empty((N_iter))
+    guessed_angles = np.empty((N_iter))
+
     # Run model N_iter times
     obs = env.reset()
     for i in range(N_iter):
@@ -218,8 +203,6 @@ def plot_mode_choice(N_surface_points, squirmer_radius, target_radius, max_mode,
         obs, reward, _, info = env.step(action)
         rewards[i] = reward
         guessed_angles[i] = info["guessed angle"]
-        angle = info["angle"]
-        # Get modes
         max_power = 1
         x_n_sphere = power_consumption.n_sphere_angular_to_cartesian(action, max_power)  # Makes sure sums to 1
         power_factors = power_consumption.constant_power_factor(squirmer_radius, viscosity, max_mode)  # Power factors in front of modes
@@ -231,34 +214,62 @@ def plot_mode_choice(N_surface_points, squirmer_radius, target_radius, max_mode,
         B_tilde_actions[i, :] = mode_array[1][np.nonzero(mode_array[1])]
         C_actions[i, :] = mode_array[2][np.nonzero(mode_array[2])]
         C_tilde_actions[i, :] = mode_array[3][np.nonzero(mode_array[3])]
-        
+    
+    return B_actions, B_tilde_actions, C_actions, C_tilde_actions, rewards, guessed_angles
+
+
+def plot_mode_choice(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, N_iter, PPO_number, viscosity):
+    """Plot the modes taken at different iterations."""
+    # Add more colors
+    mpl.rcParams["axes.prop_cycle"] = mpl.cycler(color=['blue', 'green', 'red', 'cyan', 'magenta', 'yellow', 'black', 
+                                                        'purple', 'pink', 'brown', 'orange', 'teal', 'coral', 'lightblue', 
+                                                        'lime', 'lavender', 'turquoise', 'darkgreen', 'tan', 'salmon', 'gold'])
+
+    # Names
+    B_names, B_tilde_names, C_names, C_tilde_names = mode_names(max_mode)
+            
+    #B_names = [r"$B_{01}$", r"$B_{02}$", r"$B_{03}$", r"$B_{04}$", r"$B_{11}$", r"$B_{12}$", r"$B_{13}$", 
+    #           r"$B_{14}$", r"$B_{22}$", r"$B_{23}$", r"$B_{24}$", r"$B_{33}$", r"$B_{34}$", r"$B_{44}$",]
+    #B_tilde_names = [r"$\tilde{B}_{11}$", r"$\tilde{B}_{12}$", r"$\tilde{B}_{13}$", r"$\tilde{B}_{14}$", r"$\tilde{B}_{22}$", 
+    #                 r"$\tilde{B}_{23}$", r"$\tilde{B}_{24}$", r"$\tilde{B}_{33}$", r"$\tilde{B}_{34}$", r"$\tilde{B}_{44}$",]
+    #C_names = [r"$C_{02}$", r"$C_{03}$", r"$C_{04}$", r"$C_{12}$", r"$C_{13}$", r"$C_{14}$", 
+    #           r"$C_{22}$", r"$C_{23}$", r"$C_{24}$", r"$C_{33}$", r"$C_{34}$", r"$C_{44}$",]
+    #C_tilde_names = [r"$\tilde{C}_{12}$", r"$\tilde{C}_{13}$", r"$\tilde{C}_{14}$", r"$\tilde{C}_{22}$", 
+    #                 r"$\tilde{C}_{23}$", r"$\tilde{C}_{24}$", r"$\tilde{C}_{33}$", r"$\tilde{C}_{34}$", r"$\tilde{C}_{44}$",]
+    
+    mode_lengths = [len(B_names), len(B_tilde_names), len(C_names), len(C_tilde_names)]
+    B_actions, B_tilde_actions, C_actions, C_tilde_actions, rewards, guessed_angles = mode_iteration(N_surface_points, squirmer_radius, target_radius, max_mode, 
+                                                                                                     sensor_noise, target_initial_position, N_iter, PPO_number, 
+                                                                                                     viscosity, mode_lengths)
+    guessed_angles = guessed_angles * 180 / np.pi
+    
     # Plot
-    fig, ax = plt.subplots(nrows=2, ncols=2, dpi=200)
-    ax1 = ax[0, 0]
-    ax2 = ax[0, 1]
-    ax3 = ax[1, 0]
-    ax4 = ax[1, 1]
-
-
     def fill_axis(axis, y, marker, label, title):        
         axis.set(xticks=[], title=(title, 7), ylim=(-0.17, 0.17))
         axis.set_title(title, fontsize=7)
         axis.plot(y, marker=marker, ls="--", lw=0.75)
         axis.legend(label, fontsize=4, bbox_to_anchor=(1.05, 1), 
                     loc='upper left', borderaxespad=0.)
-
+        
+    # Define axis and fill them
+    fig, ax = plt.subplots(nrows=2, ncols=2, dpi=200)
+    ax1 = ax[0, 0]
+    ax2 = ax[0, 1]
+    ax3 = ax[1, 0]
+    ax4 = ax[1, 1]
 
     fill_axis(ax1, B_actions, ".", B_names, title=r"$B$ weights")
     fill_axis(ax2, B_tilde_actions, ".", B_tilde_names, title=r"$\tilde{B}$ weights")
     fill_axis(ax3, C_actions, ".", C_names, title=r"$C$ weights")
     fill_axis(ax4, C_tilde_actions, ".", C_tilde_names, title=r"$\tilde{C}$ weights")
     
-    guessed_angles = guessed_angles * 180 / np.pi
+    # xticks
     xticks = []
     for reward, guess_angle in zip(rewards, guessed_angles):
         tick_str = f"R: {np.round(reward, 2)}, " + r"$\theta_g$: " + str(np.round(guess_angle, 2))
         xticks.append(tick_str)
-    
+        
+    # General setup
     ax2.set(yticks=[])
     ax3.set(xlabel="Iteration", xticks=(np.arange(N_iter)))
     ax3.set_xticklabels(xticks, rotation=20, size=5)
@@ -267,25 +278,56 @@ def plot_mode_choice(N_surface_points, squirmer_radius, target_radius, max_mode,
     fig.suptitle(fr"Mode over iterations, Noise = {sensor_noise}, $\theta =${np.round(angle * 180 / np.pi, 2)}", fontsize=10)
     fig.tight_layout()
     
+    # Save and show
     figname = f"noise{sensor_noise}_maxmode{max_mode}_targetradius{target_radius}.png"            
     plt.savefig("Reinforcement Learning/Recordings/Images/" + figname)
     plt.show()
+
+
+def plot_mode_iteration_average(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, N_iter, PPO_number, viscosity):
+    B_names, B_tilde_names, C_names, C_tilde_names = mode_names(max_mode)
+    mode_lengths = [len(B_names), len(B_tilde_names), len(C_names), len(C_tilde_names)]
+    
+    # Loop through either target initial position, sensor noise or target radius
+    if len(target_radius) != 0:
+        iterable_variable = target_radius
+        name = "Target Radius"
+    elif len(sensor_noise) != 0:
+        iterable_variable = target_radius
+        name = "Sensor Noise"
+    else: # Target position ought to be last option, as will have a non zero length 
+        iterable_variable = target_initial_position
+        name = "Initial position"
+        
+        
+    B_actions, B_tilde_actions, C_actions, C_tilde_actions, _, _ = mode_iteration(N_surface_points, squirmer_radius, target_radius, 
+                                                                            max_mode, sensor_noise, target_initial_position, N_iter, 
+                                                                            PPO_number, viscosity, mode_lengths)
+    # Mean and std
+    means = np.array([B_actions.mean(axis=0),
+                     B_tilde_actions.mean(axis=0),
+                     C_actions.mean(axis=0),
+                     C_tilde_actions.mean(axis=0)])
+    stds = np.array([B_actions.std(axis=0) / np.sqrt(mode_lengths[0]),
+                     B_tilde_actions.std(axis=0) / np.sqrt(mode_lengths[1]),
+                     C_actions.std(axis=0) / np.sqrt(mode_lengths[2]),
+                     C_tilde_actions.std(axis=0) / np.sqrt(mode_lengths[3])])
 
 
 # -- Run the code --
 # Parameters
 N_surface_points = 80
 squirmer_radius = 1
-target_radius = 0.5
+target_radius = 0.8
 tot_radius = squirmer_radius + target_radius
-target_initial_position = [1.25*tot_radius, 0]
+target_initial_position = [1.5*tot_radius, 0]
 max_mode = 3
 N_iter = 10
 viscosity = 1
-sensor_noise = 0.01
-train_total_steps = int(1e5)
+sensor_noise = 0.1
+train_total_steps = int(1.3e5)
 
-PPO_number = 14  # For which model to load when plotting, after training
+PPO_number = 15  # For which model to load when plotting, after training
 
 # -- Sensor noise resultater: --
 # Max mode 4:
@@ -298,8 +340,8 @@ PPO_number = 14  # For which model to load when plotting, after training
 
 
 #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position)
-#train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, train_total_steps)
-plot_mode_choice(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, N_iter, PPO_number, viscosity)
+train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, train_total_steps)
+#plot_mode_choice(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, N_iter, PPO_number, viscosity)
 
 # If wants to see reward over time, write the following in cmd in the log directory
 # tensorboard --logdir=.
