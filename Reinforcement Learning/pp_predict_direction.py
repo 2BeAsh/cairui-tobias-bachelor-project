@@ -280,7 +280,7 @@ def plot_mode_choice(N_surface_points, squirmer_radius, target_radius, max_mode,
     fig.tight_layout()
     
     # Save and show
-    figname = f"noise{sensor_noise}_maxmode{max_mode}_targetradius{target_radius}.png"            
+    figname = f"noise{sensor_noise}_maxmode{max_mode}_targetradius{target_radius}_distance{np.linalg.norm(target_initial_position, ord=2)}.png"            
     plt.savefig("Reinforcement Learning/Recordings/Images/" + figname)
     plt.show()
 
@@ -371,7 +371,7 @@ viscosity = 1
 sensor_noise = 0.1
 train_total_steps = int(1.3e5)
 
-PPO_number = 19  # For which model to load when plotting, after training
+PPO_number = 16  # For which model to load when plotting, after training
 
 # -- Sensor noise resultater: --
 # Max mode 4:
