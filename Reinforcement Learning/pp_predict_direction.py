@@ -285,7 +285,7 @@ def plot_mode_choice(N_surface_points, squirmer_radius, target_radius, max_mode,
     plt.show()
 
 
-def plot_mode_iteration_average(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, N_iter, PPO_number, viscosity):
+def plot_mode_iteration_average(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, N_iter, PPO_list, viscosity):
     B_names, B_tilde_names, C_names, C_tilde_names = mode_names(max_mode)
     mode_lengths = [len(B_names), len(B_tilde_names), len(C_names), len(C_tilde_names)]
     
@@ -314,9 +314,9 @@ def plot_mode_iteration_average(N_surface_points, squirmer_radius, target_radius
     std_list = np.empty_like(mean_list)
     
     for i in range(iterable_length):
-        B_actions, B_tilde_actions, C_actions, C_tilde_actions, _, _ = mode_iteration(N_surface_points, squirmer_radius, target_radius, 
-                                                                                max_mode, sensor_noise, target_initial_position, N_iter, 
-                                                                                PPO_number, viscosity, mode_lengths)
+        B_actions, B_tilde_actions, C_actions, C_tilde_actions, _, _ = mode_iteration(N_surface_points, squirmer_radius, target_radius[i], 
+                                                                                max_mode, sensor_noise[i], target_initial_position[i], N_iter, 
+                                                                                PPO_list[i], viscosity, mode_lengths)
         # Mean and std
         mean_list[i, :] = np.array([B_actions.mean(axis=0),
                                     B_tilde_actions.mean(axis=0),
