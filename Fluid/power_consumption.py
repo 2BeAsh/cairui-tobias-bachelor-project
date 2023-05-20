@@ -46,7 +46,7 @@ def constant_power_factor(squirmer_radius, viscosity, max_mode):
     m0_common_factor = 4 * n2 * (n2 + 1) * np.pi * viscosity / (squirmer_radius ** (2*n2 + 1))
     m1 = m[1:]
     with np.errstate(divide='ignore'):  # Removes the divide by zero right after, so no need for warning
-        n2m1_common_factor = (2 * n2[None, :] * (n2[None, :] + 1) * factorial(n2[None, :]+m1[:, None]) * np.pi * n2[None, :] 
+        n2m1_common_factor = (2 * n2[None, :] * (n2[None, :] + 1) * factorial(n2[None, :]+m1[:, None]) * np.pi * viscosity 
                             / (squirmer_radius ** (2*n2[None, :] + 1) * factorial(n2[None, :]-m1[:, None])))
     n2m1_common_factor = np.triu(n2m1_common_factor, k=-1)  # remove m > n cases
         
@@ -58,10 +58,10 @@ def constant_power_factor(squirmer_radius, viscosity, max_mode):
         mode_factors[0, 0, 2:] = 4 / (n2 ** 2 * squirmer_radius ** 2) * m0_common_factor  # B n>=2 m=0
         mode_factors[2, 0, 2:] = (n2 + 2) / (2 * n2 + 1) * m0_common_factor  # C n>=2 m=0
         # m>=1, n>=2
-        mode_factors[0, 1:, 2:] = 4 / (np.pi ** 2 * squirmer_radius) * n2m1_common_factor
-        mode_factors[1, 1:, 2:] = mode_factors[0, 1:, 2:]
-        mode_factors[2, 1:, 2:] = (n2[None, :] + 2) / (2 * n2[None, :] + 1) * n2m1_common_factor
-        mode_factors[3, 1:, 2:] = mode_factors[2, 1:, 2:]
+        mode_factors[0, 1:, 2:] = 4 / (n2[None, :] ** 2 * squirmer_radius) * n2m1_common_factor  # B
+        mode_factors[1, 1:, 2:] = mode_factors[0, 1:, 2:]  # B tilde
+        mode_factors[2, 1:, 2:] = (n2[None, :] + 2) / (2 * n2[None, :] + 1) * n2m1_common_factor  # C tilde
+        mode_factors[3, 1:, 2:] = mode_factors[2, 1:, 2:]  # C tilde
 
     # Remove all cases where m>n. Upper triangular part shifted by 1 sat to zero, as n start at 1 and m at 0
     mode_factors = np.triu(mode_factors)
@@ -69,8 +69,12 @@ def constant_power_factor(squirmer_radius, viscosity, max_mode):
 
 
 if __name__ == "__main__":
-    factors = constant_power_factor(squirmer_radius=1.5, viscosity=1, max_mode=4)
-    #print(np.count_nonzero(factors))
+    phi_vals = np.ones(45-1)
+    x_n_sphere = n_sphere_angular_to_cartesian(phi_vals, radius=1)
+    factors = constant_power_factor(squirmer_radius=1.1, viscosity=1, max_mode=2)
     factors_non_zero = factors[np.nonzero(factors)].ravel()
-    print(np.array_str(factors, precision=2, suppress_small=True))  # Easier to compare when printing fewer decimalts    
-    #print(np.array_str(factors_non_zero, precision=2, suppress_small=True))
+    
+    print(np.array_str(factors, precision=2, suppress_small=True))
+    #print(np.array_str(factors_non_zero, precision=2, suppress_small=True))  # Easier to compare when printing fewer decimalts    
+    #print(np.array_str(x_n_sphere, precision=3, suppress_small=True))
+    #print(np.array_str(x_n_sphere / np.sqrt(factors_non_zero), precision=3, suppress_small=True))
