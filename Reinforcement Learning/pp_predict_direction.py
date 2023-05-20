@@ -55,6 +55,8 @@ class PredatorPreyEnv(gym.Env):
             number_of_modes = 45  # Counted from power factors.
         elif max_mode == 3:
             number_of_modes = 27
+        elif max_mode == 2:  # Test case
+            number_of_modes = 13
         action_shape = (number_of_modes-1,)  # Weight of each mode. -1 because radius fixed.
         self.action_space = spaces.Box(low=-1, high=1, shape=action_shape, dtype=np.float32)
 
@@ -364,14 +366,14 @@ N_surface_points = 80
 squirmer_radius = 1
 target_radius = 0.8
 tot_radius = squirmer_radius + target_radius
-target_initial_position = [0, 1.5*tot_radius]
-max_mode = 3
+target_initial_position = [1.5*tot_radius, 0]
+max_mode = 2
 N_iter = 10
 viscosity = 1
-sensor_noise = 0.1
-train_total_steps = int(1.3e5)
+sensor_noise = 0.03
+train_total_steps = int(1.5e5)
 
-PPO_number = 16  # For which model to load when plotting, after training
+PPO_number = 19  # For which model to load when plotting, after training
 
 # -- Sensor noise resultater: --
 # Max mode 4:
@@ -383,9 +385,11 @@ PPO_number = 16  # For which model to load when plotting, after training
     # 0.1, 200k skridt: 
 
 
+# NOTE gør så den kan load parametre fra csv fil
+
 #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position)
-#train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, train_total_steps)
-plot_mode_choice(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, N_iter, PPO_number, viscosity)
+train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, train_total_steps)
+#plot_mode_choice(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, N_iter, PPO_number, viscosity)
 
 # If wants to see reward over time, write the following in cmd in the log directory
 # tensorboard --logdir=.
