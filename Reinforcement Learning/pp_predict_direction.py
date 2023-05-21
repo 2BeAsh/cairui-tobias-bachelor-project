@@ -349,7 +349,7 @@ def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter, plot_
             xlabel = "Sensor Noise"
         elif changed_parameter == "angle":
             changed_parameter_list[i] = np.arctan2(parameters[5], parameters[6])  # arcan ( target y / target z )
-            xlabel = "Angel"
+            xlabel = "Angel [radian]"
         else:  # Target initial position
             changed_parameter_list[i] = parameters[7]  # Distance between the two centers
             xlabel = "Center-center distance"
@@ -359,8 +359,8 @@ def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter, plot_
         x_vals = changed_parameter_list
         axis.set(title=(title, 7), ylim=(-0.17, 0.17))
         axis.set_title(title, fontsize=7)
-        for i in range(len(x_vals)):
-            axis.errorbar(x_vals, y[:, i], yerr=sy[:, i], fmt=".--", lw=0.75)
+        for i in range(y.shape[1]):
+            axis.errorbar(x_vals, y[:, i], yerr=sy[:, i], fmt=".", lw=0.75)
         axis.legend(mode_name, fontsize=4, bbox_to_anchor=(1.05, 1), 
                     loc='upper left', borderaxespad=0.)
     
@@ -389,8 +389,8 @@ def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter, plot_
     plt.show()
     
     if plot_reward:
-        figr, axr = plt.figure(dpi=200)
-        axr.errorbar(changed_parameter_list, reward_mean, yerr=reward_std)
+        figr, axr = plt.subplots(dpi=200)
+        axr.errorbar(changed_parameter_list, reward_mean, yerr=reward_std, fmt=".")
         axr.set(xlabel=xlabel, ylabel="Reward", title="Mean reward")
         figr.tight_layout()
         plt.show()
@@ -402,7 +402,7 @@ N_surface_points = 80
 squirmer_radius = 1
 target_radius = 0.8
 tot_radius = squirmer_radius + target_radius
-target_initial_position = [-1.5*tot_radius, -1.5*tot_radius] / np.sqrt(2)
+target_initial_position = [1.5*tot_radius, 1.5*tot_radius] * 1 / np.sqrt(2)
 max_mode = 2
 viscosity = 1
 sensor_noise = 0.03
@@ -414,9 +414,9 @@ PPO_number = 20  # For which model to load when plotting, after training
 PPO_list = [20, 21, 22, 23]
 
 #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position)
-train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, viscosity, train_total_steps)
+#train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, viscosity, train_total_steps)
 #plot_mode_choice(N_iter, PPO_number)
-#plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="angle")
+plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="angle")
 
 # If wants to see reward over time, write the following in cmd in the log directory
 # tensorboard --logdir=.
