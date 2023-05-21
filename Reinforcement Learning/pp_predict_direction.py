@@ -299,7 +299,7 @@ def plot_mode_choice(N_iter, PPO_number):
     fig.tight_layout()
     
     # Save and show
-    figname = f"noise{parameters[4]}_maxmode{parameters[3]}_targetradius{parameters[2]}_distance{parameters[6]}.png"            
+    figname = f"noise{parameters[4]}_maxmode{parameters[3]}_targetradius{parameters[2]}_distance{parameters[6]}_trainingsteps{parameters[-1]}.png"            
     plt.savefig("Reinforcement Learning/Recordings/Images/" + figname)
     plt.show()
 
