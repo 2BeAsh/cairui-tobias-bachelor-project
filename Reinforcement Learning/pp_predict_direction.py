@@ -304,7 +304,7 @@ def plot_mode_choice(N_iter, PPO_number):
     plt.show()
 
 
-def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter):
+def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter, plot_reward=True):
     assert changed_parameter in ["radius", "noise", "position", "angle"]
     B_names, B_tilde_names, C_names, C_tilde_names = mode_names(max_mode)
     mode_lengths = [len(B_names), len(B_tilde_names), len(C_names), len(C_tilde_names)]
@@ -320,10 +320,13 @@ def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter):
     C_std = np.empty_like(C_mean)
     C_tilde_std = np.empty_like(C_tilde_mean)
     
+    reward_mean = np.empty(PPO_len)
+    reward_std = np.empty_like(reward_mean)
+    
     changed_parameter_list = np.empty(PPO_len)
     
     for i, PPO in enumerate(PPO_list):
-        B_actions, B_tilde_actions, C_actions, C_tilde_actions, _, _, parameters = mode_iteration(N_model_runs, PPO, mode_lengths)
+        B_actions, B_tilde_actions, C_actions, C_tilde_actions, rewards, _, parameters = mode_iteration(N_model_runs, PPO, mode_lengths)
         # Mean and std
         B_mean[i, :] = np.mean(B_actions, axis=0)
         B_tilde_mean[i, :] = np.mean(B_tilde_actions, axis=0)
@@ -334,6 +337,9 @@ def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter):
         B_tilde_std[i, :] = np.std(B_tilde_actions, axis=0)
         C_std[i, :] = np.std(C_actions, axis=0)
         C_tilde_std[i, :] = np.std(C_tilde_actions, axis=0)
+        
+        reward_mean[i] = np.mean(rewards)
+        reward_std[i] = np.std(rewards) / np.sqrt(len(rewards))
         
         if changed_parameter == "radius":
             changed_parameter_list[i] = parameters[2]  # Target radius
@@ -358,6 +364,7 @@ def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter):
         axis.legend(mode_name, fontsize=4, bbox_to_anchor=(1.05, 1), 
                     loc='upper left', borderaxespad=0.)
     
+    
     fig, ax = plt.subplots(nrows=2, ncols=2, dpi=200)
     axB = ax[0, 0]
     axBt = ax[0, 1]
@@ -381,6 +388,13 @@ def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter):
     plt.savefig("Reinforcement Learning/Recordings/Images/" + figname)
     plt.show()
     
+    if plot_reward:
+        figr, axr = plt.figure(dpi=200)
+        axr.errorbar(changed_parameter_list, reward_mean, yerr=reward_std)
+        axr.set(xlabel=xlabel, ylabel="Reward", title="Mean reward")
+        figr.tight_layout()
+        plt.show()
+    
     
 # -- Run the code --
 # Model Parameters
@@ -397,7 +411,7 @@ train_total_steps = int(1.3e5)
 # Plotting parameters
 N_iter = 10
 PPO_number = 20  # For which model to load when plotting, after training
-PPO_list = [20, 21]
+PPO_list = [20, 21, 22, 23]
 
 #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position)
 train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, viscosity, train_total_steps)
