@@ -305,7 +305,7 @@ def plot_mode_choice(N_iter, PPO_number):
 
 
 def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter):
-    assert changed_parameter in ["radius", "noise", "position"]
+    assert changed_parameter in ["radius", "noise", "position", "angle"]
     B_names, B_tilde_names, C_names, C_tilde_names = mode_names(max_mode)
     mode_lengths = [len(B_names), len(B_tilde_names), len(C_names), len(C_tilde_names)]
     PPO_len = len(PPO_list)
@@ -341,6 +341,9 @@ def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter):
         elif changed_parameter == "noise":
             changed_parameter_list[i] = parameters[4]  # Sensor noise
             xlabel = "Sensor Noise"
+        elif changed_parameter == "angle":
+            changed_parameter_list[i] = np.arctan2(parameters[5], parameters[6])  # arcan ( target y / target z )
+            xlabel = "Angel"
         else:  # Target initial position
             changed_parameter_list[i] = parameters[7]  # Distance between the two centers
             xlabel = "Center-center distance"
@@ -385,7 +388,7 @@ N_surface_points = 80
 squirmer_radius = 1
 target_radius = 0.8
 tot_radius = squirmer_radius + target_radius
-target_initial_position = [1.5*tot_radius, 0]
+target_initial_position = [1.5*tot_radius, 1.5*tot_radius] * 1 / np.sqrt(2)
 max_mode = 2
 viscosity = 1
 sensor_noise = 0.03
@@ -399,7 +402,7 @@ PPO_list = [20, 21]
 #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position)
 train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, viscosity, train_total_steps)
 #plot_mode_choice(N_iter, PPO_number)
-#plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="radius")
+#plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="angle")
 
 # If wants to see reward over time, write the following in cmd in the log directory
 # tensorboard --logdir=.
