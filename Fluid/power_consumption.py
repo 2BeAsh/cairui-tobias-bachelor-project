@@ -68,13 +68,26 @@ def constant_power_factor(squirmer_radius, viscosity, max_mode):
     return mode_factors
 
 
+def normalized_modes(modes, max_mode, squirmer_radius, viscosity):
+    mode_factors = constant_power_factor(squirmer_radius, viscosity, max_mode)
+    non_zero_idx = np.nonzero(mode_factors)
+    #mode_normalized = modes / np.sqrt(power_total)
+    mode_factors[non_zero_idx] = modes / np.sqrt(modes ** 2 @ mode_factors[non_zero_idx])
+    return mode_factors
+    
+
 if __name__ == "__main__":
     phi_vals = np.ones(45-1)
     x_n_sphere = n_sphere_angular_to_cartesian(phi_vals, radius=1)
     factors = constant_power_factor(squirmer_radius=1.1, viscosity=1, max_mode=2)
-    factors_non_zero = factors[np.nonzero(factors)].ravel()
+    factors_non_zero = factors[np.nonzero(factors)]
     
-    print(np.array_str(factors, precision=2, suppress_small=True))
+    # -- N-sphere power --
+    #print(np.array_str(factors, precision=2, suppress_small=True))
     #print(np.array_str(factors_non_zero, precision=2, suppress_small=True))  # Easier to compare when printing fewer decimalts    
     #print(np.array_str(x_n_sphere, precision=3, suppress_small=True))
     #print(np.array_str(x_n_sphere / np.sqrt(factors_non_zero), precision=3, suppress_small=True))
+    
+    # -- Normalized power --
+    modes = normalized_modes(np.ones(45), max_mode=4, squirmer_radius=1, viscosity=1)
+    print(np.array_str(modes, precision=6, suppress_small=True))
