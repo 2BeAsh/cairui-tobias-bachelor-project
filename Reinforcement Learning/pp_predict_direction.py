@@ -57,9 +57,9 @@ class PredatorPreyEnv(gym.Env):
             number_of_modes = 45  # Counted from power factors.
         elif max_mode == 3:
             number_of_modes = 27
-        elif max_mode == 2:  # Test case
+        elif max_mode == 2: 
             number_of_modes = 13
-        action_shape = (number_of_modes-1,)  # Weight of each mode. -1 because radius fixed.
+        action_shape = (number_of_modes,)  # Weight of each mode.
         self.action_space = spaces.Box(low=-1, high=1, shape=action_shape, dtype=np.float32)
 
         # Observation is vector pointing in direction of average force
@@ -116,14 +116,16 @@ class PredatorPreyEnv(gym.Env):
         # -- Action setup --
         # Actions are the available modes.
         # Modes are equal to n-sphere coordinates divided by the square root of the mode factors
-        max_power = 1
-        phi_n_sphere = action * np.pi / 2
-        phi_n_sphere[-1] = action[-1] * np.pi
-        x_n_sphere = power_consumption.n_sphere_angular_to_cartesian(phi_n_sphere, max_power)  # Makes sure sums to 1
-        power_factors = power_consumption.constant_power_factor(squirmer_radius, self.viscosity, self.max_mode)  # Power factors in front of modes
-        power_non_zero = power_factors.nonzero()
-        mode_array = np.zeros_like(power_factors)
-        mode_array[power_non_zero] = x_n_sphere / np.sqrt(power_factors[power_non_zero].ravel())
+        # max_power = 1
+        # phi_n_sphere = action * np.pi / 2
+        # phi_n_sphere[-1] = action[-1] * np.pi
+        # x_n_sphere = power_consumption.n_sphere_angular_to_cartesian(phi_n_sphere, max_power)  # Makes sure sums to 1
+        # power_factors = power_consumption.constant_power_factor(squirmer_radius, self.viscosity, self.max_mode)  # Power factors in front of modes
+        # power_non_zero = power_factors.nonzero()
+        # mode_array = np.zeros_like(power_factors)
+        # mode_array[power_non_zero] = x_n_sphere / np.sqrt(power_factors[power_non_zero].ravel())
+        
+        mode_array = power_consumption.normalized_modes(action, self.max_mode, self.squirmer_radius, self.viscosity)
                         
         # -- Reward --
         angle, guessed_angle, reward = self._reward(mode_array)
@@ -402,10 +404,10 @@ N_surface_points = 80
 squirmer_radius = 1
 target_radius = 0.8
 tot_radius = squirmer_radius + target_radius
-target_initial_position = [1.5*tot_radius, 1.5*tot_radius] * 1 / np.sqrt(2)
+target_initial_position = [1.5*tot_radius, 0] 
 max_mode = 2
 viscosity = 1
-sensor_noise = 0.03
+sensor_noise = 0.05
 train_total_steps = int(1.3e5)
 
 # Plotting parameters
@@ -413,10 +415,10 @@ N_iter = 10
 PPO_number = 20  # For which model to load when plotting, after training
 PPO_list = [20, 21, 22, 23]
 
-#check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position)
+check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position)
 #train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, viscosity, train_total_steps)
 #plot_mode_choice(N_iter, PPO_number)
-plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="angle")
+#plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="angle")
 
 # If wants to see reward over time, write the following in cmd in the log directory
 # tensorboard --logdir=.
