@@ -223,13 +223,8 @@ def mode_iteration(N_iter, PPO_number, mode_lengths):
         obs, reward, _, info = env.step(action)
         rewards[i] = reward
         guessed_angles[i] = info["guessed angle"]
-        max_power = 1
-        x_n_sphere = power_consumption.n_sphere_angular_to_cartesian(action, max_power)  # Makes sure sums to 1
-        power_factors = power_consumption.constant_power_factor(squirmer_radius, viscosity, max_mode)  # Power factors in front of modes
-        power_non_zero = power_factors.nonzero()
-        mode_array = np.zeros_like(power_factors)
-        mode_array[power_non_zero] = x_n_sphere / np.sqrt(power_factors[power_non_zero].ravel())
-        
+        mode_array = power_consumption.normalized_modes(action, max_mode, squirmer_radius, viscosity)
+                
         B_actions[i, :] = mode_array[0][np.nonzero(mode_array[0])]
         B_tilde_actions[i, :] = mode_array[1][np.nonzero(mode_array[1])]
         C_actions[i, :] = mode_array[2][np.nonzero(mode_array[2])]
@@ -404,15 +399,15 @@ N_surface_points = 80
 squirmer_radius = 1
 target_radius = 0.8
 tot_radius = squirmer_radius + target_radius
-target_initial_position = [1.5*tot_radius, 0] 
+target_initial_position = [1.3*tot_radius, 0] 
 max_mode = 2
 viscosity = 1
-sensor_noise = 0.05
-train_total_steps = int(1.3e5)
+sensor_noise = 0.01
+train_total_steps = int(2e5)
 
 # Plotting parameters
 N_iter = 10
-PPO_number = 20  # For which model to load when plotting, after training
+PPO_number = 24  # For which model to load when plotting, after training
 PPO_list = [20, 21, 22, 23]
 
 #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position)
