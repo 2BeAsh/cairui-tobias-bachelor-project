@@ -372,7 +372,7 @@ def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter, plot_
     axC = ax[1, 0]
     axCt = ax[1, 1]
     
-    fill_axis(axB, B_mean, B_std, B_names, r"$B$ modes")
+    fill_axis(axB, np.abs(B_mean), B_std, B_names, r"$B$ modes")
     fill_axis(axBt, B_tilde_mean, B_tilde_std, B_tilde_names, title=r"$\tilde{B}$ modes")
     fill_axis(axC, C_mean, C_std, C_names, title=r"$C$ modes")
     fill_axis(axCt, C_tilde_mean, C_tilde_std, C_tilde_names, title=r"$\tilde{C}$ modes")
@@ -412,12 +412,12 @@ train_total_steps = int(3.5e5)
 # Plotting parameters
 N_iter = 10
 PPO_number = 4  # For which model to load when plotting, after training
-PPO_list = [1,2, 3,4]
+PPO_list = [1,2, 3,4, 6]
 
 #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position)
 #train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, viscosity, train_total_steps)
-plot_mode_choice(N_iter, PPO_number)
-#plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="angle")
+#plot_mode_choice(N_iter, PPO_number)
+plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="angle")
 
 # If wants to see reward over time, write the following in cmd in the log directory
 # tensorboard --logdir=.
