@@ -345,8 +345,8 @@ def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter, plot_
             changed_parameter_list[i] = parameters[4]  # Sensor noise
             xlabel = "Sensor Noise"
         elif changed_parameter == "angle":
-            changed_parameter_list[i] = np.arctan2(parameters[5], parameters[6])  # arcan ( target y / target z )
-            xlabel = "Angel [radian]"
+            changed_parameter_list[i] = np.arctan2(parameters[5], parameters[6]) * 180 / np.pi  # arcan ( target y / target z ). Unit: Degrees
+            xlabel = "Angle"
         else:  # Target initial position
             changed_parameter_list[i] = parameters[7]  # Distance between the two centers
             xlabel = "Center-center distance"
@@ -354,10 +354,14 @@ def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter, plot_
 
     def fill_axis(axis, y, sy, mode_name, title):        
         x_vals = changed_parameter_list
+        sort_idx = np.argsort(x_vals)
+        x_sort = x_vals[sort_idx]
         axis.set(title=(title, 7), ylim=(-0.06, 0.06))
         axis.set_title(title, fontsize=7)
         for i in range(y.shape[1]):
-            axis.errorbar(x_vals, y[:, i], yerr=sy[:, i], fmt=".--", lw=0.75)
+            y_sort = y[:, i][sort_idx]
+            sy_sort = sy[:, i][sort_idx]
+            axis.errorbar(x_sort, y_sort, yerr=sy_sort, fmt=".--", lw=0.75)
         axis.legend(mode_name, fontsize=4, bbox_to_anchor=(1.05, 1), 
                     loc='upper left', borderaxespad=0.)
     
@@ -374,8 +378,9 @@ def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter, plot_
     fill_axis(axCt, C_tilde_mean, C_tilde_std, C_tilde_names, title=r"$\tilde{C}$ modes")
             
     # General setup
+    axB.set(ylabel="Mode values")
     axBt.set(yticks=[])
-    axC.set(xlabel=xlabel)
+    axC.set(xlabel=xlabel, ylabel="Mode Values")
     axCt.set(xlabel=xlabel, yticks=[])
     fig.suptitle(fr"Average mode values over {xlabel}", fontsize=10)
     fig.tight_layout()
@@ -399,20 +404,20 @@ N_surface_points = 80
 squirmer_radius = 1
 target_radius = 0.8
 tot_radius = squirmer_radius + target_radius
-target_initial_position = [-1.3*tot_radius, 1.3*tot_radius] / np.sqrt(2)
+target_initial_position = [0, 1.3*tot_radius]
 max_mode = 2
 viscosity = 1
-sensor_noise = 0.01
-train_total_steps = int(2e5)
+sensor_noise = 0.02
+train_total_steps = int(3e5)
 
 # Plotting parameters
 N_iter = 10
 PPO_number = 28  # For which model to load when plotting, after training
-PPO_list = [26, 27]
+PPO_list = [26, 27, 28]
 
 #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position)
-#train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, viscosity, train_total_steps)
-plot_mode_choice(N_iter, PPO_number)
+train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, viscosity, train_total_steps)
+#plot_mode_choice(N_iter, PPO_number)
 #plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="angle")
 
 # If wants to see reward over time, write the following in cmd in the log directory
