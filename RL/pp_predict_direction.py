@@ -346,7 +346,7 @@ def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter, plot_
             xlabel = "Sensor Noise"
         elif changed_parameter == "angle":
             changed_parameter_list[i] = np.arctan2(parameters[5], parameters[6]) * 180 / np.pi  # arcan ( target y / target z ). Unit: Degrees
-            xlabel = "Angel [radian]"
+            xlabel = "Angel"
         else:  # Target initial position
             changed_parameter_list[i] = parameters[7]  # Distance between the two centers
             xlabel = "Center-center distance"
@@ -403,16 +403,16 @@ N_surface_points = 80
 squirmer_radius = 1
 target_radius = 0.8
 tot_radius = squirmer_radius + target_radius
-target_initial_position = [1.3*tot_radius, 0]
+target_initial_position = [1.3*tot_radius, -1.3*tot_radius]/np.sqrt(2)
 max_mode = 2
 viscosity = 1
 sensor_noise = 0.02
-train_total_steps = int(3e5)
+train_total_steps = int(3.3e5)
 
 # Plotting parameters
 N_iter = 10
-PPO_number = 28  # For which model to load when plotting, after training
-PPO_list = [26, 27]
+PPO_number = 1  # For which model to load when plotting, after training
+PPO_list = [1]
 
 #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position)
 train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, viscosity, train_total_steps)
