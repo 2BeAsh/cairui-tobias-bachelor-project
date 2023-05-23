@@ -403,7 +403,7 @@ N_surface_points = 80
 squirmer_radius = 1
 target_radius = 0.8
 tot_radius = squirmer_radius + target_radius
-target_initial_position = [0, -1.3*tot_radius]
+target_initial_position = [-1.3*tot_radius, -1.3*tot_radius] / np.sqrt(2)
 max_mode = 2
 viscosity = 1
 sensor_noise = 0.02
@@ -411,8 +411,8 @@ train_total_steps = int(3.5e5)
 
 # Plotting parameters
 N_iter = 10
-PPO_number = 3  # For which model to load when plotting, after training
-PPO_list = [1, 3]
+PPO_number = 2  # For which model to load when plotting, after training
+PPO_list = [1, 2, 3]
 
 #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position)
 train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, viscosity, train_total_steps)
