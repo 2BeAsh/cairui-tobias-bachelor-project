@@ -411,12 +411,12 @@ train_total_steps = int(3.5e5)
 
 # Plotting parameters
 N_iter = 10
-PPO_number = 3  # For which model to load when plotting, after training
-PPO_list = [1, 3]
+PPO_number = 4  # For which model to load when plotting, after training
+PPO_list = [1,2, 3,4]
 
 #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position)
-train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, viscosity, train_total_steps)
-#plot_mode_choice(N_iter, PPO_number)
+#train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, viscosity, train_total_steps)
+plot_mode_choice(N_iter, PPO_number)
 #plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="angle")
 
 # If wants to see reward over time, write the following in cmd in the log directory
