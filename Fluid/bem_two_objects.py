@@ -176,7 +176,7 @@ def force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_cen
 
     A_oseen = oseen_tensor_surface_two_objects(x1_stacked, x2_stacked, x1_center, x2_center,
                                                dA, regularization_offset, viscosity)
-    # Get velocities in each of the points for both objects
+    # Get velocities in each point on squirmer
     ux1, uy1, uz1 = fv.field_cartesian(max_mode, r=squirmer_radius, 
                                        theta=theta, phi=phi, 
                                        squirmer_radius=squirmer_radius, 
