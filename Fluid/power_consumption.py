@@ -72,7 +72,10 @@ def normalized_modes(modes, max_mode, squirmer_radius, viscosity):
     mode_factors = constant_power_factor(squirmer_radius, viscosity, max_mode)
     non_zero_idx = np.nonzero(mode_factors)
     #mode_normalized = modes / np.sqrt(power_total)
-    mode_factors[non_zero_idx] = modes / np.sqrt(modes ** 2 @ mode_factors[non_zero_idx])
+
+    n1_common_factor = 64 / (3 * squirmer_radius ** 5) * np.pi * viscosity
+
+    mode_factors[non_zero_idx] = modes / np.sqrt(modes ** 2 @ mode_factors[non_zero_idx]) * n1_common_factor
     return mode_factors
     
 
