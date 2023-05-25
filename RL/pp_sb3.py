@@ -10,6 +10,7 @@ import pygame
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.lines as mlines
+import csv
 
 import gym
 from gym import spaces
@@ -35,7 +36,7 @@ class PredatorPreyEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
 
-    def __init__(self, N_surface_points, squirmer_radius, target_radius, spawn_radius, max_mode, sensor_noise, viscosity, const_angle=None, lab_frame=True, render_mode=None, scale_canvas=1):
+    def __init__(self, N_surface_points, squirmer_radius, target_radius, spawn_radius, max_mode, sensor_noise, viscosity, spawn_angle=None, lab_frame=True, render_mode=None, scale_canvas=1):
         #super().__init__() - ingen anelse om hvorfor jeg havde skrevet det eller hvor det kommer fra?
         # -- Variables --
         # Model
@@ -44,7 +45,7 @@ class PredatorPreyEnv(gym.Env):
         self.target_radius = target_radius
         self.spawn_radius = spawn_radius  # Max distance the target can be spawned away from the agent
         self.max_mode = max_mode  # Max available legendre mode, max n in B_{mn}
-        self.const_angle = const_angle
+        self.spawn_angle = spawn_angle
         self.sensor_noise = sensor_noise
         self.lab_frame = lab_frame  # Choose lab or squirmer frame of reference. If True, in lab frame otherwise in squirmer
         self.viscosity = viscosity
@@ -55,7 +56,8 @@ class PredatorPreyEnv(gym.Env):
         self.charac_time = 3 * self.squirmer_radius ** 4 / (4 * self.B_max) # characteristic time
         tau = 1  # Seconds per iteration. 
         self.dt = tau / self.charac_time
-        self.epsilon = 0.1  # Extra catch distance, width of regularization blobs
+        self.epsilon = 0.1  # idth of regularization blobs
+        self.extra_catch_radius = 0.1
 
         
         # Rendering
@@ -83,7 +85,7 @@ class PredatorPreyEnv(gym.Env):
 
     def _array_float(self, x):
         """Helper function to input x into a shape sized array with dtype np.float32"""
-        return np.array([x], dtype=np.float32).reshape(x.shape[0], )
+        return np.array([x], dtype=np.float32).reshape(len(x), )
 
 
     def _get_dist(self):
@@ -98,20 +100,79 @@ class PredatorPreyEnv(gym.Env):
         return r, theta
 
 
+    def _average_force_difference(self, mode_array):
+        # RL is 2d but Oseen tensor is 3d, add x=0 dimension
+        agent_center = np.append([0], self._agent_position)
+        target_center = np.append([0], self._target_position)
+        
+        # Calculate Oseen tensors
+        A_oseen_two_objects = bem_two_objects.oseen_tensor_surface_two_objects(self.x1_stack, self.x2_stack, agent_center, target_center, 
+                                                                               self.dA, self.epsilon, self.viscosity)
+        A_oseen_one_object = bem.oseen_tensor(self.epsilon, self.dA, self.viscosity, evaluation_points=self.x1_stack)
+        
+        # Squirmer surface velocity
+        ux1, uy1, uz1 = field_velocity.field_cartesian(self.max_mode, r=self.squirmer_radius, 
+                                                       theta=self.theta1, phi=self.phi1, 
+                                                       squirmer_radius=self.squirmer_radius, 
+                                                       mode_array=mode_array,
+                                                       lab_frame=self.lab_frame)
+        u_stack = np.array([ux1, uy1, uz1]).ravel()
+        u_one_object = np.append(u_stack, np.zeros(6))  # No target
+        u_two_objects = np.append(u_stack, np.zeros(12+3*self.N2))
+        
+        # Solve for forces and velocities
+        force_one_object = np.linalg.solve(A_oseen_one_object, u_one_object)
+        force_two_objects = np.linalg.solve(A_oseen_two_objects, u_two_objects)
+        u_squirmer = force_two_objects[-11: -9]  # Only U_y and U_z
+        u_target = force_two_objects[-5: -3]
+        
+        # Force differences
+        N1 = self.N_surface_points
+        dfx = force_two_objects[:N1].T - force_one_object[:N1].T  # NOTE burde man allerede her tage abs()? Relatvant ift støj!?
+        dfy = force_two_objects[N1: 2*N1].T - force_one_object[N1: 2*N1].T
+        dfz = force_two_objects[2*N1: 3*N1].T - force_one_object[2*N1: 3*N1].T
+
+        # Gaussian noise
+        dfx += np.random.normal(loc=0, scale=self.sensor_noise, size=dfx.size)
+        dfy += np.random.normal(loc=0, scale=self.sensor_noise, size=dfy.size)
+        dfz += np.random.normal(loc=0, scale=self.sensor_noise, size=dfz.size)
+
+        # Weight and force
+        weight = np.sqrt(dfx ** 2 + dfy ** 2 + dfz ** 2)
+        f_average = np.sum(weight[:, None] * self.x1_stack, axis=0)
+        f_average_norm = f_average / np.linalg.norm(f_average, ord=2)
+        
+        return self._array_float(u_squirmer), self._array_float(u_target), self._array_float(f_average_norm)
+        
+        
+    def _reward(self):
+        """Penalize with distance from target. Normalized by starting distance. 
+        """
+        dist = self._get_dist()
+        if dist > self.catch_radius:
+            reward = - dist / self.spawn_radius
+            done = False
+        else:  # Catched
+            reward = 1
+            done = True
+        return reward, done
+        
+    
     def reset(self, seed=None):
         # Fix seed and reset values
         super().reset(seed=seed)
 
-        # Time
+        # Initial values
+        self._target_velocity = self._array_float([0, 0])  # No velocity
+        observation = self._array_float([0, 0, 0])  # No initial force field
         self.time = 0
-
-        # Initial positions
         self._agent_position = self._array_float([0, 0])  # Start agent in center
-
+        
+        # Target initial position randomly determined or fixed, depending on spawn_angle
         # Target starts random location not within a factor times catch radius.
-        self.catch_radius = self.squirmer_radius + self.epsilon  
+        self.catch_radius = self.squirmer_radius + self.target_radius + self.extra_catch_radius  
 
-        if self.const_angle is None:
+        if self.spawn_angle is None:
             self._target_position = self._agent_position  
             dist = self._get_dist()  # Initial distance
             while dist <= 2 * self.catch_radius:  # While distance between target and agent is too small, find a new initial position for the target
@@ -121,15 +182,20 @@ class PredatorPreyEnv(gym.Env):
                 dist = self._get_dist()  # Update distance
         
         else:  # In case wants specific starting location
-            self._target_position = self._array_float([self.spawn_radius * np.cos(self.const_angle), self.spawn_radius * np.sin(self.const_angle)])
+            self._target_position = self._array_float([self.spawn_radius * np.cos(self.spawn_angle), self.spawn_radius * np.sin(self.spawn_angle)])
 
         self.initial_target_position = 1 * self._target_position  # Needed for reward calculation
 
-        # Initial velocity set to 0
-        self._target_velocity = self._array_float([0, 0])
+        # Surface coordinates squirmer 
+        x1, y1, z1, self.dA = bem.canonical_fibonacci_lattice(self.N_surface_points, self.squirmer_radius)
+        self.theta1 = np.arccos(z1 / self.squirmer_radius)  # [0, pi]
+        self.phi1 = np.arctan2(y1, z1)  # [0, 2pi]
+        self.x1_stack = np.stack((x1, y1, z1)).T
 
-        # Observation - Initially no field
-        observation = self._array_float([0, 0, 0])
+        # Surface coordinates target
+        self.N2 = int(4 * np.pi * self.target_radius ** 2 / self.dA)  # Ensures object 1 and 2 has same dA
+        x2, y2, z2, _ = bem.canonical_fibonacci_lattice(self.N2, self.target_radius)
+        self.x2_stack = np.stack((x2, y2, z2)).T
 
         if self.render_mode == "human":
             self._render_frame()
@@ -145,30 +211,20 @@ class PredatorPreyEnv(gym.Env):
         # Action to normalized modes
         mode_array = power_consumption.normalized_modes(action, self.max_mode, self.squirmer_radius, self.viscosity)
         
-        # -- Movement --
-        # Convert to polar coordinates and get the cartesian velocity of the flow.
-        r, theta = self._cartesian_to_polar()
-        _, velocity_y, velocity_z = field_velocity.field_cartesian(max_mode=self.legendre_modes, r=r, 
-                                                       theta=theta, phi=np.pi/2,
-                                                       squirmer_radius=self.squirmer_radius, 
-                                                       mode_array=mode_array, lab_frame=self.lab_frame)
-        velocity = np.array([velocity_y, velocity_z], dtype=np.float32) / self.charac_velocity
-        self._target_position = self._target_position + velocity * self.dt 
+        # Velocities and update movement
+        u_squirmer, u_target, observation = self._average_force_difference(mode_array)  
+        
+        self._target_position += u_target * self.dt 
 
-        B_01 = mode_array[0, 0, 1]
-        B_tilde_11 = mode_array[1, 1, 1]
-        mode_info = [B_01, B_tilde_11]        
         if self.lab_frame:
-            squirmer_velocity = np.array([B_tilde_11, -B_01], dtype=np.float32) 
-            self._agent_position = self._agent_position + squirmer_velocity * self.dt 
+            self._agent_position += u_squirmer * self.dt
             
         # -- Reward --
-        reward, done = self._reward_time_optimized()
+        reward, done = self._reward()
 
         # -- Update values --
         self.time += self.dt
-        observation = self._get_obs()
-        info = {"modes": mode_info, "time": self.time, "target": self._target_position, "agent": self._agent_position}
+        info = {"modes": "insert top x mode values?", "time": self.time, "target": self._target_position, "agent": self._agent_position}
 
         if self.render_mode == "human":
             self._render_frame()
@@ -178,7 +234,7 @@ class PredatorPreyEnv(gym.Env):
 
     def _coord_to_pixel(self, position):
         """PyGame window is fixed at (0, 0), but we want (0, 0) to be in the center of the screen. The area is width x height, so all points must be shifted by (width/2, -height/2)"""
-        return position + self._array_float([self.spawn_radius, self.spawn_radius], shape=(2,)) * self.scale_canvas
+        return position + self._array_float([self.spawn_radius, self.spawn_radius]) * self.scale_canvas
 
 
     def render(self):
@@ -240,8 +296,8 @@ class PredatorPreyEnv(gym.Env):
             pygame.quit()
 
 
-def check_model(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame):
-    env = PredatorPreyEnv(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
+def check_model(N_surface_points, squirmer_radius, target_radius, spawn_radius, max_mode, sensor_noise, viscosity, spawn_angle, lab_frame, render_mode, scale_canvas):
+    env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, spawn_radius, max_mode, sensor_noise, viscosity, spawn_angle, lab_frame, render_mode, scale_canvas)
     print("-- SB3 CHECK ENV: --")
     if check_env(env) == None:
         print("   The Environment is compatible with SB3")
@@ -249,14 +305,24 @@ def check_model(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, sta
         print(check_env(env))
 
 
-def train(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame, train_total_steps):
-    env = PredatorPreyEnv(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
+def train(N_surface_points, squirmer_radius, target_radius, spawn_radius, max_mode, sensor_noise, viscosity, spawn_angle, lab_frame, train_total_steps):
+    env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, spawn_radius, max_mode, sensor_noise, viscosity, spawn_angle, lab_frame, render_mode=None)
 
     # Train with SB3
-    log_path = os.path.join("Reinforcement Learning", "Training", "Logs")
+    log_path = os.path.join("RL", "Training", "Logs")
     model = PPO("MlpPolicy", env, verbose=1, tensorboard_log=log_path)
     model.learn(total_timesteps=train_total_steps)
-    model.save("ppo_predator_prey")
+    model_path = os.path.join(log_path, "ppo_predator_prey")
+    model.save(model_path)
+    
+    # Save parameters in csv file
+    file_path = os.path.join(log_path, "system_parameters.csv")
+    with open(file_path, mode="w") as file:
+        writer = csv.writer(file, delimiter=",")
+        writer.writerow(["Surface Points ", "Squirmer Radius ", "Target Radius ", "Max Mode ", "Sensor Noise ", 
+                         "Spawn radius ", "Spawn angle ", "viscosity ", "Train Steps "])
+        writer.writerow([N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, spawn_radius, spawn_angle,
+                        viscosity, train_total_steps])
 
 
 def show_result(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame, render_mode):
@@ -343,19 +409,22 @@ def plot_info(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start
 
 # -- Run the code --
 # Parameters
+N_surface_points = 80
 squirmer_radius = 1
-spawn_radius = 5
-legendre_modes = 2  # DOES NOT WORK FOR >2
-scale_canvas = 1.4  # Makes everything on the canvas a factor smaller / zoomed out
-start_angle = np.pi/ 2
-cap_modes = "constant power"  # Options: "less", "uncapped", "constant", "constant power"
+target_radius = 0.8
+tot_radius = squirmer_radius + target_radius
+spawn_radius = 5 * tot_radius
+max_mode = 2  
+sensor_noise = 0.1
+viscosity = 1
+spawn_angle = np.pi / 4
 lab_frame = True
-
-train_total_steps = int(8e5)
 render_mode = "human"
+scale_canvas = 1.4  # Makes everything on the canvas a factor smaller / zoomed out
+train_total_steps = int(2e5)
 
-#check_model(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
-#train(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame, train_total_steps)
+#check_model(N_surface_points, squirmer_radius, target_radius, spawn_radius, max_mode, sensor_noise, viscosity, spawn_angle, lab_frame, render_mode, scale_canvas)
+train(N_surface_points, squirmer_radius, target_radius, spawn_radius, max_mode, sensor_noise, viscosity, spawn_angle, lab_frame, train_total_steps)
 #show_result(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame, render_mode)
 #plot_info(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
 
