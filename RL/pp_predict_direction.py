@@ -308,7 +308,7 @@ def plot_mode_choice(N_iter, PPO_number):
     
     # Plot
     def fill_axis(axis, y, marker, label, title):        
-        axis.set(xticks=[], title=(title, 7), ylim=(-0.17, 0.17))
+        axis.set(xticks=[], title=(title, 7), ylim=(-0.5, 0.5))
         axis.set_title(title, fontsize=7)
         axis.plot(y, marker=marker, ls="--", lw=0.75)
         axis.legend(label, fontsize=4, bbox_to_anchor=(1.05, 1), 
@@ -402,7 +402,7 @@ def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter, plot_
         x_vals = changed_parameter_list
         sort_idx = np.argsort(x_vals)
         x_sort = x_vals[sort_idx]
-        axis.set(title=(title, 7), ylim=(-0.06, 0.06))
+        axis.set(title=(title, 7), ylim=(-0.5, 0.5))
         axis.set_title(title, fontsize=7)
         for i in range(y.shape[1]):
             y_sort = y[:, i][sort_idx]
@@ -449,16 +449,16 @@ N_surface_points = 80
 squirmer_radius = 1
 target_radius = 0.8
 tot_radius = squirmer_radius + target_radius
-target_initial_position = [0, 1.3*tot_radius]
+target_initial_position = [1.3*tot_radius, 1.3*tot_radius] / np.sqrt(2)
 max_mode = 2
 viscosity = 1
 sensor_noise = 0.02
-train_total_steps = int(10e5)
+train_total_steps = int(5e5)
 
 # Plotting parameters
 N_iter = 11
-PPO_number = 13 # For which model to load when plotting, after training
-PPO_list = [1, 2, 3, 4, 6, 7, 8, 9, 11, 13]
+PPO_number = 1 # For which model to load when plotting, after training
+PPO_list = [1]
 
 #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position)
 train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, viscosity, train_total_steps)
