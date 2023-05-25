@@ -28,6 +28,28 @@ import bem_two_objects
 import bem
 
 
+def oseen_inverses(N1, squirmer_radius, target_radius, squirmer_position, target_position, epsilon, viscosity):
+    """Calculate Oseen tensor inverses"""
+    # Without target
+    x1, y1, z1, dA = bem.canonical_fibonacci_lattice(N1, squirmer_radius)
+    theta = np.arccos(z1 / squirmer_radius)
+    phi = np.arctan2(y1, x1)
+    x1_stack = np.stack((x1, y1, z1)).T
+    A_oseen = bem.oseen_tensor(epsilon, dA, viscosity, evaluation_points=x1_stack)
+    A_oseen_inv = np.linalg.inv(A_oseen)
+    
+    # With target
+    N2 = int(4 * np.pi * target_radius ** 2 / dA)
+    x2, y2, z2, _ = bem.canonical_fibonacci_lattice(N2, target_radius)
+    x2_stack = np.stack((x2, y2, z2)).T
+    squirmer_position = np.append([0], squirmer_position)  # RL is 2d, Oseen i 3d with x plane zero
+    target_position = np.append([0], target_position)
+    A_oseen_with = bem_two_objects.oseen_tensor_surface_two_objects(x1_stack, x2_stack, squirmer_position, target_position, dA, epsilon, viscosity)
+    A_oseen_with_inv = np.linalg.inv(A_oseen_with)
+    
+    return x1_stack, N2, theta, phi, A_oseen_inv, A_oseen_with_inv
+
+
 # Environment
 class PredatorPreyEnv(gym.Env):
     """Gym environment for a predator-prey system in a fluid."""
@@ -67,62 +89,113 @@ class PredatorPreyEnv(gym.Env):
         self.observation_space = spaces.Box(low=-1, high=1, shape=(3,), dtype=np.float32) 
 
         # -- Calculate Oseen inverses --
-        # Get coordinates to points on the two surfaces
-        # Object 1
-        x1, y1, z1, dA = bem.canonical_fibonacci_lattice(self.N_surface_points, self.squirmer_radius)
-        self.x1_stacked = np.stack((x1, y1, z1)).T  
-        self.theta = np.arccos(z1 / self.squirmer_radius)  # [0, pi]
-        self.phi = np.arctan2(y1, x1)  # [0, 2*pi]
-        A_oseen_one_object = bem.oseen_tensor(self.epsilon, dA, self.viscosity, evaluation_points=self.x1_stacked)
-        self.inverse_one_object = np.linalg.inv(A_oseen_one_object)
-                
-        # Object 2
-        self.N2 = int(4 * np.pi * self.target_radius ** 2 / dA)  # Ensures object 1 and 2 has same dA
-        x2, y2, z2, _ = bem.canonical_fibonacci_lattice(self.N2, self.target_radius)
-        x2_stacked = np.stack((x2, y2, z2)).T  
+        # Initial Positions
         self._agent_position = self._array_float([0, 0], shape=(2,))  # Agent in center
         self._target_position = self._array_float(self.target_initial_position, shape=(2,))
-        agent_center = np.concatenate((np.array([0]), self._agent_position))  # Expects 3d vector, but RL is 2d
-        target_center = np.concatenate((np.array([0]), self._target_position))
-        A_oseen_two_objects = bem_two_objects.oseen_tensor_surface_two_objects(self.x1_stacked, x2_stacked, agent_center, target_center, dA, self.epsilon, self.viscosity)
-        self.inverse_two_objects = np.linalg.inv(A_oseen_two_objects)
 
+        self.x1_stack, self.N2, self.theta, self.phi, self.A_oseen_inv, self.A_oseen_with_inv = oseen_inverses(self.N_surface_points, self.squirmer_radius, self.target_radius, 
+                                                                                                               self._agent_position, self._target_position, self.epsilon, self.viscosity)
+        
 
     def _array_float(self, x, shape):  # Kan ændres til at shap bare tager x.shape
         """Helper function to input x into a shape sized array with dtype np.float32"""
         return np.array([x], dtype=np.float32).reshape(shape)
 
-    
-    def _average_direction_change(self, mode_array):        
-        # Velocities squirmer
-        ux1, uy1, uz1 = field_velocity.field_cartesian(self.max_mode, r=squirmer_radius, 
-                                        theta=self.theta, phi=self.phi, 
-                                        squirmer_radius=self.squirmer_radius, 
-                                        mode_array=mode_array,
-                                        lab_frame=self.lab_frame)
-        u_comb = np.array([ux1, uy1, uz1]).ravel()  
-        u_comb_one_object = np.append(u_comb, np.zeros(6))
-        u_comb_two_objects = np.append(u_comb, np.zeros(12 + 3*self.N2))  # 2*6 zeros from Forces=0=Torqus + 3N2 zeros as Object 2 no own velocity
+
+    def _average_force_difference(self, mode_array):
+        # Find forces with and without target
+        ux1, uy1, uz1 = field_velocity.field_cartesian(self.max_mode, r=self.squirmer_radius, 
+                                                       theta=self.theta, phi=self.phi, 
+                                                       squirmer_radius=self.squirmer_radius, 
+                                                       mode_array=mode_array,
+                                                       lab_frame=self.lab_frame)
+        u_comb = np.array([ux1, uy1, uz1]).ravel()
+        u_comb_without = np.append(u_comb, np.zeros(6))  # No target
+        u_comb_with = np.append(u_comb, np.zeros(12+3*self.N2))
         
-        force_one_object = self.inverse_one_object @ u_comb_one_object        
-        force_two_objects = self.inverse_two_objects @ u_comb_two_objects
+        force_without = self.A_oseen_inv @ u_comb_without
+        force_with = self.A_oseen_with_inv @ u_comb_with 
         
-        N = self.N_surface_points
-        dfx = force_two_objects[:N] - force_one_object[:N]
-        dfy = force_two_objects[N: 2*N] - force_one_object[N: 2*N]
-        dfz = force_two_objects[2*N: 3*N] - force_one_object[2*N: 3*N]
-        
-        # Gaussian Noise
+        # Differences
+        N1 = self.N_surface_points
+        dfx = force_with[:N1] - force_without[:N1]  # NOTE burde man allerede her tage abs()? Relatvant ift støj!?
+        dfy = force_with[N1: 2*N1] - force_without[N1: 2*N1]
+        dfz = force_with[2*N1: 3*N1]- force_without[2*N1: 3*N1]
+
+        # Noise
         dfx += np.random.normal(loc=0, scale=self.sensor_noise, size=dfx.size)
         dfy += np.random.normal(loc=0, scale=self.sensor_noise, size=dfy.size)
         dfz += np.random.normal(loc=0, scale=self.sensor_noise, size=dfz.size)
-        # Weights
+
+        # Weight and force
         weight = np.sqrt(dfx ** 2 + dfy ** 2 + dfz ** 2)
-        f_average = np.sum(weight[:, None] * self.x1_stacked, axis=0)
-        f_average_norm = f_average / np.linalg.norm(f_average, ord=2)  
+        f_average = np.sum(weight[:, None] * self.x1_stack, axis=0)
+        f_average_norm = f_average / np.linalg.norm(f_average, ord=2)
         return f_average_norm
-             
-    
+
+
+    def _force_difference(self, mode_array):
+        # Choose parameters
+        eps = 0.05
+        viscosity = 1
+        N1 = 200
+        max_mode = 4
+        squirmer_radius = 1
+        radius_obj2 = 1.5
+        total_radius = squirmer_radius + radius_obj2
+        x1_center = np.array([0, 0, 0])
+        x2_center = np.array([0, 0.6*total_radius, 0.9*total_radius])
+        # Modes
+        B = np.zeros((max_mode+1, max_mode+1))
+        B_tilde = np.zeros_like(B)
+        C = np.zeros_like(B)
+        C_tilde = np.zeros_like(B)
+        B[0, 1] = 1
+
+        # Force                            
+        force_with_condition, x1_surface, _ = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, np.array([B, B_tilde, C, C_tilde]), eps, viscosity, lab_frame=True, return_points=True)
+        fx = force_with_condition[:N1].T
+        fy = force_with_condition[N1: 2*N1].T
+        fz = force_with_condition[2*N1: 3*N1].T        
+        
+        # Force difference 
+        force_no_target = bem.force_on_sphere(N1, max_mode, squirmer_radius, np.array([B, B_tilde, C, C_tilde]), eps, viscosity)
+        fx_no = force_no_target[:N1].T
+        fy_no = force_no_target[N1: 2*N1].T
+        fz_no = force_no_target[2*N1: 3*N1].T        
+
+        fx_diff = fx - fx_no
+        fy_diff = fy - fy_no
+        fz_diff = fz - fz_no
+        
+        x_change = _average_force_difference(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, np.array([B, B_tilde, C, C_tilde]), eps, viscosity)
+        
+        x_quiv = x1_surface[:, 0] + x1_center[0]
+        y_quiv = x1_surface[:, 1] + x1_center[1]
+        z_quiv = x1_surface[:, 2] + x1_center[2]
+
+        difference = True
+
+        # Plot
+        fig = plt.figure(figsize=(8, 8), dpi=200)
+        ax = fig.add_subplot(projection="3d")
+        ax.set(xlabel="x", ylabel="y", zlabel="z")
+
+        if difference:
+            ax.quiver(x_quiv, y_quiv, z_quiv, fx_diff, fy_diff, fz_diff, color="b")
+            ax.quiver(x1_center[0], x1_center[1], x1_center[2],
+                        x_change[0], x_change[1], x_change[2], color="green")
+            ax.set(xlim=(-squirmer_radius, squirmer_radius), ylim=(-squirmer_radius, squirmer_radius), zlim=(-squirmer_radius, squirmer_radius))
+
+        else:
+            ax.quiver(x_quiv, y_quiv, z_quiv, fx, fy, fz, color="b", length=0.05)
+            ax.plot(x2_center[0], x2_center[1], x2_center[2], "ro", markersize=10)
+            ax.set(xlim=(-1.2, 2.5), ylim=(-1.2, 2.5), zlim=(-1.2, 2.5))
+            ax.legend([f"Target radius={radius_obj2}", f"Squirmer Radius={squirmer_radius}"], fontsize=8)
+        ax.set_title("Force field")
+        plt.show()
+
+        
     def _minimal_angle_difference(self, x, y):
         diff1 = x - y
         diff2 = diff1 + 2 * np.pi
@@ -135,7 +208,7 @@ class PredatorPreyEnv(gym.Env):
         agent_target_vec = self._target_position - self._agent_position  # Vector pointing from target to agent
         angle = np.arctan2(agent_target_vec[0], agent_target_vec[1])
         
-        change_direction = self._average_direction_change(mode_array)
+        change_direction = self._average_force_difference(mode_array)
         angle_largest_change = np.arctan2(change_direction[1], change_direction[2])
         
         # Reward is based on how close the angles are, closer is better
@@ -163,7 +236,7 @@ class PredatorPreyEnv(gym.Env):
         angle, guessed_angle, reward = self._reward(mode_array)
 
         # -- Update values --
-        observation = self._array_float(self._average_direction_change(mode_array), shape=(3,))
+        observation = self._array_float(self._average_force_difference(mode_array), shape=(3,))
         info = {"angle": angle, "guessed angle": guessed_angle}
         done = True  # Only one time step as the system does not evolve over time
         
@@ -427,7 +500,10 @@ def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter, plot_
         axr.set(xlabel=xlabel, ylabel="Reward", title="Mean reward")
         figr.tight_layout()
         plt.show()
-    
+
+
+
+
     
 # -- Run the code --
 # Model Parameters
@@ -435,11 +511,11 @@ N_surface_points = 80
 squirmer_radius = 1
 target_radius = 0.8
 tot_radius = squirmer_radius + target_radius
-target_initial_position = [0, 1.3*tot_radius] 
+target_initial_position = [1.3*tot_radius, 0]
 max_mode = 2
 viscosity = 1
 sensor_noise = 0.02
-train_total_steps = int(4.5e5)
+train_total_steps = int(3.5e5)
 
 # Plotting parameters
 N_iter = 10

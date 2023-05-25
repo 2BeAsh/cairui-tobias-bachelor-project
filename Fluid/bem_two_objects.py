@@ -351,7 +351,7 @@ if __name__ == "__main__":
     
     def force_difference():
         # Choose parameters
-        eps = 0.1
+        eps = 0.05
         viscosity = 1
         N1 = 200
         max_mode = 4
