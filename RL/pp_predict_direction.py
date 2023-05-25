@@ -67,11 +67,9 @@ class PredatorPreyEnv(gym.Env):
         self.target_initial_position = target_initial_position
                 
         # Parameters
-        self.regularization_offset = 0.1  # "Width" of blob delta functions.
-        self.B_max = 1
         self.viscosity = 1
         self.lab_frame = True
-        self.epsilon = 0.05  # Extra catch distance, because velocities blow up near squirmer
+        self.epsilon = 0.1  # Extra catch distance, because velocities blow up near squirmer. Width of delta function blobs.
         self.catch_radius = self.squirmer_radius + self.epsilon
         
         # -- Define action and observation space --
@@ -118,9 +116,9 @@ class PredatorPreyEnv(gym.Env):
         
         # Differences
         N1 = self.N_surface_points
-        dfx = force_with[:N1] - force_without[:N1]  # NOTE burde man allerede her tage abs()? Relatvant ift støj!?
-        dfy = force_with[N1: 2*N1] - force_without[N1: 2*N1]
-        dfz = force_with[2*N1: 3*N1]- force_without[2*N1: 3*N1]
+        dfx = force_with[:N1].T - force_without[:N1].T  # NOTE burde man allerede her tage abs()? Relatvant ift støj!?
+        dfy = force_with[N1: 2*N1].T - force_without[N1: 2*N1].T
+        dfz = force_with[2*N1: 3*N1].T - force_without[2*N1: 3*N1].T
 
         # Noise
         dfx += np.random.normal(loc=0, scale=self.sensor_noise, size=dfx.size)
@@ -131,69 +129,7 @@ class PredatorPreyEnv(gym.Env):
         weight = np.sqrt(dfx ** 2 + dfy ** 2 + dfz ** 2)
         f_average = np.sum(weight[:, None] * self.x1_stack, axis=0)
         f_average_norm = f_average / np.linalg.norm(f_average, ord=2)
-        return f_average_norm
-
-
-    def _force_difference(self, mode_array):
-        # Choose parameters
-        eps = 0.05
-        viscosity = 1
-        N1 = 200
-        max_mode = 4
-        squirmer_radius = 1
-        radius_obj2 = 1.5
-        total_radius = squirmer_radius + radius_obj2
-        x1_center = np.array([0, 0, 0])
-        x2_center = np.array([0, 0.6*total_radius, 0.9*total_radius])
-        # Modes
-        B = np.zeros((max_mode+1, max_mode+1))
-        B_tilde = np.zeros_like(B)
-        C = np.zeros_like(B)
-        C_tilde = np.zeros_like(B)
-        B[0, 1] = 1
-
-        # Force                            
-        force_with_condition, x1_surface, _ = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, np.array([B, B_tilde, C, C_tilde]), eps, viscosity, lab_frame=True, return_points=True)
-        fx = force_with_condition[:N1].T
-        fy = force_with_condition[N1: 2*N1].T
-        fz = force_with_condition[2*N1: 3*N1].T        
-        
-        # Force difference 
-        force_no_target = bem.force_on_sphere(N1, max_mode, squirmer_radius, np.array([B, B_tilde, C, C_tilde]), eps, viscosity)
-        fx_no = force_no_target[:N1].T
-        fy_no = force_no_target[N1: 2*N1].T
-        fz_no = force_no_target[2*N1: 3*N1].T        
-
-        fx_diff = fx - fx_no
-        fy_diff = fy - fy_no
-        fz_diff = fz - fz_no
-        
-        x_change = _average_force_difference(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, np.array([B, B_tilde, C, C_tilde]), eps, viscosity)
-        
-        x_quiv = x1_surface[:, 0] + x1_center[0]
-        y_quiv = x1_surface[:, 1] + x1_center[1]
-        z_quiv = x1_surface[:, 2] + x1_center[2]
-
-        difference = True
-
-        # Plot
-        fig = plt.figure(figsize=(8, 8), dpi=200)
-        ax = fig.add_subplot(projection="3d")
-        ax.set(xlabel="x", ylabel="y", zlabel="z")
-
-        if difference:
-            ax.quiver(x_quiv, y_quiv, z_quiv, fx_diff, fy_diff, fz_diff, color="b")
-            ax.quiver(x1_center[0], x1_center[1], x1_center[2],
-                        x_change[0], x_change[1], x_change[2], color="green")
-            ax.set(xlim=(-squirmer_radius, squirmer_radius), ylim=(-squirmer_radius, squirmer_radius), zlim=(-squirmer_radius, squirmer_radius))
-
-        else:
-            ax.quiver(x_quiv, y_quiv, z_quiv, fx, fy, fz, color="b", length=0.05)
-            ax.plot(x2_center[0], x2_center[1], x2_center[2], "ro", markersize=10)
-            ax.set(xlim=(-1.2, 2.5), ylim=(-1.2, 2.5), zlim=(-1.2, 2.5))
-            ax.legend([f"Target radius={radius_obj2}", f"Squirmer Radius={squirmer_radius}"], fontsize=8)
-        ax.set_title("Force field")
-        plt.show()
+        return dfx, dfy, dfz, f_average_norm
 
         
     def _minimal_angle_difference(self, x, y):
@@ -208,7 +144,7 @@ class PredatorPreyEnv(gym.Env):
         agent_target_vec = self._target_position - self._agent_position  # Vector pointing from target to agent
         angle = np.arctan2(agent_target_vec[0], agent_target_vec[1])
         
-        change_direction = self._average_force_difference(mode_array)
+        _, _, _, change_direction = self._average_force_difference(mode_array)
         angle_largest_change = np.arctan2(change_direction[1], change_direction[2])
         
         # Reward is based on how close the angles are, closer is better
@@ -220,6 +156,10 @@ class PredatorPreyEnv(gym.Env):
     def reset(self, seed=None):
         # Fix seed and reset values
         super().reset(seed=seed)
+                
+        # Initial positions
+        self._agent_position = self._array_float([0, 0], shape=(2,))  # Agent in center
+        self._target_position = self._array_float(self.target_initial_position, shape=(2,))
                 
         # Initial observation is no field
         observation = self._array_float([0, 0, 0], shape=(3,))
@@ -236,7 +176,8 @@ class PredatorPreyEnv(gym.Env):
         angle, guessed_angle, reward = self._reward(mode_array)
 
         # -- Update values --
-        observation = self._array_float(self._average_force_difference(mode_array), shape=(3,))
+        _, _, _, x_change = self._average_force_difference(mode_array)
+        observation = self._array_float(x_change, shape=(3,))
         info = {"angle": angle, "guessed angle": guessed_angle}
         done = True  # Only one time step as the system does not evolve over time
         
@@ -266,8 +207,8 @@ def train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noi
     file_path = os.path.join(log_path, "system_parameters.csv")
     with open(file_path, mode="w") as file:
         writer = csv.writer(file, delimiter=",")
-        writer.writerow(["Surface Points", "Squirmer Radius", "Target Radius", "Max Mode", "Sensor Noise", 
-                         "Target y", "Target z", "Centers Distance", "viscosity", "Train Steps"])
+        writer.writerow(["Surface Points ", "Squirmer Radius ", "Target Radius ", "Max Mode ", "Sensor Noise ", 
+                         "Target y ", "Target z ", "Centers Distance ", "viscosity ", "Train Steps "])
         writer.writerow([N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position[0], target_initial_position[1],
                          np.linalg.norm(target_initial_position, ord=2), viscosity, train_total_steps])
     
@@ -502,9 +443,6 @@ def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter, plot_
         plt.show()
 
 
-
-
-    
 # -- Run the code --
 # Model Parameters
 N_surface_points = 80
@@ -523,9 +461,55 @@ PPO_number = 7  # For which model to load when plotting, after training
 PPO_list = [1, 2, 3, 4, 6, 7]
 
 #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position)
-#train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, viscosity, train_total_steps)
-plot_mode_choice(N_iter, PPO_number)
-plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="angle")
+train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, viscosity, train_total_steps)
+#plot_mode_choice(N_iter, PPO_number)
+#plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="angle")
 
 # If wants to see reward over time, write the following in cmd in the log directory
 # tensorboard --logdir=.
+
+
+
+
+    # def _force_difference(self):
+    #     # Choose parameters
+    #     N1 = self.N_surface_points
+    #     x1_center = np.array([0, 0, 0])
+    #     x2_center = np.append([0], self._target_position)
+    #     # Modes
+    #     B = np.zeros((self.max_mode+1, self.max_mode+1))
+    #     B_tilde = np.zeros_like(B)
+    #     C = np.zeros_like(B)
+    #     C_tilde = np.zeros_like(B)
+    #     B[0, 1] = 1
+    #     mode_array = np.array([B, B_tilde, C, C_tilde])
+
+    #     # Force                            
+    #     x1_surface = self.x1_stack
+
+    #     fx_diff, fy_diff, fz_diff, x_change = self._average_force_difference(mode_array)
+        
+    #     x_quiv = x1_surface[:, 0] + x1_center[0]
+    #     y_quiv = x1_surface[:, 1] + x1_center[1]
+    #     z_quiv = x1_surface[:, 2] + x1_center[2]
+
+    #     difference = True
+
+    #     # Plot
+    #     fig = plt.figure(figsize=(8, 8), dpi=200)
+    #     ax = fig.add_subplot(projection="3d")
+    #     ax.set(xlabel="x", ylabel="y", zlabel="z")
+
+    #     if difference:
+    #         ax.quiver(x_quiv, y_quiv, z_quiv, fx_diff, fy_diff, fz_diff, color="b")
+    #         ax.quiver(x1_center[0], x1_center[1], x1_center[2],
+    #                     x_change[0], x_change[1], x_change[2], color="green")
+    #         ax.set(xlim=(-squirmer_radius, squirmer_radius), ylim=(-squirmer_radius, squirmer_radius), zlim=(-squirmer_radius, squirmer_radius))
+
+    #     else:
+    #         ax.quiver(x_quiv, y_quiv, z_quiv, fx, fy, fz, color="b", length=0.05)
+    #         ax.plot(x2_center[0], x2_center[1], x2_center[2], "ro", markersize=10)
+    #         ax.set(xlim=(-1.2, 2.5), ylim=(-1.2, 2.5), zlim=(-1.2, 2.5))
+    #         ax.legend([f"Target radius={self.target_radius}", f"Squirmer Radius={squirmer_radius}"], fontsize=8)
+    #     ax.set_title("Force field")
+    #     plt.show()
