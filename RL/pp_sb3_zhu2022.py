@@ -55,8 +55,6 @@ class PredatorPreyEnv(gym.Env):
         self.charac_time = 3 * self.squirmer_radius ** 4 / (4 * self.B_max) # characteristic time
         tau = 1  # Seconds per iteration. 
         self.dt = tau / self.charac_time
-        self.epsilon = 0.1  # Extra catch distance, width of regularization blobs
-
         
         # Rendering
         self.scale_canvas = scale_canvas  # Makes canvas this times smaller
@@ -83,19 +81,50 @@ class PredatorPreyEnv(gym.Env):
 
     def _array_float(self, x):
         """Helper function to input x into a shape sized array with dtype np.float32"""
-        return np.array([x], dtype=np.float32).reshape(x.shape[0], )
+        return np.array([x], dtype=np.float32).reshape(x.shape, )
 
 
     def _get_dist(self):
         """Helper function that calculates the distance between the agent and the target"""
         return np.linalg.norm(self._agent_position - self._target_position, ord=2)
 
-    
+
     def _cartesian_to_polar(self):
         r = self._get_dist()
         agent_target_vec = self._target_position - self._agent_position  # Vector pointing from target to agent
         theta = np.arctan2(agent_target_vec[0], agent_target_vec[1])
         return r, theta
+
+   
+    def _get_obs(self):
+        """Helper function which convertes values into observation space values (between -1 and 1).
+        Get the distance and angle, and then convert them to values between -1 and 1.
+        For the angle divide by pi. 
+        For the distance, shift the values by half of its max (ideally the max would be infinity, but as we stop the simulation at spawn_radius it is chosen) and divide by the max
+        """
+        r, theta = self._cartesian_to_polar()
+        upper_dist = 1.5 * self.spawn_radius
+        r_unit = (r - upper_dist / 2) / upper_dist
+        theta_unit = theta / np.pi
+        return self._array_float([r_unit, theta_unit], shape=(2,))        
+
+
+    def _reward_time_optimized(self):
+        r = self._get_dist()
+        d0 = np.linalg.norm(self.initial_target_position, ord=2)  # Time it takes to move from initial position to target if travelling in a straight line, in time units
+        too_far_away = r > self.spawn_radius
+        captured = r < self.catch_radius
+        done = False
+        # Fix d0, evt. bare fjern
+        if too_far_away:  # Stop simulation and penalize hard if goes too far away
+            gamma = -1000
+            done = True
+        elif captured:  # Believe there is a problem with self.time - d0, as sometimes get massive negative reward when catches.
+            gamma = 200 / (self.time - d0)  # beta_T approx equal d0, where beta_T approximates the time needed to capture the target, which is the time it takes to move in a straight line
+            done = True
+        else:
+            gamma = 0
+        return float(gamma - r), done
 
 
     def reset(self, seed=None):
@@ -106,30 +135,31 @@ class PredatorPreyEnv(gym.Env):
         self.time = 0
 
         # Initial positions
-        self._agent_position = self._array_float([0, 0])  # Start agent in center
+        self._agent_position = self._array_float([0, 0], shape=(2,))  # Agent in center
 
-        # Target starts random location not within a factor times catch radius.
-        self.catch_radius = self.squirmer_radius + self.epsilon  
+        # Target starts random location not within a factor times catch radius. catch_radius is a factor of squirmer_radius
+        self.epsilon = 0.05  # Extra catch distance
+        self.catch_radius = self.squirmer_radius + self.epsilon  # Velocities blow up near the squirmer.
 
         if self.const_angle is None:
             self._target_position = self._agent_position  
-            dist = self._get_dist()  # Initial distance
+            dist = self._get_dist()
             while dist <= 2 * self.catch_radius:  # While distance between target and agent is too small, find a new initial position for the target
                 initial_distance = np.random.uniform(low=0, high=self.spawn_radius)
                 initial_angle = np.random.uniform(-1, 1) * np.pi
-                self._target_position = self._array_float([initial_distance * np.cos(initial_angle), initial_distance * np.sin(initial_angle)])
+                self._target_position = self._array_float([initial_distance * np.cos(initial_angle), initial_distance * np.sin(initial_angle)], shape=(2,))
                 dist = self._get_dist()  # Update distance
         
         else:  # In case wants specific starting location
-            self._target_position = self._array_float([self.spawn_radius * np.cos(self.const_angle), self.spawn_radius * np.sin(self.const_angle)])
+            self._target_position = self._array_float([self.spawn_radius * np.cos(self.const_angle), self.spawn_radius * np.sin(self.const_angle)], shape=(2,))
 
         self.initial_target_position = 1 * self._target_position  # Needed for reward calculation
 
         # Initial velocity set to 0
-        self._target_velocity = self._array_float([0, 0])
+        self._target_velocity = self._array_float([0, 0], shape=(2,))
 
-        # Observation - Initially no field
-        observation = self._array_float([0, 0, 0])
+        # Observation
+        observation = self._get_obs()
 
         if self.render_mode == "human":
             self._render_frame()
@@ -141,9 +171,37 @@ class PredatorPreyEnv(gym.Env):
         # Agent changes velocity at target's position
         # Target is moved by velocity
         # Target's only movement is by the Squirmer's influence, does not diffuse
-
-        # Action to normalized modes
-        mode_array = power_consumption.normalized_modes(action, self.max_mode, self.squirmer_radius, self.viscosity)
+        # -- Action setup --
+        B = np.zeros((self.legendre_modes+1, self.legendre_modes+1))
+        B_tilde = np.zeros_like(B)
+        C = np.zeros_like(B)
+        C_tilde = np.zeros_like(B)
+        if self.cap_modes == "less":
+            B_10, B_tilde_11  = (action[1] + 1) / 2 * np.sin(action[0] * np.pi), (action[2] + 1) / 2 * np.cos(action[0] * np.pi)
+            B[1, 0] = B_10
+            B_tilde[1, 1] = B_tilde_11
+            mode_array = np.array([B, B_tilde, C, C_tilde])
+        elif self.cap_modes == "constant":
+            B_01 = np.sin(action * np.pi)
+            B_tilde_11 = np.cos(action * np.pi)
+            B[0, 1] = B_01  # NOTE burde det ikke være 1, 0 ???
+            B_tilde[1, 1] = B_tilde_11
+            mode_array = np.array([B, B_tilde, C, C_tilde])
+        elif self.cap_modes == "constant power":
+            # Modes are equal to n-sphere coordinates divided by the square root of the mode factors
+            # NOTE har man brug for at kvadrere noget? 
+            max_power = 1
+            x_n_sphere = power_consumption.n_sphere_angular_to_cartesian(action, max_power)
+            mode_factors = power_consumption.constant_power_factor(squirmer_radius, self.viscosity)
+            mode_non_zero = mode_factors.nonzero()
+            mode_array = np.zeros_like(mode_factors)
+            mode_array[mode_non_zero] = x_n_sphere / np.sqrt(mode_factors[mode_non_zero].ravel())
+        else:  # Uncapped
+            B_01 = action[0] / self.B_max
+            B_tilde_11 = action[1] / self.B_max        
+            B[0, 1] = B_01  # NOTE burde det ikke være 1, 0 ???
+            B_tilde[1, 1] = B_tilde_11
+            mode_array = np.array([B, B_tilde, C, C_tilde])
         
         # -- Movement --
         # Convert to polar coordinates and get the cartesian velocity of the flow.
@@ -354,7 +412,7 @@ lab_frame = True
 train_total_steps = int(8e5)
 render_mode = "human"
 
-#check_model(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
+check_model(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
 #train(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame, train_total_steps)
 #show_result(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame, render_mode)
 #plot_info(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
