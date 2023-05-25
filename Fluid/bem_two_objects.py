@@ -351,15 +351,15 @@ if __name__ == "__main__":
     
     def force_difference():
         # Choose parameters
-        eps = 0.05
+        eps = 0.1
         viscosity = 1
         N1 = 200
-        max_mode = 4
+        max_mode = 2
         squirmer_radius = 1
-        radius_obj2 = 1.5
+        radius_obj2 = 0.8
         total_radius = squirmer_radius+radius_obj2
         x1_center = np.array([0, 0, 0])
-        x2_center = np.array([0, 0.6*total_radius, 0.9*total_radius])
+        x2_center = np.array([0, 1.3*total_radius, 0])
         # Modes
         B = np.zeros((max_mode+1, max_mode+1))
         B_tilde = np.zeros_like(B)
