@@ -452,18 +452,18 @@ tot_radius = squirmer_radius + target_radius
 target_initial_position = [1.3*tot_radius, 1.3*tot_radius] / np.sqrt(2)
 max_mode = 2
 viscosity = 1
-sensor_noise = 0.3
-train_total_steps = int(10e5)
+sensor_noise = 0.1
+train_total_steps = int(2.5e5)
 
 # Plotting parameters
 N_iter = 11
 PPO_number = 6 # For which model to load when plotting, after training
-PPO_list = [3,4,5,6,7,8,9,10,11,12,13]
+PPO_list = [3,4,5,6,7,8,9,10,11,12,13, 14, 15, 16]
 
 #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position)
-train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, viscosity, train_total_steps)
+#train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, viscosity, train_total_steps)
 #plot_mode_choice(N_iter, PPO_number)
-#plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="noise")
+plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="noise")
 
 # If wants to see reward over time, write the following in cmd in the log directory
 # tensorboard --logdir=.
