@@ -25,7 +25,6 @@ sys.path.append('./Fluid')
 import field_velocity
 import power_consumption
 import bem_two_objects
-import bem
 
 
 # Environment
@@ -43,7 +42,7 @@ class PredatorPreyEnv(gym.Env):
         self.max_mode = max_mode # Max available legendre modes. 
         self.sensor_noise = sensor_noise
         self.target_initial_position = target_initial_position
-                
+        
         # Parameters
         self.regularization_offset = 0.1  # "Width" of blob delta functions.
         self.B_max = 1
@@ -66,62 +65,11 @@ class PredatorPreyEnv(gym.Env):
         # Observation is vector pointing in direction of average force
         self.observation_space = spaces.Box(low=-1, high=1, shape=(3,), dtype=np.float32) 
 
-        # -- Calculate Oseen inverses --
-        # Get coordinates to points on the two surfaces
-        # Object 1
-        x1, y1, z1, dA = bem.canonical_fibonacci_lattice(self.N_surface_points, self.squirmer_radius)
-        self.x1_stacked = np.stack((x1, y1, z1)).T  
-        self.theta = np.arccos(z1 / self.squirmer_radius)  # [0, pi]
-        self.phi = np.arctan2(y1, x1)  # [0, 2*pi]
-        A_oseen_one_object = bem.oseen_tensor(self.epsilon, dA, self.viscosity, evaluation_points=self.x1_stacked)
-        self.inverse_one_object = np.linalg.inv(A_oseen_one_object)
-                
-        # Object 2
-        self.N2 = int(4 * np.pi * self.target_radius ** 2 / dA)  # Ensures object 1 and 2 has same dA
-        x2, y2, z2, _ = bem.canonical_fibonacci_lattice(self.N2, self.target_radius)
-        x2_stacked = np.stack((x2, y2, z2)).T  
-        self._agent_position = self._array_float([0, 0], shape=(2,))  # Agent in center
-        self._target_position = self._array_float(self.target_initial_position, shape=(2,))
-        agent_center = np.concatenate((np.array([0]), self._agent_position))  # Expects 3d vector, but RL is 2d
-        target_center = np.concatenate((np.array([0]), self._target_position))
-        A_oseen_two_objects = bem_two_objects.oseen_tensor_surface_two_objects(self.x1_stacked, x2_stacked, agent_center, target_center, dA, self.epsilon, self.viscosity)
-        self.inverse_two_objects = np.linalg.inv(A_oseen_two_objects)
 
-
-    def _array_float(self, x, shape):  # Kan ændres til at shap bare tager x.shape
+    def _array_float(self, x, shape):
         """Helper function to input x into a shape sized array with dtype np.float32"""
         return np.array([x], dtype=np.float32).reshape(shape)
 
-    
-    def _average_direction_change(self, mode_array):        
-        # Velocities squirmer
-        ux1, uy1, uz1 = field_velocity.field_cartesian(self.max_mode, r=squirmer_radius, 
-                                        theta=self.theta, phi=self.phi, 
-                                        squirmer_radius=self.squirmer_radius, 
-                                        mode_array=mode_array,
-                                        lab_frame=self.lab_frame)
-        u_comb = np.array([ux1, uy1, uz1]).ravel()  
-        u_comb_one_object = np.append(u_comb, np.zeros(6))
-        u_comb_two_objects = np.append(u_comb, np.zeros(12 + 3*self.N2))  # 2*6 zeros from Forces=0=Torqus + 3N2 zeros as Object 2 no own velocity
-        
-        force_one_object = self.inverse_one_object @ u_comb_one_object        
-        force_two_objects = self.inverse_two_objects @ u_comb_two_objects
-        
-        N = self.N_surface_points
-        dfx = force_two_objects[:N] - force_one_object[:N]
-        dfy = force_two_objects[N: 2*N] - force_one_object[N: 2*N]
-        dfz = force_two_objects[2*N: 3*N] - force_one_object[2*N: 3*N]
-        
-        # Gaussian Noise
-        dfx += np.random.normal(loc=0, scale=self.sensor_noise, size=dfx.size)
-        dfy += np.random.normal(loc=0, scale=self.sensor_noise, size=dfy.size)
-        dfz += np.random.normal(loc=0, scale=self.sensor_noise, size=dfz.size)
-        # Weights
-        weight = np.sqrt(dfx ** 2 + dfy ** 2 + dfz ** 2)
-        f_average = np.sum(weight[:, None] * self.x1_stacked, axis=0)
-        f_average_norm = f_average / np.linalg.norm(f_average, ord=2)  
-        return f_average_norm
-             
     
     def _minimal_angle_difference(self, x, y):
         diff1 = x - y
@@ -129,6 +77,12 @@ class PredatorPreyEnv(gym.Env):
         diff3 = diff1 - 2 * np.pi
         return np.min(np.abs([diff1, diff2, diff3]))
     
+    
+    def _average_direction_change(self, mode_array):
+        agent_center = np.concatenate((np.array([0]), self._agent_position))  # Expects 3d vector, but RL is 2d
+        target_center = np.concatenate((np.array([0]), self._target_position))
+        return bem_two_objects.average_change_direction(self.N_surface_points, self.max_mode, self.squirmer_radius, self.target_radius, agent_center, 
+                                                        target_center, mode_array, self.regularization_offset, self.viscosity, noise=self.sensor_noise)
     
     def _reward(self, mode_array):
         # Calculate angle and average direction of change
@@ -147,7 +101,11 @@ class PredatorPreyEnv(gym.Env):
     def reset(self, seed=None):
         # Fix seed and reset values
         super().reset(seed=seed)
-                
+
+        # Initial positions
+        self._agent_position = self._array_float([0, 0], shape=(2,))  # Agent in center
+        self._target_position = self._array_float(self.target_initial_position, shape=(2,))
+        
         # Initial observation is no field
         observation = self._array_float([0, 0, 0], shape=(3,))
 
@@ -157,6 +115,16 @@ class PredatorPreyEnv(gym.Env):
     def step(self, action):
         # -- Action setup --
         # Actions are the available modes.
+        # Modes are equal to n-sphere coordinates divided by the square root of the mode factors
+        # max_power = 1
+        # phi_n_sphere = action * np.pi / 2
+        # phi_n_sphere[-1] = action[-1] * np.pi
+        # x_n_sphere = power_consumption.n_sphere_angular_to_cartesian(phi_n_sphere, max_power)  # Makes sure sums to 1
+        # power_factors = power_consumption.constant_power_factor(squirmer_radius, self.viscosity, self.max_mode)  # Power factors in front of modes
+        # power_non_zero = power_factors.nonzero()
+        # mode_array = np.zeros_like(power_factors)
+        # mode_array[power_non_zero] = x_n_sphere / np.sqrt(power_factors[power_non_zero].ravel())
+        
         mode_array = power_consumption.normalized_modes(action, self.max_mode, self.squirmer_radius, self.viscosity)
                         
         # -- Reward --
@@ -404,7 +372,7 @@ def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter, plot_
     axC = ax[1, 0]
     axCt = ax[1, 1]
     
-    fill_axis(axB, B_mean, B_std, B_names, r"$B$ modes")
+    fill_axis(axB, (B_mean), B_std, B_names, r"$B$ modes")
     fill_axis(axBt, B_tilde_mean, B_tilde_std, B_tilde_names, title=r"$\tilde{B}$ modes")
     fill_axis(axC, C_mean, C_std, C_names, title=r"$C$ modes")
     fill_axis(axCt, C_tilde_mean, C_tilde_std, C_tilde_names, title=r"$\tilde{C}$ modes")
@@ -443,12 +411,12 @@ train_total_steps = int(4.5e5)
 
 # Plotting parameters
 N_iter = 10
-PPO_number = 7  # For which model to load when plotting, after training
-PPO_list = [1, 2, 3, 4, 6, 7]
+PPO_number = 8  # For which model to load when plotting, after training
+PPO_list = [1,2, 3,4, 6, 7, 8]
 
 #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position)
 #train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, viscosity, train_total_steps)
-plot_mode_choice(N_iter, PPO_number)
+#plot_mode_choice(N_iter, PPO_number)
 plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="angle")
 
 # If wants to see reward over time, write the following in cmd in the log directory
