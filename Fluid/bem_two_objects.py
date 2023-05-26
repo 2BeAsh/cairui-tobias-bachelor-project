@@ -220,6 +220,73 @@ if __name__ == "__main__":
     from matplotlib.animation import FuncAnimation
 
     # -- Test functions --
+    def test_2obj_point():
+        import matplotlib.pyplot as plt
+        # Choose parameters
+        eps = 0.1
+        viscosity = 1
+        N1 = 80
+        max_mode = 3
+        squirmer_radius = 1
+        radius_obj2 = 0.3
+        x1_center = np.array([0, 2, 0])  # NOTE feltet afhænger af hvor man sætter squirmer!
+        x2_center = np.array([0, 0, 0])
+        B = np.zeros((max_mode+1, max_mode+1))
+        B_tilde = np.zeros_like(B)
+        C = np.zeros_like(B)
+        C_tilde = np.zeros_like(B)
+        B[1, 1] = 5
+        
+        # Force
+        force_with_condition, x1_surface, x2_surface = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, np.array([B, B_tilde, C, C_tilde]), eps, viscosity, lab_frame=True, return_points=True)
+        translation = force_with_condition[-12: -6]
+        rotation = force_with_condition[-6:]
+        force = force_with_condition[:-12]  # Remove translation and rotation
+        
+        # Evaluation points
+        evaluation_points = np.linspace(-4, 4, 30)
+        X, Y = np.meshgrid(evaluation_points, evaluation_points)
+        x_e = X.ravel()
+        y_e = Y.ravel()
+        z_e = 0 * X.ravel()
+        x_e_stack = np.stack((x_e, y_e, z_e)).T
+        
+        # Oseen tensor in evaluation points
+        dA = 4 * np.pi * squirmer_radius ** 2 / N1
+        A_e = oseen_tensor_two_objects(x1_surface, x2_surface, x_e_stack, x1_center, x2_center, dA, eps, viscosity)
+        
+        # Velocity
+        v_e = A_e @ force
+        v_e = np.reshape(v_e, (len(v_e)//3, 3), order="F")
+        
+        # Remove values inside squirmer
+        r2_obj1 = np.sum((x_e_stack-x1_center)**2, axis=1)
+        r2_obj2 = np.sum((x_e_stack-x2_center)**2, axis=1)
+        v_e[r2_obj1 < squirmer_radius ** 2, :] = 0
+        v_e[r2_obj2 < radius_obj2 ** 2, :] = 0
+        
+        # -- Plot --
+        fig, ax = plt.subplots(dpi=150, figsize=(6, 6))
+        # Add circles
+        circle_obj1 = plt.Circle(x1_center[:2], squirmer_radius, color="b", alpha=0.5)  # No need for z component
+        circle_obj2 = plt.Circle(x2_center[:2], radius_obj2, color="g", alpha=0.5)
+        ax.add_patch(circle_obj1)
+        ax.add_patch(circle_obj2)
+        # Add arrows
+        ax.quiver(x_e_stack[:, 0], x_e_stack[:, 1], v_e[:, 0], v_e[:, 1], color="red")
+        #ax.streamplot(X, Y, v_e[:, 0], v_e[:, 1])
+        ax.set(xlabel="x", ylabel="y", title="Squirmer field two objects")
+        # Write translation and rotation on image
+        text_min = np.min(x_e)
+        text_max = np.max(x_e)
+        ax.text(text_min, text_max, s=f"U={np.round(translation, 4)}", fontsize=10)
+        ax.text(text_min, text_max-0.3, s=f"$\omega$={np.round(rotation, 4)}", fontsize=10)
+        ax.legend(["Squirmer", "Target"], loc="lower right")
+        fig.tight_layout()
+        plt.savefig("fluid/images/nytnavn.png")
+        plt.show()
+    
+    
     def animate_force(radius_obj2):
         # Choose parameters
         eps = 0.1
@@ -411,4 +478,6 @@ if __name__ == "__main__":
         plt.show()      
                 
         
-    force_difference()
+    #force_difference()
+    test_2obj_point()
+    
