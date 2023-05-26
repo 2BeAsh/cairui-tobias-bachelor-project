@@ -192,7 +192,7 @@ if __name__ == "__main__":
         x, y, z, area = canonical_fibonacci_lattice(N, r)
         theta = np.arccos(z / r)
         phi = np.arctan2(y, x)
-        u_x, u_y, u_z = fv.field_cartesian(max_mode, r, theta, phi, r, B, B_tilde, C, C_tilde)
+        u_x, u_y, u_z = fv.field_cartesian(max_mode, r, theta, phi, r, np.array([B, B_tilde, C, C_tilde]))
 
         x_surface = np.stack((x, y, z)).T
         v = np.stack((u_x, u_y, u_z)).T
@@ -238,7 +238,7 @@ if __name__ == "__main__":
         Phi = np.ones(np.shape(Theta)) * np.pi/2
 
         ux_field, uy_field, uz_field = fv.field_cartesian(max_mode, R_field.flatten(), Theta.flatten(), Phi.flatten(), 
-                                                    r, B, B_tilde, C, C_tilde, lab_frame=True)
+                                                    r, np.array([B, B_tilde, C, C_tilde]), lab_frame=True)
         ux_field = ux_field.reshape(np.shape(R_field))
         uy_field = uy_field.reshape(np.shape(R_field))
         uz_field = uz_field.reshape(np.shape(R_field))
