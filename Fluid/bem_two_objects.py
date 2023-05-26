@@ -1,6 +1,7 @@
 import numpy as np
 import field_velocity as fv
 import bem
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
 def difference_vectors(x_1, x_2=None):
@@ -228,16 +229,16 @@ if __name__ == "__main__":
         N1 = 500
         max_mode = 3
         squirmer_radius = 1
-        radius_obj2 = 2
-        x1_center = np.array([-1.2, 0, 0])  # NOTE feltet afhænger af hvor man sætter squirmer!
-        x2_center = np.array([2, -0.5, 0])
+        radius_obj2 = 0.8
+        x1_center = np.array([-1, 0, 0])  # NOTE feltet afhænger af hvor man sætter squirmer!
+        x2_center = np.array([2, 0, 0])
         B = np.zeros((max_mode+1, max_mode+1))
         B_tilde = np.zeros_like(B)
         C = np.zeros_like(B)
         C_tilde = np.zeros_like(B)
         #B_tilde[2, 2] = -1
         B_tilde[1,1]=1
-        #B[1,1] = -1
+        B[1,1] = 1
         # Force
         force_with_condition, x1_surface, x2_surface = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, np.array([B, B_tilde, C, C_tilde]), eps, viscosity, lab_frame=True, return_points=True)
         translation = force_with_condition[-12: -6]
@@ -277,9 +278,9 @@ if __name__ == "__main__":
         ax.contourf(X, Y, velocity_magnitude,  vmin=0, vmax=6, levels=16, cmap='Blues')
         ax.set(xlabel="x", ylabel="y", title="Squirmer field two objects")
             # Colorbars  
-        #divider = make_axes_locatable(ax3)
+        #divider = make_axes_locatable(ax)
         #cax = divider.append_axes("right", size="5%", pad=0.05)
-        #ax.colorbar()
+        plt.colorbar()
 
         # Add circles
         circle_obj1 = plt.Circle(x1_center[:2], squirmer_radius, color="b", alpha=0.5)  # No need for z component
