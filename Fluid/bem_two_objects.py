@@ -275,12 +275,12 @@ if __name__ == "__main__":
         #ax.quiver(x_e_stack[:, 0], x_e_stack[:, 1], v_e[:, 0], v_e[:, 1], color="red")
         ax.streamplot(X, Y, v_e[:, 0].reshape((N_eval, N_eval)), v_e[:, 1].reshape((N_eval, N_eval)), density=2)
         velocity_magnitude = np.sqrt(v_e[:, 0].reshape((N_eval, N_eval))**2 + v_e[:, 1].reshape((N_eval, N_eval))**2)
-        ax.contourf(X, Y, velocity_magnitude,  vmin=0, vmax=6, levels=16, cmap='Blues')
+        contour_velocity = ax.contourf(X, Y, velocity_magnitude,  vmin=0, vmax=6, levels=16, cmap='Blues')
         ax.set(xlabel="x", ylabel="y", title="Squirmer field two objects")
-            # Colorbars  
-        #divider = make_axes_locatable(ax)
-        #cax = divider.append_axes("right", size="5%", pad=0.05)
-        plt.colorbar()
+        # Colorbars  
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="5%", pad=0.05)
+        cbar = plt.colorbar(contour_velocity, cax=cax)
 
         # Add circles
         circle_obj1 = plt.Circle(x1_center[:2], squirmer_radius, color="b", alpha=0.5)  # No need for z component
