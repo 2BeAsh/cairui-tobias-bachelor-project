@@ -238,7 +238,7 @@ def mode_names(max_mode):
 
 def mode_iteration(N_iter, PPO_number, mode_lengths):
     # Load parameters and model, create environment
-    parameters_path = f"RL/Training/Logs_direction/Noise/PPO_{PPO_number}/system_parameters.csv"
+    parameters_path = f"RL/Training/Logs_direction/PPO_{PPO_number}/system_parameters.csv"
     parameters = np.genfromtxt(parameters_path, delimiter=",", skip_header=1)
     N_surface_points = int(parameters[0])
     squirmer_radius = parameters[1]
@@ -248,7 +248,7 @@ def mode_iteration(N_iter, PPO_number, mode_lengths):
     target_y = parameters[5]
     target_z = parameters[6]
     viscosity = parameters[8]
-    model_path = f"RL/Training/Logs_direction/Noise/PPO_{PPO_number}/predict_direction"
+    model_path = f"RL/Training/Logs_direction/PPO_{PPO_number}/predict_direction"
     
     model = PPO.load(model_path)
     env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, np.array([target_y, target_z]))
@@ -451,24 +451,23 @@ def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter, plot_
 # Model Parameters
 N_surface_points = 80
 squirmer_radius = 1
-target_radius = 0.8
+target_radius = 0.7
 tot_radius = squirmer_radius + target_radius
-afstand = 1.1
-target_initial_position = [3, 3] / np.sqrt(2)
+target_initial_position = [2.5, 2.5] / np.sqrt(2)
 max_mode = 2
 viscosity = 1
-sensor_noise = 0.18
-train_total_steps = int(10e5)
+sensor_noise = 0.05
+train_total_steps = int(5e5)
 
 # Plotting parameters
 N_iter = 11
 PPO_number = 6 # For which model to load when plotting, after training
-PPO_list = [ 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+PPO_list = [ 4, 5]
 
 #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position)
-#train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, viscosity, train_total_steps)
+train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, viscosity, train_total_steps)
 #plot_mode_choice(N_iter, PPO_number)
-plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="else")
+#plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="target_radius")
 
 # If wants to see reward over time, write the following in cmd in the log directory
 # tensorboard --logdir=.

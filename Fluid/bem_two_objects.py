@@ -225,18 +225,19 @@ if __name__ == "__main__":
         # Choose parameters
         eps = 0.1
         viscosity = 1
-        N1 = 80
+        N1 = 500
         max_mode = 3
         squirmer_radius = 1
-        radius_obj2 = 0.3
-        x1_center = np.array([0, 2, 0])  # NOTE feltet afhænger af hvor man sætter squirmer!
-        x2_center = np.array([0, 0, 0])
+        radius_obj2 = 2
+        x1_center = np.array([-1.2, 0, 0])  # NOTE feltet afhænger af hvor man sætter squirmer!
+        x2_center = np.array([2, -0.5, 0])
         B = np.zeros((max_mode+1, max_mode+1))
         B_tilde = np.zeros_like(B)
         C = np.zeros_like(B)
         C_tilde = np.zeros_like(B)
-        B[1, 1] = 5
-        
+        #B_tilde[2, 2] = -1
+        B_tilde[1,1]=1
+        #B[1,1] = -1
         # Force
         force_with_condition, x1_surface, x2_surface = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, np.array([B, B_tilde, C, C_tilde]), eps, viscosity, lab_frame=True, return_points=True)
         translation = force_with_condition[-12: -6]
@@ -244,7 +245,8 @@ if __name__ == "__main__":
         force = force_with_condition[:-12]  # Remove translation and rotation
         
         # Evaluation points
-        evaluation_points = np.linspace(-4, 4, 30)
+        N_eval = 150
+        evaluation_points = np.linspace(-5, 5, N_eval)
         X, Y = np.meshgrid(evaluation_points, evaluation_points)
         x_e = X.ravel()
         y_e = Y.ravel()
@@ -266,21 +268,29 @@ if __name__ == "__main__":
         v_e[r2_obj2 < radius_obj2 ** 2, :] = 0
         
         # -- Plot --
-        fig, ax = plt.subplots(dpi=150, figsize=(6, 6))
+        fig, ax = plt.subplots(dpi=150, figsize=(5,6))
+        
+        # Add arrows
+        #ax.quiver(x_e_stack[:, 0], x_e_stack[:, 1], v_e[:, 0], v_e[:, 1], color="red")
+        ax.streamplot(X, Y, v_e[:, 0].reshape((N_eval, N_eval)), v_e[:, 1].reshape((N_eval, N_eval)), density=2)
+        velocity_magnitude = np.sqrt(v_e[:, 0].reshape((N_eval, N_eval))**2 + v_e[:, 1].reshape((N_eval, N_eval))**2)
+        ax.contourf(X, Y, velocity_magnitude,  vmin=0, vmax=6, levels=16, cmap='Blues')
+        ax.set(xlabel="x", ylabel="y", title="Squirmer field two objects")
+            # Colorbars  
+        #divider = make_axes_locatable(ax3)
+        #cax = divider.append_axes("right", size="5%", pad=0.05)
+        #ax.colorbar()
+
         # Add circles
         circle_obj1 = plt.Circle(x1_center[:2], squirmer_radius, color="b", alpha=0.5)  # No need for z component
         circle_obj2 = plt.Circle(x2_center[:2], radius_obj2, color="g", alpha=0.5)
         ax.add_patch(circle_obj1)
         ax.add_patch(circle_obj2)
-        # Add arrows
-        ax.quiver(x_e_stack[:, 0], x_e_stack[:, 1], v_e[:, 0], v_e[:, 1], color="red")
-        #ax.streamplot(X, Y, v_e[:, 0], v_e[:, 1])
-        ax.set(xlabel="x", ylabel="y", title="Squirmer field two objects")
         # Write translation and rotation on image
         text_min = np.min(x_e)
         text_max = np.max(x_e)
-        ax.text(text_min, text_max, s=f"U={np.round(translation, 4)}", fontsize=10)
-        ax.text(text_min, text_max-0.3, s=f"$\omega$={np.round(rotation, 4)}", fontsize=10)
+        #ax.text(text_min, text_max, s=f"U={np.round(translation, 4)}", fontsize=10)
+        #ax.text(text_min, text_max-0.3, s=f"$\omega$={np.round(rotation, 4)}", fontsize=10)
         ax.legend(["Squirmer", "Target"], loc="lower right")
         fig.tight_layout()
         plt.savefig("fluid/images/nytnavn.png")
