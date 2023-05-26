@@ -55,7 +55,7 @@ class PredatorPreyEnv(gym.Env):
     """Gym environment for a predator-prey system in a fluid."""
 
 
-    def __init__(self, N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position):
+    def __init__(self, N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, coord_plane):
         #super().__init__() - ingen anelse om hvorfor jeg havde skrevet det eller hvor det kommer fra?
         # -- Variables --
         # Model
@@ -65,7 +65,12 @@ class PredatorPreyEnv(gym.Env):
         self.max_mode = max_mode # Max available legendre modes. 
         self.sensor_noise = sensor_noise
         self.target_initial_position = target_initial_position
-                
+        self.coord_plane = coord_plane
+        print("COORD PLANE")
+        print(coord_plane)
+        print("")
+        assert coord_plane in ["xy", "xz", "yz"]
+        
         # Parameters
         self.viscosity = 1
         self.lab_frame = True
@@ -141,12 +146,19 @@ class PredatorPreyEnv(gym.Env):
     
     def _reward(self, mode_array):
         # Calculate angle and average direction of change
-        agent_target_vec = self._target_position - self._agent_position  # Vector pointing from target to agent
-        angle = np.arctan2(agent_target_vec[0], agent_target_vec[1])
-        
         _, _, _, change_direction = self._average_force_difference(mode_array)
-        angle_largest_change = np.arctan2(change_direction[1], change_direction[2])
-        
+
+        agent_target_vec = self._target_position - self._agent_position  # Vector pointing from target to agent
+        if self.coord_plane == "xz":
+            angle = np.arctan2(agent_target_vec[0], agent_target_vec[1])
+            angle_largest_change = np.arctan2(change_direction[0], change_direction[2])
+        elif self.coord_plane == "xy":
+            angle = np.arctan2(agent_target_vec[1], agent_target_vec[0])
+            angle_largest_change = np.arctan2(change_direction[1], change_direction[0])
+        elif self.coord_plane == "yz":
+            angle = np.arctan2(agent_target_vec[0], agent_target_vec[1])
+            angle_largest_change = np.arctan2(change_direction[1], change_direction[2])
+
         # Reward is based on how close the angles are, closer is better
         angle_difference_norm = self._minimal_angle_difference(angle, angle_largest_change) / np.pi
         reward = 1 - angle_difference_norm
@@ -184,8 +196,8 @@ class PredatorPreyEnv(gym.Env):
         return observation, reward, done, info
 
 
-def check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position):
-    env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position)
+def check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, coord_plane):
+    env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, coord_plane)
     print("-- SB3 CHECK ENV: --")
     if check_env(env) == None:
         print("   The Environment is compatible with SB3")
@@ -193,8 +205,8 @@ def check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sens
         print(check_env(env))
 
 
-def train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, viscosity, train_total_steps):
-    env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position)
+def train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, viscosity, train_total_steps, coord_plane):
+    env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, coord_plane)
 
     # Train with SB3
     log_path = os.path.join("RL", "Training", "Logs_direction")
@@ -208,9 +220,9 @@ def train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noi
     with open(file_path, mode="w") as file:
         writer = csv.writer(file, delimiter=",")
         writer.writerow(["Surface Points ", "Squirmer Radius ", "Target Radius ", "Max Mode ", "Sensor Noise ", 
-                         "Target y ", "Target z ", "Centers Distance ", "viscosity ", "Train Steps "])
+                         "Target x1 ", "Target x2 ", "Centers Distance ", "viscosity ", " Coordinate plane", "Train Steps "])
         writer.writerow([N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position[0], target_initial_position[1],
-                         np.linalg.norm(target_initial_position, ord=2), viscosity, train_total_steps])
+                         np.linalg.norm(target_initial_position, ord=2), viscosity, coord_plane, train_total_steps])
     
     
 def mode_names(max_mode):
@@ -248,10 +260,11 @@ def mode_iteration(N_iter, PPO_number, mode_lengths):
     target_y = parameters[5]
     target_z = parameters[6]
     viscosity = parameters[8]
-    model_path = f"RL/Training/Logs_direction/PPO_{PPO_number}/predict_direction"
+    coord_plane = parameters[9]
+    model_path = f"RL/Training/Logs_direction/Noise/PPO_{PPO_number}/predict_direction"
     
     model = PPO.load(model_path)
-    env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, np.array([target_y, target_z]))
+    env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, np.array([target_y, target_z]), coord_plane)
     
     # Empty arrays for loop
     B_actions = np.empty((N_iter, mode_lengths[0]))
@@ -456,18 +469,19 @@ tot_radius = squirmer_radius + target_radius
 target_initial_position = [2.5, 2.5] / np.sqrt(2)
 max_mode = 2
 viscosity = 1
-sensor_noise = 0.05
-train_total_steps = int(5e5)
+sensor_noise = 0.18
+coord_plane = "yz"
+train_total_steps = int(10e5)
 
 # Plotting parameters
 N_iter = 11
 PPO_number = 6 # For which model to load when plotting, after training
 PPO_list = [ 4, 5]
 
-#check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position)
-train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, viscosity, train_total_steps)
-#plot_mode_choice(N_iter, PPO_number)
-#plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="target_radius")
+#check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, coord_plane)
+#train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, viscosity, coord_plane, train_total_steps)
+plot_mode_choice(N_iter, PPO_number)
+#plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="else")
 
 # If wants to see reward over time, write the following in cmd in the log directory
 # tensorboard --logdir=.
