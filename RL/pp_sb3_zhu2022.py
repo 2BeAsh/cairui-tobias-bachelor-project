@@ -81,7 +81,7 @@ class PredatorPreyEnv(gym.Env):
 
     def _array_float(self, x):
         """Helper function to input x into a shape sized array with dtype np.float32"""
-        return np.array([x], dtype=np.float32).reshape(x.shape, )
+        return np.array([x], dtype=np.float32).reshape(len(x), )
 
 
     def _get_dist(self):
@@ -147,11 +147,11 @@ class PredatorPreyEnv(gym.Env):
             while dist <= 2 * self.catch_radius:  # While distance between target and agent is too small, find a new initial position for the target
                 initial_distance = np.random.uniform(low=0, high=self.spawn_radius)
                 initial_angle = np.random.uniform(-1, 1) * np.pi
-                self._target_position = self._array_float([initial_distance * np.cos(initial_angle), initial_distance * np.sin(initial_angle)], shape=(2,))
+                self._target_position = self._array_float([initial_distance * np.sin(initial_angle), initial_distance * np.cos(initial_angle)], shape=(2,))
                 dist = self._get_dist()  # Update distance
         
         else:  # In case wants specific starting location
-            self._target_position = self._array_float([self.spawn_radius * np.cos(self.const_angle), self.spawn_radius * np.sin(self.const_angle)], shape=(2,))
+            self._target_position = self._array_float([self.spawn_radius * np.sin(self.const_angle), self.spawn_radius * np.cos(self.const_angle)], shape=(2,))
 
         self.initial_target_position = 1 * self._target_position  # Needed for reward calculation
 
