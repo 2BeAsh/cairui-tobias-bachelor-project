@@ -148,6 +148,7 @@ class PredatorPreyEnv(gym.Env):
     def _reward(self):
         """Penalize with distance from target. Normalized by starting distance. 
         """
+        # NOTE prøv om kan normalisere reward. Evt med: spawn radius / (karaktertistisk v * karakteristisk t)
         dist = self._get_dist()
         too_far_away = dist > 1.5 * self.spawn_radius
         if too_far_away:  # Stop simulation if too far away and penalize hard
@@ -216,7 +217,7 @@ class PredatorPreyEnv(gym.Env):
         self._target_position += u_target * self.dt 
         if self.lab_frame:
             self._agent_position += u_squirmer * self.dt
-            
+        
         # Update values 
         reward, done = self._reward()
         observation = self._array_float(np.append(f_average, self.previous_angle_guess))
@@ -305,8 +306,10 @@ def check_model(N_surface_points, squirmer_radius, target_radius, spawn_radius, 
 
 def train(N_surface_points, squirmer_radius, target_radius, spawn_radius, max_mode, sensor_noise, viscosity, spawn_angle, lab_frame, train_total_steps):
     env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, spawn_radius, max_mode, sensor_noise, viscosity, spawn_angle, lab_frame, render_mode=None)
-
-    # Train with SB3 NOTE vecEnv
+    # env = Monitor(env)
+    # env = SubprocVecEnv([lambda: env])
+    
+    # Train with SB3
     log_path = os.path.join("RL", "Training", "Logs")
     model = PPO("MlpPolicy", env, verbose=1, tensorboard_log=log_path)
     model.learn(total_timesteps=train_total_steps)
@@ -337,29 +340,32 @@ def run_environment(PPO_number):
     viscosity = parameters[7]
     model_path = f"RL/Training/Logs/PPO_{PPO_number}/ppo_predator_prey"
     
-    model = PPO.load(model_path)
-    env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, spawn_radius, max_mode, sensor_noise, viscosity, spawn_angle, lab_frame=True, render_mode=None, scale_canvas=1)
-
     mode_values_list = []
     time_list = []
     target_pos_list = []
     agent_pos_list = []
     reward_list = []
     
-    
     # Run model
+    model = PPO.load(model_path)
+    env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, spawn_radius, max_mode, sensor_noise, viscosity, spawn_angle, lab_frame=True, render_mode=None, scale_canvas=1)    
+    
     obs = env.reset()
     done = False
     
     while not done:
         action, _ = model.predict(obs)
         obs, reward, done, info = env.step(action)
-        mode_values_list.append(info["modes"])
-        time_list.append(info["time"])
-        target_pos_list.append(info["target"])
-        agent_pos_list.append(info["agent"])
+        mode_values = 1 * info["modes"]  # Make sure does not replace previous values
+        time = 1 * info["time"]
+        target_pos = 1 * info["target"]
+        agent_pos = 1 * info["agent"]
+        
+        mode_values_list.append(mode_values)
+        time_list.append(time)
+        target_pos_list.append(target_pos)
+        agent_pos_list.append(agent_pos)
         reward_list.append(reward)
-
     return parameters, mode_values_list, time_list, target_pos_list, agent_pos_list, reward_list
 
 
@@ -412,6 +418,9 @@ def plot_info(PPO_number):
                                                         'lime', 'lavender', 'turquoise', 'darkgreen', 'tan', 'salmon', 'gold'])
     # Get values and names
     parameters, mode_list, time_list, target_pos_list, agent_pos_list, reward_list = run_environment(PPO_number)
+    squirmer_radius = parameters[1]
+    target_radius = parameters[2]
+    spawn_radius = parameters[5]
     B_names, B_tilde_names, C_names, C_tilde_names = mode_names(max_mode)
     mode_names_list = B_names + B_tilde_names + C_names + C_tilde_names
     modes = np.array(mode_list)
@@ -420,7 +429,7 @@ def plot_info(PPO_number):
     agent_pos = np.array(agent_pos_list)
     reward_arr = np.array(reward_list)
     
-    # Plot mode values over time
+    # -- Plot mode values over time --
     fig_mode, ax_mode = plt.subplots(dpi=150, figsize=(8, 6))
     ax_mode.plot(time, modes, "--.")
     ax_mode.set(xlabel="Time", ylabel="Mode values", title="Mode values against time")
@@ -429,23 +438,32 @@ def plot_info(PPO_number):
     plt.show()
     plt.close()
     
-    # Plot target and agent position over time
+    # -- Plot target and agent position over time --
     # NOTE ville være godt hvis man kan få deres radius til at passe. Potentielt patch circles? - Kræver nok loop
-    fig_pos, ax_pos = plt.subplots(dpi=150, figsize=(3, 6))
+    fig_pos, ax_pos = plt.subplots(dpi=150, figsize=(6, 6))
     color_target = cm.Reds(np.linspace(0, 1, len(target_pos[:, 0])))  # Colors gets darker with time. 
     color_agent = cm.Blues(np.linspace(0, 1, len(agent_pos[:, 0])))
-    ax_pos.scatter(target_pos[:, 0], target_pos[:, 1], s=15, label="Target", facecolor="none", edgecolors=color_target)
-    ax_pos.scatter(agent_pos[:, 0], agent_pos[:, 1], s=8000, label="Agent", facecolor="none", edgecolors=color_agent)
-    ax_pos.set(xlabel="x", ylabel="y", xlim=(-1, 1), title="Agent and target position over time")
+    
+    def add_circle_to_axis(axis, coord, radius, color, label):
+        circle = plt.Circle(coord, radius, facecolor="none", edgecolor=color, fill=False, label=label)
+        axis.add_patch(circle)
+    
+    for i in range(len(agent_pos)):
+        add_circle_to_axis(ax_pos, target_pos[i, :], target_radius, color_target[i], label="Target")
+        add_circle_to_axis(ax_pos, agent_pos[i, :], squirmer_radius, color_agent[i], label="Agent")
+    
+    #ax_pos.scatter(target_pos[:, 0], target_pos[:, 1], s=15, label="Target", facecolor="none", edgecolors=color_target)
+    #ax_pos.scatter(agent_pos[:, 0], agent_pos[:, 1], s=8000, label="Agent", facecolor="none", edgecolors=color_agent)
+    ax_pos.set(xlabel="x", ylabel="y", title="Agent and target position over time", xlim=(-spawn_radius, spawn_radius), ylim=(-spawn_radius, spawn_radius))
     # Making a good looking legend
-    agent_legend_marker = mlines.Line2D(xdata=[], ydata=[], marker=".", markersize=10, linestyle="none", fillstyle="none", color="navy", label="Agent")
-    target_legend_marker = mlines.Line2D(xdata=[], ydata=[], marker=".", markersize=5, linestyle="none", fillstyle="none", color="firebrick", label="Target")
+    agent_legend_marker = mlines.Line2D(xdata=[], ydata=[], marker=".", markersize=12, linestyle="none", fillstyle="none", color=color_agent[-1], label="Agent")
+    target_legend_marker = mlines.Line2D(xdata=[], ydata=[], marker=".", markersize=12, linestyle="none", fillstyle="none", color=color_target[-1], label="Target")
     ax_pos.legend(handles=[agent_legend_marker, target_legend_marker])
     fig_pos.tight_layout()
     plt.show()
     plt.close()
                 
-    # Plot reward over time
+    # -- Plot reward over time --
     fig_reward, ax_reward = plt.subplots(dpi=150, figsize=(8, 6))
     ax_reward.plot(time, reward_arr, ".--", label="Reward")
     ax_reward.set(xlabel="Time", ylabel="Reward", title="Agent Reward against time")
@@ -461,22 +479,22 @@ N_surface_points = 80
 squirmer_radius = 1
 target_radius = 0.8
 tot_radius = squirmer_radius + target_radius
-spawn_radius = 2 * tot_radius
+spawn_radius = 3 * tot_radius
 max_mode = 2  
-sensor_noise = 0.05
+sensor_noise = 0.1
 viscosity = 1
 spawn_angle = np.pi / 4
 lab_frame = True
 render_mode = "human"
 scale_canvas = 1.4  # Makes everything on the canvas a factor smaller / zoomed out
 
-PPO_number = 6
-train_total_steps = int(0.3e5)
+PPO_number = 9
+train_total_steps = int(1.5e5)
 
 #check_model(N_surface_points, squirmer_radius, target_radius, spawn_radius, max_mode, sensor_noise, viscosity, spawn_angle, lab_frame, render_mode, scale_canvas)
 #train(N_surface_points, squirmer_radius, target_radius, spawn_radius, max_mode, sensor_noise, viscosity, spawn_angle, lab_frame, train_total_steps)
-animation(PPO_number, N_surface_points, squirmer_radius, target_radius, spawn_radius, max_mode, sensor_noise, viscosity, spawn_angle, lab_frame, render_mode, scale_canvas)
-#plot_info(PPO_number)
+#animation(PPO_number, N_surface_points, squirmer_radius, target_radius, spawn_radius, max_mode, sensor_noise, viscosity, spawn_angle, lab_frame, render_mode, scale_canvas)
+plot_info(PPO_number)
 
 
 # If wants to see reward over time, write the following in cmd in the log directory
