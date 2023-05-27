@@ -55,7 +55,7 @@ class PredatorPreyEnv(gym.Env):
     """Gym environment for a predator-prey system in a fluid."""
 
 
-    def __init__(self, N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, coord_plane):
+    def __init__(self, N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, coord_plane="yz"):
         #super().__init__() - ingen anelse om hvorfor jeg havde skrevet det eller hvor det kommer fra?
         # -- Variables --
         # Model
@@ -69,7 +69,7 @@ class PredatorPreyEnv(gym.Env):
         print("COORD PLANE")
         print(coord_plane)
         print("")
-        assert coord_plane in ["xy", "xz", "yz"]
+        assert coord_plane in ["xy", "xz", "yz", None]
         
         # Parameters
         self.viscosity = 1
@@ -155,7 +155,7 @@ class PredatorPreyEnv(gym.Env):
         elif self.coord_plane == "xy":
             angle = np.arctan2(agent_target_vec[1], agent_target_vec[0])
             angle_largest_change = np.arctan2(change_direction[1], change_direction[0])
-        elif self.coord_plane == "yz":
+        elif self.coord_plane == "yz" or self.coord_plane == None:
             angle = np.arctan2(agent_target_vec[0], agent_target_vec[1])
             angle_largest_change = np.arctan2(change_direction[1], change_direction[2])
 
@@ -262,6 +262,9 @@ def mode_iteration(N_iter, PPO_number, mode_lengths):
     viscosity = parameters[8]
     coord_plane = parameters[9]
     model_path = f"RL/Training/Logs_direction/Noise/PPO_{PPO_number}/predict_direction"
+    
+    if coord_plane not in ["xy", "yz", "xz", None]:  # Backwards compatability when only yz plane was allowed
+        coord_plane = "yz"
     
     model = PPO.load(model_path)
     env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, np.array([target_y, target_z]), coord_plane)
@@ -475,7 +478,7 @@ train_total_steps = int(10e5)
 
 # Plotting parameters
 N_iter = 11
-PPO_number = 6 # For which model to load when plotting, after training
+PPO_number = 5 # For which model to load when plotting, after training
 PPO_list = [ 4, 5]
 
 #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, coord_plane)
