@@ -249,6 +249,7 @@ def mode_names(max_mode):
 
 
 def mode_iteration(N_iter, PPO_number, mode_lengths):
+    """Run environment N_iter times with training data from PPO_number directory."""
     # Load parameters and model, create environment
     parameters_path = f"RL/Training/Logs_direction/PPO_{PPO_number}/system_parameters.csv"
     parameters = np.genfromtxt(parameters_path, delimiter=",", skip_header=1)
@@ -392,13 +393,13 @@ def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter, plot_
         C_mean[i, :] = np.mean(C_actions, axis=0)
         C_tilde_mean[i, :] = np.mean(C_tilde_actions, axis=0)
         
-        B_std[i, :] = np.std(B_actions, axis=0)
-        B_tilde_std[i, :] = np.std(B_tilde_actions, axis=0)
-        C_std[i, :] = np.std(C_actions, axis=0)
-        C_tilde_std[i, :] = np.std(C_tilde_actions, axis=0)
+        B_std[i, :] = np.std(B_actions, axis=0) / np.sqrt(N_model_runs - 1)
+        B_tilde_std[i, :] = np.std(B_tilde_actions, axis=0) / np.sqrt(N_model_runs - 1)
+        C_std[i, :] = np.std(C_actions, axis=0) / np.sqrt(N_model_runs - 1)
+        C_tilde_std[i, :] = np.std(C_tilde_actions, axis=0) / np.sqrt(N_model_runs - 1)
         
         reward_mean[i] = np.mean(rewards)
-        reward_std[i] = np.std(rewards) / np.sqrt(len(rewards))
+        reward_std[i] = np.std(rewards) / np.sqrt(N_model_runs - 1)
         
         if changed_parameter == "target_radius":
             changed_parameter_list[i] = parameters[2]  # Target radius
