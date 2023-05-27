@@ -66,9 +66,6 @@ class PredatorPreyEnv(gym.Env):
         self.sensor_noise = sensor_noise
         self.target_initial_position = target_initial_position
         self.coord_plane = coord_plane
-        print("COORD PLANE")
-        print(coord_plane)
-        print("")
         assert coord_plane in ["xy", "xz", "yz", None]
         
         # Parameters
@@ -268,7 +265,7 @@ def mode_iteration(N_iter, PPO_number, mode_lengths):
         coord_plane = "yz"
     
     model = PPO.load(model_path)
-    env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, np.array([target_y, target_z]), coord_plane)
+    env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, np.array([target_y, target_z]), coord_plane)
     
     # Empty arrays for loop
     B_actions = np.empty((N_iter, mode_lengths[0]))
@@ -483,9 +480,9 @@ PPO_number = 5 # For which model to load when plotting, after training
 PPO_list = [ 4, 5]
 
 #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, coord_plane)
-train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, coord_plane, train_total_steps)
+#train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, coord_plane, train_total_steps)
 #plot_mode_choice(N_iter, PPO_number)
-#plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="else")
+plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="else")
 
 # If wants to see reward over time, write the following in cmd in the log directory
 # tensorboard --logdir=.
