@@ -19,6 +19,8 @@ from gym import spaces
 
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3 import PPO
+from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.vec_env import SubprocVecEnv
 #from stable_baselines3.common.vec_env import DummyVecEnv
 #from stable_baselines3.common.evaluation import evaluate_policy
 
@@ -85,7 +87,7 @@ class PredatorPreyEnv(gym.Env):
 
     def _array_float(self, x):
         """Helper function to input x into a shape sized array with dtype np.float32"""
-        return np.array([x], dtype=np.float32).reshape(len(x), )
+        return np.array([x], dtype=np.float32).reshape(np.size(x), )
 
 
     def _get_dist(self):
@@ -369,11 +371,21 @@ def run_environment(PPO_number):
     return parameters, mode_values_list, time_list, target_pos_list, agent_pos_list, reward_list
 
 
-def animation(PPO_number, N_surface_points, squirmer_radius, target_radius, spawn_radius, max_mode, sensor_noise, viscosity, spawn_angle, lab_frame, render_mode, scale_canvas):
-    """Arguments should match that of the loaded model for correct results"""
+def animation(PPO_number, lab_frame, render_mode, scale_canvas):
     # Load model and create environment
+    parameters_path = f"RL/Training/Logs/PPO_{PPO_number}/system_parameters.csv"
+    parameters = np.genfromtxt(parameters_path, delimiter=",", skip_header=1)
+    N_surface_points = int(parameters[0])
+    squirmer_radius = parameters[1]
+    target_radius = parameters[2]
+    max_mode = int(parameters[3])
+    sensor_noise = parameters[4]
+    spawn_radius = parameters[5]
+    spawn_angle = parameters[6]
+    viscosity = parameters[7]
+    
     model_path = os.path.join("RL", "Training", "Logs", f"PPO_{PPO_number}", "ppo_predator_prey")
-    model = PPO.load(model_path)
+    model = PPO.load(model_path)    
     env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, spawn_radius, max_mode, sensor_noise, viscosity, spawn_angle, lab_frame, render_mode, scale_canvas)
 
     # Run and render model
