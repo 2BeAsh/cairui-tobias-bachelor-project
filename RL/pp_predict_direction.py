@@ -55,7 +55,7 @@ class PredatorPreyEnv(gym.Env):
     """Gym environment for a predator-prey system in a fluid."""
 
 
-    def __init__(self, N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, coord_plane="yz"):
+    def __init__(self, N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, coord_plane="yz"):
         #super().__init__() - ingen anelse om hvorfor jeg havde skrevet det eller hvor det kommer fra?
         # -- Variables --
         # Model
@@ -72,7 +72,7 @@ class PredatorPreyEnv(gym.Env):
         assert coord_plane in ["xy", "xz", "yz", None]
         
         # Parameters
-        self.viscosity = 1
+        self.viscosity = viscosity
         self.lab_frame = True
         self.epsilon = 0.1  # Extra catch distance, because velocities blow up near squirmer. Width of delta function blobs.
         self.catch_radius = self.squirmer_radius + self.epsilon
@@ -196,8 +196,8 @@ class PredatorPreyEnv(gym.Env):
         return observation, reward, done, info
 
 
-def check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, coord_plane):
-    env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, coord_plane)
+def check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, coord_plane):
+    env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, coord_plane)
     print("-- SB3 CHECK ENV: --")
     if check_env(env) == None:
         print("   The Environment is compatible with SB3")
@@ -205,8 +205,8 @@ def check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sens
         print(check_env(env))
 
 
-def train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, viscosity, train_total_steps, coord_plane):
-    env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, coord_plane)
+def train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, coord_plane, train_total_steps):
+    env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, coord_plane)
 
     # Train with SB3
     log_path = os.path.join("RL", "Training", "Logs_direction")
@@ -474,7 +474,7 @@ target_initial_position = [2.5, 2.5] / np.sqrt(2)
 max_mode = 2
 viscosity = 1
 sensor_noise = 0.18
-coord_plane = "yz"
+coord_plane = "xy"
 train_total_steps = int(10e5)
 
 # Plotting parameters
@@ -482,9 +482,9 @@ N_iter = 11
 PPO_number = 5 # For which model to load when plotting, after training
 PPO_list = [ 4, 5]
 
-#check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, coord_plane)
-#train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, target_initial_position, viscosity, coord_plane, train_total_steps)
-plot_mode_choice(N_iter, PPO_number)
+#check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, coord_plane)
+train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, coord_plane, train_total_steps)
+#plot_mode_choice(N_iter, PPO_number)
 #plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="else")
 
 # If wants to see reward over time, write the following in cmd in the log directory
