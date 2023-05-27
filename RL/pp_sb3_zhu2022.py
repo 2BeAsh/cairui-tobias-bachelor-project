@@ -19,7 +19,8 @@ from gym import spaces
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.vec_env import SubprocVecEnv
+from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
+from stable_baselines3.common.env_util import make_vec_env
 #from stable_baselines3.common.vec_env import DummyVecEnv
 #from stable_baselines3.common.evaluation import evaluate_policy
 
@@ -287,13 +288,17 @@ def check_model(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, c
 
 
 def train(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, const_angle, lab_frame, train_total_steps):
+    log_path = os.path.join("RL", "Training", "Logs_zhu")
     env = PredatorPreyEnv(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, const_angle, lab_frame, render_mode=None)
-    env = Monitor(env)
-    N_cpu = 2
-    env = SubprocVecEnv([lambda: env for i in range(N_cpu)])
+    env = make_vec_env(lambda: env, n_envs=1) #wrapper_class=SubprocVecEnv)
+    
+    #env = make_vec_env(PredatorPreyEnv, n_envs=1, , #monitor_dir=log_path, 
+    #                   env_kwargs={"squirmer_radius": squirmer_radius, "spawn_radius": spawn_radius, 
+    #                               "max_mode": max_mode, "viscosity": viscosity, "cap_modes": cap_modes,
+    #                               "const_angle": const_angle, "lab_frame": lab_frame, "render_mode": None},)
+                        
     
     # Train with SB3
-    log_path = os.path.join("RL", "Training", "Logs_zhu")
     model = PPO("MlpPolicy", env, verbose=1, tensorboard_log=log_path)
     model.learn(total_timesteps=train_total_steps)
     model_path = os.path.join(log_path, "ppo_predator_prey")
