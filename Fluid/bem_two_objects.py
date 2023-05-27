@@ -222,7 +222,7 @@ def force_surface_two_objects_test(N1, max_mode, squirmer_radius, radius_obj2, x
     A_oseen = oseen_tensor_surface_two_objects(x1_stacked, x2_stacked, x1_center, x2_center,
                                                dA, regularization_offset, viscosity)
     
-    A_oseen = A_oseen[0:3*(N1+N2)+6, :]
+    A_oseen = A_oseen[0:3*(N1+N2)+6 ,0:3*(N1+N2)+6 ]
     # Get velocities in each point on squirmer
     ux1, uy1, uz1 = fv.field_cartesian(max_mode, r=squirmer_radius, 
                                        theta=theta, phi=phi, 
@@ -230,8 +230,8 @@ def force_surface_two_objects_test(N1, max_mode, squirmer_radius, radius_obj2, x
                                        mode_array=mode_array,
                                        lab_frame=lab_frame)
     u_comb = np.array([ux1, uy1, uz1]).ravel()  
-    u_comb = np.append(u_comb, np.zeros(6 + 3*N2))  # 2*6 zeros from Forces=0=Torqus + 3N2 zeros as Object 2 no own velocity
-    
+    u_comb = np.append(u_comb, np.zeros(6 + 3*N2)).T  # 2*6 zeros from Forces=0=Torqus + 3N2 zeros as Object 2 no own velocity
+    print(np.shape(u_comb), np.shape(A_oseen))
     # Solve for the forces, A_oseen @ forces = u_comb
     force_arr = np.linalg.solve(A_oseen, u_comb)
     
@@ -272,18 +272,18 @@ if __name__ == "__main__":
         # Choose parameters
         eps = 0.1
         viscosity = 1
-        N1 = 400
+        N1 = 200
         max_mode = 3
         squirmer_radius = 1
-        radius_obj2 = 4
-        x1_center = np.array([0, 1, 0])  # NOTE feltet afhænger af hvor man sætter squirmer!
-        x2_center = np.array([-4, -3, 0])
+        radius_obj2 = 0.5
+        x1_center = np.array([-1, 0, 0])  # NOTE feltet afhænger af hvor man sætter squirmer!
+        x2_center = np.array([2,0, 0])
         B = np.zeros((max_mode+1, max_mode+1))
         B_tilde = np.zeros_like(B)
         C = np.zeros_like(B)
         C_tilde = np.zeros_like(B)
-        #B_tilde[2, 2] = -1
-        B[1,1]=1
+        B_tilde[1,1] = 1
+        B[1,1]=-1
         #C[2,2] = 1
         #B[1,1] = 1
         # Force
