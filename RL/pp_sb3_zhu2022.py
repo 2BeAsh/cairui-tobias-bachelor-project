@@ -5,6 +5,7 @@
 import numpy as np
 import os
 import sys
+import csv
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "1"
 import pygame
 import matplotlib.pyplot as plt
@@ -17,6 +18,8 @@ from gym import spaces
 
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3 import PPO
+from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.vec_env import SubprocVecEnv
 #from stable_baselines3.common.vec_env import DummyVecEnv
 #from stable_baselines3.common.evaluation import evaluate_policy
 
@@ -35,19 +38,18 @@ class PredatorPreyEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
 
-    def __init__(self, N_surface_points, squirmer_radius, target_radius, spawn_radius, max_mode, sensor_noise, viscosity, const_angle=None, lab_frame=True, render_mode=None, scale_canvas=1):
+    def __init__(self, squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, const_angle=None, lab_frame=True, render_mode=None, scale_canvas=1):
         #super().__init__() - ingen anelse om hvorfor jeg havde skrevet det eller hvor det kommer fra?
         # -- Variables --
         # Model
-        self.N_surface_points = N_surface_points  # Points on squirmer surface
         self.squirmer_radius = squirmer_radius 
-        self.target_radius = target_radius
         self.spawn_radius = spawn_radius  # Max distance the target can be spawned away from the agent
         self.max_mode = max_mode  # Max available legendre mode, max n in B_{mn}
         self.const_angle = const_angle
-        self.sensor_noise = sensor_noise
         self.lab_frame = lab_frame  # Choose lab or squirmer frame of reference. If True, in lab frame otherwise in squirmer
         self.viscosity = viscosity
+        self.cap_modes = cap_modes
+        assert cap_modes in ["uncapped", "constant"]
 
         # Parameters
         self.B_max = 1
@@ -55,6 +57,9 @@ class PredatorPreyEnv(gym.Env):
         self.charac_time = 3 * self.squirmer_radius ** 4 / (4 * self.B_max) # characteristic time
         tau = 1  # Seconds per iteration. 
         self.dt = tau / self.charac_time
+        self.epsilon = 0.1  # Width of regularization blobs
+        self.extra_catch_radius = 0.1
+        self.catch_radius = self.squirmer_radius + self.extra_catch_radius
         
         # Rendering
         self.scale_canvas = scale_canvas  # Makes canvas this times smaller
@@ -66,22 +71,20 @@ class PredatorPreyEnv(gym.Env):
 
         # -- Define action and observation space --
         # Actions: Strength of modes
-        if max_mode == 4:
-            number_of_modes = 45  # Counted from power factors.
-        elif max_mode == 3:
-            number_of_modes = 27
-        elif max_mode == 2: 
-            number_of_modes = 13
-        action_shape = (number_of_modes, )
+        
+        if self.cap_modes == "constant":  # Capped, sum(modes) = 1. Only two modes, realistic case
+            action_shape = (1,)  # alpha, distribution of the two modes
+        else:  # Uncapped, Zhu2022 case, allows sqrt(2) speed
+            action_shape = (2,)  # The two modes
         self.action_space = spaces.Box(low=-1, high=1, shape=action_shape, dtype=np.float32)
 
-        # Observations: average force difference vector
-        self.observation_space = spaces.Box(low=-1, high=1, shape=(3,), dtype=np.float32)  # (distance, angle). 
+        # Observations: radius and angle to target
+        self.observation_space = spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)  # (distance, angle). 
 
 
     def _array_float(self, x):
         """Helper function to input x into a shape sized array with dtype np.float32"""
-        return np.array([x], dtype=np.float32).reshape(len(x), )
+        return np.array([x], dtype=np.float32).reshape(np.size(x), )
 
 
     def _get_dist(self):
@@ -103,10 +106,11 @@ class PredatorPreyEnv(gym.Env):
         For the distance, shift the values by half of its max (ideally the max would be infinity, but as we stop the simulation at spawn_radius it is chosen) and divide by the max
         """
         r, theta = self._cartesian_to_polar()
-        upper_dist = 1.5 * self.spawn_radius
+        # Normalize distance and angle
+        upper_dist = 1.5 * self.spawn_radius  # why 1.5?
         r_unit = (r - upper_dist / 2) / upper_dist
         theta_unit = theta / np.pi
-        return self._array_float([r_unit, theta_unit], shape=(2,))        
+        return self._array_float([r_unit, theta_unit])        
 
 
     def _reward_time_optimized(self):
@@ -119,7 +123,7 @@ class PredatorPreyEnv(gym.Env):
         if too_far_away:  # Stop simulation and penalize hard if goes too far away
             gamma = -1000
             done = True
-        elif captured:  # Believe there is a problem with self.time - d0, as sometimes get massive negative reward when catches.
+        elif captured:  # Believe there is a problem with self.time - d0, as sometimes get massive negative reward when catches - NOTE THIS IS PROBABLY JUST BECAUSE LAST POINT IS FIRST IN NEXT VECTORIZED ENV
             gamma = 200 / (self.time - d0)  # beta_T approx equal d0, where beta_T approximates the time needed to capture the target, which is the time it takes to move in a straight line
             done = True
         else:
@@ -131,32 +135,26 @@ class PredatorPreyEnv(gym.Env):
         # Fix seed and reset values
         super().reset(seed=seed)
 
-        # Time
+        # Initial values
         self.time = 0
+        self._agent_position = self._array_float([0, 0])
+        self._target_velocity = self._array_float([0, 0])
 
-        # Initial positions
-        self._agent_position = self._array_float([0, 0], shape=(2,))  # Agent in center
-
-        # Target starts random location not within a factor times catch radius. catch_radius is a factor of squirmer_radius
-        self.epsilon = 0.05  # Extra catch distance
-        self.catch_radius = self.squirmer_radius + self.epsilon  # Velocities blow up near the squirmer.
-
+        # Target starts random location not too close to agent
         if self.const_angle is None:
             self._target_position = self._agent_position  
             dist = self._get_dist()
             while dist <= 2 * self.catch_radius:  # While distance between target and agent is too small, find a new initial position for the target
                 initial_distance = np.random.uniform(low=0, high=self.spawn_radius)
                 initial_angle = np.random.uniform(-1, 1) * np.pi
-                self._target_position = self._array_float([initial_distance * np.sin(initial_angle), initial_distance * np.cos(initial_angle)], shape=(2,))
-                dist = self._get_dist()  # Update distance
+                self._target_position = self._array_float([initial_distance * np.sin(initial_angle), initial_distance * np.cos(initial_angle)])
+                dist = self._get_dist()  
         
-        else:  # In case wants specific starting location
-            self._target_position = self._array_float([self.spawn_radius * np.sin(self.const_angle), self.spawn_radius * np.cos(self.const_angle)], shape=(2,))
+        # In case wants specific starting location
+        else:  
+            self._target_position = self._array_float([self.spawn_radius * np.sin(self.const_angle), self.spawn_radius * np.cos(self.const_angle)])
 
         self.initial_target_position = 1 * self._target_position  # Needed for reward calculation
-
-        # Initial velocity set to 0
-        self._target_velocity = self._array_float([0, 0], shape=(2,))
 
         # Observation
         observation = self._get_obs()
@@ -172,45 +170,26 @@ class PredatorPreyEnv(gym.Env):
         # Target is moved by velocity
         # Target's only movement is by the Squirmer's influence, does not diffuse
         # -- Action setup --
-        B = np.zeros((self.legendre_modes+1, self.legendre_modes+1))
+        B = np.zeros((self.max_mode+1, self.max_mode+1))
         B_tilde = np.zeros_like(B)
         C = np.zeros_like(B)
         C_tilde = np.zeros_like(B)
-        if self.cap_modes == "less":
-            B_10, B_tilde_11  = (action[1] + 1) / 2 * np.sin(action[0] * np.pi), (action[2] + 1) / 2 * np.cos(action[0] * np.pi)
-            B[1, 0] = B_10
-            B_tilde[1, 1] = B_tilde_11
-            mode_array = np.array([B, B_tilde, C, C_tilde])
-        elif self.cap_modes == "constant":
-            B_01 = np.sin(action * np.pi)
-            B_tilde_11 = np.cos(action * np.pi)
-            B[0, 1] = B_01  # NOTE burde det ikke være 1, 0 ???
-            B_tilde[1, 1] = B_tilde_11
-            mode_array = np.array([B, B_tilde, C, C_tilde])
-        elif self.cap_modes == "constant power":
-            # Modes are equal to n-sphere coordinates divided by the square root of the mode factors
-            # NOTE har man brug for at kvadrere noget? 
-            max_power = 1
-            x_n_sphere = power_consumption.n_sphere_angular_to_cartesian(action, max_power)
-            mode_factors = power_consumption.constant_power_factor(squirmer_radius, self.viscosity)
-            mode_non_zero = mode_factors.nonzero()
-            mode_array = np.zeros_like(mode_factors)
-            mode_array[mode_non_zero] = x_n_sphere / np.sqrt(mode_factors[mode_non_zero].ravel())
-        else:  # Uncapped
-            B_01 = action[0] / self.B_max
-            B_tilde_11 = action[1] / self.B_max        
-            B[0, 1] = B_01  # NOTE burde det ikke være 1, 0 ???
-            B_tilde[1, 1] = B_tilde_11
-            mode_array = np.array([B, B_tilde, C, C_tilde])
-        
+        if self.cap_modes == "constant":  # Realistic case, no sqrt(2) speed allowed
+            B[0, 1] = np.sin(action * np.pi)
+            B_tilde[1, 1] = np.cos(action * np.pi)
+        else:  # Uncapped, Zhu2022, allows sqrt(2) speed
+            B[0, 1] = action[0] / self.B_max
+            B_tilde[1, 1] = action[1] / self.B_max        
+        mode_array = np.array([B, B_tilde, C, C_tilde])    
+            
         # -- Movement --
         # Convert to polar coordinates and get the cartesian velocity of the flow.
         r, theta = self._cartesian_to_polar()
-        _, velocity_y, velocity_z = field_velocity.field_cartesian(max_mode=self.legendre_modes, r=r, 
-                                                       theta=theta, phi=np.pi/2,
-                                                       squirmer_radius=self.squirmer_radius, 
-                                                       mode_array=mode_array, lab_frame=self.lab_frame)
-        velocity = np.array([velocity_y, velocity_z], dtype=np.float32) / self.charac_velocity
+        _, velocity_y, velocity_z = field_velocity.field_cartesian(max_mode=self.max_mode, r=r, 
+                                                                    theta=[theta], phi=[np.pi/2],
+                                                                    squirmer_radius=self.squirmer_radius, 
+                                                                    mode_array=mode_array, lab_frame=self.lab_frame)
+        velocity = self._array_float([velocity_y, velocity_z]) / self.charac_velocity
         self._target_position = self._target_position + velocity * self.dt 
 
         B_01 = mode_array[0, 0, 1]
@@ -236,7 +215,7 @@ class PredatorPreyEnv(gym.Env):
 
     def _coord_to_pixel(self, position):
         """PyGame window is fixed at (0, 0), but we want (0, 0) to be in the center of the screen. The area is width x height, so all points must be shifted by (width/2, -height/2)"""
-        return position + self._array_float([self.spawn_radius, self.spawn_radius], shape=(2,)) * self.scale_canvas
+        return position + self._array_float([self.spawn_radius, self.spawn_radius]) * self.scale_canvas
 
 
     def render(self):
@@ -298,8 +277,8 @@ class PredatorPreyEnv(gym.Env):
             pygame.quit()
 
 
-def check_model(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame):
-    env = PredatorPreyEnv(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
+def check_model(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, const_angle, lab_frame, render_mode, scale_canvas):
+    env = PredatorPreyEnv(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, const_angle, lab_frame, render_mode, scale_canvas)
     print("-- SB3 CHECK ENV: --")
     if check_env(env) == None:
         print("   The Environment is compatible with SB3")
@@ -307,39 +286,61 @@ def check_model(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, sta
         print(check_env(env))
 
 
-def train(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame, train_total_steps):
-    env = PredatorPreyEnv(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
-
+def train(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, const_angle, lab_frame, train_total_steps):
+    env = PredatorPreyEnv(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, const_angle, lab_frame, render_mode=None)
+    env = Monitor(env)
+    N_cpu = 2
+    env = SubprocVecEnv([lambda: env for i in range(N_cpu)])
+    
     # Train with SB3
-    log_path = os.path.join("Reinforcement Learning", "Training", "Logs")
+    log_path = os.path.join("RL", "Training", "Logs_zhu")
     model = PPO("MlpPolicy", env, verbose=1, tensorboard_log=log_path)
     model.learn(total_timesteps=train_total_steps)
-    model.save("ppo_predator_prey")
+    model_path = os.path.join(log_path, "ppo_predator_prey")
+    model.save(model_path)
+    
+    # Save parameters in csv file
+    file_path = os.path.join(log_path, "system_parameters.csv")
+    with open(file_path, mode="w") as file:
+        writer = csv.writer(file, delimiter=",")
+        writer.writerow([" Squirmer Radius ", " Spawn Radius", " Max Mode", " Viscosity", 
+                         " Mode Capping", " Spawn angle ", " lab frame", " Train Steps"])
+        writer.writerow([squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, const_angle, lab_frame, train_total_steps])
 
 
-def show_result(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame, render_mode):
-    """Arguments should match that of the loaded model for correct results"""
+def animation(PPO_number, render_mode, scale_canvas):
     # Load model and create environment
-    model = PPO.load("ppo_predator_prey")
-    env = PredatorPreyEnv(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame, render_mode)
+    parameters_path = f"RL/Training/Logs_zhu/PPO_{PPO_number}/system_parameters.csv"
+    parameters = np.genfromtxt(parameters_path, delimiter=",", skip_header=1)
+    squirmer_radius = parameters[0]
+    spawn_radius = parameters[1]
+    max_mode = int(parameters[2])
+    viscosity = parameters[3]
+    cap_modes = parameters[4]
+    spawn_angle = parameters[5]
+    lab_frame = parameters[6]
+    
+    model_path = os.path.join("RL", "Training", "Logs_zhu", f"PPO_{PPO_number}", "ppo_predator_prey")
+    model = PPO.load(model_path)
+    env = PredatorPreyEnv(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, lab_frame, render_mode, scale_canvas)
 
     # Run and render model
     obs = env.reset()
     done = False
         
     while not done:
-        action, _states = model.predict(obs)
-        obs, reward, done, info = env.step(action)
+        action, _ = model.predict(obs)
+        obs, _, done, _ = env.step(action)
         env.render()
         
     env.close()
         
 
-def plot_info(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame):
+def plot_info(squirmer_radius, spawn_radius, max_mode, viscosity, const_angle, lab_frame, render_mode, scale_canvas):
     """Arguments should match that of the loaded model for correct results"""
     # Load model and create environment
     model = PPO.load("ppo_predator_prey")
-    env = PredatorPreyEnv(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
+    env = PredatorPreyEnv(squirmer_radius, spawn_radius, max_mode, viscosity, const_angle, lab_frame, render_mode, scale_canvas)
 
     # Run and render model
     obs = env.reset()
@@ -402,20 +403,24 @@ def plot_info(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start
 # -- Run the code --
 # Parameters
 squirmer_radius = 1
-spawn_radius = 5
-legendre_modes = 2  # DOES NOT WORK FOR >2
-scale_canvas = 1.4  # Makes everything on the canvas a factor smaller / zoomed out
-start_angle = np.pi/ 2
-cap_modes = "constant power"  # Options: "less", "uncapped", "constant", "constant power"
+spawn_radius = 3
+max_mode = 2 
+viscosity = 1
+cap_modes = "uncapped"  # Options: "uncapped", "constant",
+const_angle = np.pi/ 2
 lab_frame = True
 
-train_total_steps = int(8e5)
 render_mode = "human"
+scale_canvas = 1.4  # Makes everything on the canvas a factor smaller / zoomed out
 
-check_model(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
-#train(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame, train_total_steps)
-#show_result(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame, render_mode)
-#plot_info(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
+PPO_number = 2
+train_total_steps = int(2e5)
+
+if __name__ == "__main__":  # Required for SubprocVecEnv
+    #check_model(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, const_angle, lab_frame, render_mode, scale_canvas)
+    train(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, const_angle, lab_frame, train_total_steps)
+    #show_result(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame, render_mode)
+    #plot_info(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
 
 
 # If wants to see reward over time, write the following in cmd in the log directory
