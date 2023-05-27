@@ -193,6 +193,52 @@ def force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_cen
         return force_arr, x1_stacked, x2_stacked
     return force_arr 
 
+
+def force_surface_two_objects_test(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, mode_array, regularization_offset, viscosity, lab_frame=True, return_points=False):
+    """Calculates the force vectors at N_sphere points on a sphere with radius squirmer_radius. 
+
+    Args:
+        N1 (int): Amount of object 1 points.
+        max_mode (int): The max Legendre mode available.
+        squirmer_radius (float): Radius of squirmer.
+        mode_array: list of mode arrays 
+        regularization_offset (float): epsilon that "blobs" the delta function at singularities
+        viscosity (float): Viscosity of the fluid.
+        lab_frame (bool, optional): Wheter the velocities are in lab (True) or squirmer frame (False). Defaults to True.
+
+    Returns:
+        (3(N1+N2)+12, 1)-array): Forces on the sphere. First N values are the x part, the next N the y and the last N the z part of the forces, then same for object 2 and +12 comes from conditions
+    """
+    # Get coordinates to points on the two surfaces
+    x1, y1, z1, dA = bem.canonical_fibonacci_lattice(N1, squirmer_radius)
+    theta = np.arccos(z1 / squirmer_radius)  # [0, pi]
+    phi = np.arctan2(y1, x1)  # [0, 2*pi]
+    x1_stacked = np.stack((x1, y1, z1)).T  
+    
+    N2 = int(4 * np.pi * radius_obj2 ** 2 / dA)  # Ensures object 1 and 2 has same dA
+    x2, y2, z2, _ = bem.canonical_fibonacci_lattice(N2, radius_obj2)
+    x2_stacked = np.stack((x2, y2, z2)).T  
+
+    A_oseen = oseen_tensor_surface_two_objects(x1_stacked, x2_stacked, x1_center, x2_center,
+                                               dA, regularization_offset, viscosity)
+    
+    A_oseen = A_oseen[0:3*(N1+N2)+6, :]
+    # Get velocities in each point on squirmer
+    ux1, uy1, uz1 = fv.field_cartesian(max_mode, r=squirmer_radius, 
+                                       theta=theta, phi=phi, 
+                                       squirmer_radius=squirmer_radius, 
+                                       mode_array=mode_array,
+                                       lab_frame=lab_frame)
+    u_comb = np.array([ux1, uy1, uz1]).ravel()  
+    u_comb = np.append(u_comb, np.zeros(6 + 3*N2))  # 2*6 zeros from Forces=0=Torqus + 3N2 zeros as Object 2 no own velocity
+    
+    # Solve for the forces, A_oseen @ forces = u_comb
+    force_arr = np.linalg.solve(A_oseen, u_comb)
+    
+    if return_points:
+        return force_arr, x1_stacked, x2_stacked
+    return force_arr 
+
         
 def average_change_direction(N, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, mode_array, regularization_offset, viscosity, noise=0.2):
     # Force difference
@@ -226,24 +272,25 @@ if __name__ == "__main__":
         # Choose parameters
         eps = 0.1
         viscosity = 1
-        N1 = 500
+        N1 = 400
         max_mode = 3
         squirmer_radius = 1
-        radius_obj2 = 0.8
-        x1_center = np.array([-1, 0, 0])  # NOTE feltet afhænger af hvor man sætter squirmer!
-        x2_center = np.array([2, 0, 0])
+        radius_obj2 = 4
+        x1_center = np.array([0, 1, 0])  # NOTE feltet afhænger af hvor man sætter squirmer!
+        x2_center = np.array([-4, -3, 0])
         B = np.zeros((max_mode+1, max_mode+1))
         B_tilde = np.zeros_like(B)
         C = np.zeros_like(B)
         C_tilde = np.zeros_like(B)
         #B_tilde[2, 2] = -1
-        B_tilde[1,1]=1
-        B[1,1] = 1
+        B[1,1]=1
+        #C[2,2] = 1
+        #B[1,1] = 1
         # Force
-        force_with_condition, x1_surface, x2_surface = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, np.array([B, B_tilde, C, C_tilde]), eps, viscosity, lab_frame=True, return_points=True)
-        translation = force_with_condition[-12: -6]
-        rotation = force_with_condition[-6:]
-        force = force_with_condition[:-12]  # Remove translation and rotation
+        force_with_condition, x1_surface, x2_surface = force_surface_two_objects_test(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, np.array([B, B_tilde, C, C_tilde]), eps, viscosity, lab_frame=True, return_points=True)
+        #translation = force_with_condition[-12: -6]
+        #rotation = force_with_condition[-6:]
+        force = force_with_condition[:-6]  # Remove translation and rotation
         
         # Evaluation points
         N_eval = 150
@@ -275,7 +322,7 @@ if __name__ == "__main__":
         #ax.quiver(x_e_stack[:, 0], x_e_stack[:, 1], v_e[:, 0], v_e[:, 1], color="red")
         ax.streamplot(X, Y, v_e[:, 0].reshape((N_eval, N_eval)), v_e[:, 1].reshape((N_eval, N_eval)), density=2)
         velocity_magnitude = np.sqrt(v_e[:, 0].reshape((N_eval, N_eval))**2 + v_e[:, 1].reshape((N_eval, N_eval))**2)
-        contour_velocity = ax.contourf(X, Y, velocity_magnitude,  vmin=0, vmax=6, levels=16, cmap='Blues')
+        contour_velocity = ax.contourf(X, Y, velocity_magnitude,  vmin=0, vmax=2.5, levels=16, cmap='Blues')
         ax.set(xlabel="x", ylabel="y", title="Squirmer field two objects")
         # Colorbars  
         divider = make_axes_locatable(ax)
@@ -294,7 +341,7 @@ if __name__ == "__main__":
         #ax.text(text_min, text_max-0.3, s=f"$\omega$={np.round(rotation, 4)}", fontsize=10)
         ax.legend(["Squirmer", "Target"], loc="lower right")
         fig.tight_layout()
-        plt.savefig("fluid/images/nytnavn.png")
+        #plt.savefig("fluid/images/nytnavn.png")
         plt.show()
     
     
