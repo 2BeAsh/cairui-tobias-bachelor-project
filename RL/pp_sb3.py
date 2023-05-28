@@ -464,8 +464,6 @@ def plot_info(PPO_number):
         add_circle_to_axis(ax_pos, target_pos[i, :], target_radius, color_target[i], label="Target")
         add_circle_to_axis(ax_pos, agent_pos[i, :], squirmer_radius, color_agent[i], label="Agent")
     
-    #ax_pos.scatter(target_pos[:, 0], target_pos[:, 1], s=15, label="Target", facecolor="none", edgecolors=color_target)
-    #ax_pos.scatter(agent_pos[:, 0], agent_pos[:, 1], s=8000, label="Agent", facecolor="none", edgecolors=color_agent)
     ax_pos.set(xlabel="x", ylabel="y", title="Agent and target position over time", xlim=(-spawn_radius, spawn_radius), ylim=(-spawn_radius, spawn_radius))
     # Making a good looking legend
     agent_legend_marker = mlines.Line2D(xdata=[], ydata=[], marker=".", markersize=12, linestyle="none", fillstyle="none", color=color_agent[-1], label="Agent")
