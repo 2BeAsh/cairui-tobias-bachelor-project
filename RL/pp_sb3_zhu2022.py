@@ -313,6 +313,79 @@ def train(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, const_a
         writer.writerow([squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, const_angle, lab_frame, train_total_steps])
 
 
+def path_mode_value_plot(PPO_list):
+    # For each entry in PPO_list, find the squirmer and target positions, and modes values over time
+    
+    def run_model(PPO_number):
+        # Load parameters and model, create environment
+        parameters_path = f"RL/Training/Logs_zhu/PPO_{PPO_number}/system_parameters.csv"
+        parameters = np.genfromtxt(parameters_path, delimiter=",", skip_header=1)
+        squirmer_radius = parameters[0]
+        spawn_radius = parameters[1]
+        max_mode = parameters[2]
+        viscosity = parameters[3]
+        cap_modes = parameters[4]
+        const_angle = parameters[5]
+        lab_frame = parameters[6]
+        model_path = f"RL/Training/Logs_zhu/PPO_{PPO_number}/predict_direction"
+        
+        model = PPO.load(model_path)
+        env = PredatorPreyEnv(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, const_angle, lab_frame, render_mode=None, scale_canvas=1)
+        
+        # Empty arrays for loop
+        B_vals = []    
+        Bt_vals = []
+        time_vals = []
+        agent_coord = []
+        target_coord = []
+        
+        # Run model
+        obs = env.reset()
+        done = False
+        while not done:
+            action, _ = model.predict(obs)
+            obs, reward, done, info = env.step(action)
+            modes = info["modes"]
+            B_vals.append(modes[0])
+            Bt_vals.append(modes[1])
+            time_vals.append(info["time"])
+            agent_coord.append(info["agent"])
+            target_coord.append(info["target"])
+        
+        return np.array(B_vals), np.array(Bt_vals), np.array(time_vals), np.array(agent_coord), np.array(target_coord)
+
+        
+    def fill_position_axis(axis, coord_agent, coord_target):
+        color_target = cm.Reds(np.linspace(0, 1, len(coord_agent[:, 0])))  # Colors gets darker with time. 
+        color_agent = cm.Blues(np.linspace(0, 1, len(coord_agent[:, 0])))
+        
+        # Plot agent
+        for i in range(len(coord_agent)):
+            circle = plt.Circle(coord_agent[i, :], squirmer_radius, facecolor="none", edgecolor=color_agent[i], fill=False, label="Squirmer")
+            axis.add_patch(circle)
+        # Plot target
+        plt.scatter(coord_target[:, 0], coord_target[:, 1], cmap=color_target, label="Target")            
+            
+        axis.set(xlim=(-spawn_radius, spawn_radius), ylim=(-spawn_radius, spawn_radius))
+        # Making a good looking legend
+        agent_legend_marker = mlines.Line2D(xdata=[], ydata=[], marker=".", markersize=12, linestyle="none", fillstyle="none", color=color_agent[-1], label="Agent")
+        target_legend_marker = mlines.Line2D(xdata=[], ydata=[], marker=".", markersize=12, linestyle="none", fillstyle="none", color=color_target[-1], label="Target")
+        axis.legend(handles=[agent_legend_marker, target_legend_marker])
+    
+    
+    def fill_mode_axis(axis, time, B, Bt):
+        axis.plot(time, B, "--.", label=r"B_{01}", color="green")
+        axis.plot(time, Bt, "--.", label=r"B_{01}", color="blue")
+        
+    fig, ax = plt.subplots(nrows=2, ncols=len(PPO_list), dpi=200)        
+    for i in range(len(PPO_list)):
+        B, Bt, time, agent_coord, target_coord = run_model(PPO_list[i])
+        fill_position_axis(ax[0, i], agent_coord, target_coord)
+        fill_mode_axis(ax[1, i], B, Bt)        
+        
+    plt.show()
+
+
 def animation(PPO_number, render_mode, scale_canvas):
     # Load model and create environment
     parameters_path = f"RL/Training/Logs_zhu/PPO_{PPO_number}/system_parameters.csv"
@@ -341,7 +414,7 @@ def animation(PPO_number, render_mode, scale_canvas):
     env.close()
         
 
-def plot_info(squirmer_radius, spawn_radius, max_mode, viscosity, const_angle, lab_frame, render_mode, scale_canvas):
+def plot_info(PPO_number):
     """Arguments should match that of the loaded model for correct results"""
     # Load model and create environment
     model = PPO.load("ppo_predator_prey")
