@@ -66,9 +66,6 @@ class PredatorPreyEnv(gym.Env):
         self.sensor_noise = sensor_noise
         self.target_initial_position = target_initial_position
         self.coord_plane = coord_plane
-        print("COORD PLANE")
-        print(coord_plane)
-        print("")
         assert coord_plane in ["xy", "xz", "yz", None]
         
         # Parameters
@@ -268,7 +265,7 @@ def mode_iteration(N_iter, PPO_number, mode_lengths):
         coord_plane = "yz"
     
     model = PPO.load(model_path)
-    env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, np.array([target_y, target_z]), coord_plane)
+    env = PredatorPreyEnv(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, np.array([target_y, target_z]), coord_plane)
     
     # Empty arrays for loop
     B_actions = np.empty((N_iter, mode_lengths[0]))
@@ -468,24 +465,24 @@ def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter, plot_
 # Model Parameters
 N_surface_points = 80
 squirmer_radius = 1
-target_radius = 0.7
+target_radius = 0.754
 tot_radius = squirmer_radius + target_radius
 target_initial_position = [2.5, 2.5] / np.sqrt(2)
 max_mode = 2
 viscosity = 1
-sensor_noise = 0.18
-coord_plane = "xy"
-train_total_steps = int(10e5)
+sensor_noise = 0.05
+coord_plane = "yz"
+train_total_steps = int(8e5)
 
 # Plotting parameters
 N_iter = 11
 PPO_number = 5 # For which model to load when plotting, after training
-PPO_list = [ 4, 5]
+PPO_list = [ 4, 5, 8, 9, 10, 11,   14, 15, 16]
 
 #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, coord_plane)
 #train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, coord_plane, train_total_steps)
 #plot_mode_choice(N_iter, PPO_number)
-plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="Center-center distance")
-
+plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="target_radius")
+#"target_radius", "noise", "position", "angle", "else"
 # If wants to see reward over time, write the following in cmd in the log directory
 # tensorboard --logdir=.

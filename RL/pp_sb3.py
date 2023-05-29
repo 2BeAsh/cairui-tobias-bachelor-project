@@ -503,10 +503,11 @@ scale_canvas = 1.4  # Makes everything on the canvas a factor smaller / zoomed o
 PPO_number = 9
 train_total_steps = int(1.5e5)
 
-#check_model(N_surface_points, squirmer_radius, target_radius, spawn_radius, max_mode, sensor_noise, viscosity, spawn_angle, lab_frame, render_mode, scale_canvas)
-#train(N_surface_points, squirmer_radius, target_radius, spawn_radius, max_mode, sensor_noise, viscosity, spawn_angle, lab_frame, train_total_steps)
-#animation(PPO_number, N_surface_points, squirmer_radius, target_radius, spawn_radius, max_mode, sensor_noise, viscosity, spawn_angle, lab_frame, render_mode, scale_canvas)
-plot_info(PPO_number)
+if __name__ == "__main__":  # Required for SubprocVecEnv
+    #check_model(N_surface_points, squirmer_radius, target_radius, spawn_radius, max_mode, sensor_noise, viscosity, spawn_angle, lab_frame, render_mode, scale_canvas)
+    #train(N_surface_points, squirmer_radius, target_radius, spawn_radius, max_mode, sensor_noise, viscosity, spawn_angle, lab_frame, train_total_steps)
+    #animation(PPO_number, N_surface_points, squirmer_radius, target_radius, spawn_radius, max_mode, sensor_noise, viscosity, spawn_angle, lab_frame, render_mode, scale_canvas)
+    plot_info(PPO_number)
 
 
 # If wants to see reward over time, write the following in cmd in the log directory
