@@ -273,3 +273,159 @@ def plot_action_choice(N_surface_points, N_iter, squirmer_radius, target_radius,
     fig.tight_layout()
     plt.savefig("Reinforcement Learning/Recordings/Images/" + figname)
     plt.show()
+
+
+    def spherical_harmonic_test(radius_obj2, ml_pair):
+        import spherical_harmonics as sh
+        # Choose parameters
+        eps = 0.1
+        viscosity = 1
+        N1 = 200
+        max_mode = 3
+        squirmer_radius = 1.1
+        tot_radius = squirmer_radius + radius_obj2
+        x1_center = np.array([0, 0, 0])
+        x2_center_values = np.arange(tot_radius+0.1, 4*tot_radius, tot_radius/4)
+        # Modes
+        B = np.zeros((max_mode+1, max_mode+1))
+        B_tilde = np.zeros_like(B)
+        C = np.zeros_like(B)
+        C_tilde = np.zeros_like(B)
+        B[1, 1] = 1    
+        mode_array = np.array([B, B_tilde, C, C_tilde])
+        
+        # Calculate force to get the expansion coefficients
+        f_ml = np.empty((len(ml_pair), len(x2_center_values)))
+        
+        # Loop through each target position distance
+        for i, x2_center_y in enumerate(x2_center_values):  
+            x2_center = np.array([0.2, x2_center_y, 0])
+            
+            # Force    
+            force_with_condition, x1_surface, _ = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, mode_array, eps, viscosity, lab_frame=True, return_points=True)
+            force = force_with_condition[: 3*N1]        
+            force_magnitude = np.sqrt(force[: N1]**2 + force[N1: 2*N1]**2 + force[2*N1: 3*N1]**2)
+
+            # Get angular coordinates
+            x = x1_surface[:, 0]
+            y = x1_surface[:, 1]
+            z = x1_surface[:, 2]
+            theta = np.arccos(z / squirmer_radius)  # [0, pi]
+            phi = np.arctan2(y, x)  # [0, 2*pi]
+            
+            # Get expansion coefficients for each ml value at this target position
+            for j, ml in enumerate(ml_pair):
+                print("")
+                print(f"ml = {ml}")
+                print(sh.expansion_coefficient_ml(ml[0], ml[1], force_magnitude, phi, theta))
+                f_ml[j, i] = sh.expansion_coefficient_ml(ml[0], ml[1], force_magnitude, phi, theta)
+
+        # Plot
+        fig, ax = plt.subplots(dpi=150, figsize=(6, 6))
+        ax.plot(x2_center_values, f_ml.T, ".")
+        ax.set(xlabel="Target y position", ylabel="f_ml coefficient", title="First five expansion coefficients against y-position")
+        
+        # legend
+        ml_str = []
+        for ml in ml_pair:
+            ml_val_str = f"m={ml[0]}, l={ml[1]}"
+            ml_str.append(ml_val_str)
+        ax.legend(ml_str)
+        plt.show()
+        
+        
+        
+# BEM test funktioner
+    def test_oseen_given_field():
+        N = 250
+        r = 1.
+        eps = 0.1
+        viscosity = 1
+        x, y, z, area = canonical_fibonacci_lattice(N, r)
+        theta = np.arccos(z / r)
+        phi = np.arctan2(y, x)
+        # Boundary Conditions
+        vx = 1 + 0 * x
+        vy = 0 * x
+        vz = 0 * x
+        
+        # Stack
+        x = np.stack((x, y, z)).T
+        v = np.stack((vx, vy, vz)).T
+        v = np.reshape(v, -1, order="F")
+        v = np.append(v, np.zeros(6))  # From force=0=Torque
+
+        # Få Oseen matrix på overfladen og løs for kræfterne
+        A = oseen_tensor(regularization_offset=eps, dA=area, viscosity=viscosity,
+                        evaluation_points=x)
+        F = np.linalg.solve(A, v)
+        U = F[-6:-3]
+        ang_freq = F[-3:]
+        # Evaluate i punkter uden for kuglen
+        x_e = np.linspace(-3 * r, 3 * r, 25)
+        X, Y = np.meshgrid(x_e, x_e)
+        x_e = X.ravel()
+        y_e = Y.ravel()
+        z_e = 0 * X.ravel()
+        x_e = np.stack((x_e, y_e, z_e)).T
+        
+        # Get Oseen and solve for velocities using earlier force
+        A_e = oseen_tensor(regularization_offset=eps, dA=area, viscosity=viscosity,
+                        evaluation_points=x_e, source_points=x)
+        v_e = A_e @ F
+        v_e = v_e[:-6]  # Remove Forces
+        v_e = np.reshape(v_e, (len(v_e)//3, 3), order="F")
+
+        # Return to squirmer frame by subtracting boundary conditions
+        #v_e[:, 0] -= 1
+        #v_e[:, 1] -= 1
+
+        # Remove values inside squirmer
+        r2 = np.sum(x_e**2, axis=1)
+        v_e[r2 < r ** 2, :] = 0
+        
+        # -- Plot --
+        fig, ax = plt.subplots(ncols=1, nrows=1, dpi=150, figsize=(6,6))
+        ax_oseen = ax
+        ax_oseen.quiver(x_e[:, 0], x_e[:, 1], v_e[:, 0], v_e[:, 1], color="red")
+        ax_oseen.set(xlabel="x", ylabel="y", title=r"With Conditions, Artificial field $v_x=1$, lab frame")
+        text_min = np.min(x_e)
+        text_max = np.max(x_e)
+        ax_oseen.text(text_min, text_max, s=f"U={np.round(U, 4)}", fontsize=12)
+        ax_oseen.text(text_min, text_max-0.3, s=f"$\omega$={np.round(ang_freq, 4)}", fontsize=12)
+
+        plt.savefig("fluid/images/condition_artificialfield_labframe.png")
+        plt.show()
+        
+        
+    def test_oseen_given_force():
+        eps = 0.1
+        viscosity = 1
+        xx = np.linspace(-2, 2, 25)
+        X, Y = np.meshgrid(xx, xx)
+        X = X.ravel()
+        Y = Y.ravel()
+        Z = 0 * X
+        
+        # Source point and force
+        xi = np.zeros(3).reshape(1, -1)
+        F = np.zeros(9)  # Rotation and U makes bigger
+        F[0] = 1.  # Force in x
+        #F[-6] = 2.  # Background flow in x
+        #F[-1] = -0.5  # Rotation along z-axis
+        
+        x_e = np.stack((X, Y, Z)).T
+        O = oseen_tensor(regularization_offset=eps, dA=0.5, viscosity=viscosity, 
+                            evaluation_points=x_e, source_points=xi)
+        v = O @ F
+        v = v[:-6]  # Remove force and torque
+        v = np.reshape(v, (len(v)//3, 3), order='F')
+            
+        vx = v[:, 0]
+        vy = v[:, 1]
+        
+        fig, ax = plt.subplots(dpi=150, figsize=(6, 6))
+        ax.quiver(X, Y, vx, vy, color="red")
+        ax.set(xlabel="x", ylabel="y", title="With Conditions, Artificial 'force' $F_x$, lab frame")
+        plt.savefig("fluid/images/condition_artificialforce_labframe.png")
+        plt.show()  

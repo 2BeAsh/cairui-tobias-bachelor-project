@@ -1,42 +1,6 @@
 import numpy as np
 import field_velocity as fv
 import bem
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-
-
-def difference_vectors(x_1, x_2=None):
-    if x_2 is None:
-        dx = x_1[:, 0][:, None] - x_1[:, 0][None, :]
-        dy = x_1[:, 1][:, None] - x_1[:, 1][None, :]
-        dz = x_1[:, 2][:, None] - x_1[:, 2][None, :]
-    else:
-        dx = x_1[:, 0][:, None] - x_2[:, 0][None, :]
-        dy = x_1[:, 1][:, None] - x_2[:, 1][None, :]
-        dz = x_1[:, 2][:, None] - x_2[:, 2][None, :]
-    return dx, dy, dz
-
-
-def torque_condition(x_stacked):
-    """The torque sums to 0 condition for the ROWS. To get the column, transpose the result
-
-    Args:
-        x_stacked (N, 3)-array: array with the (x, y, z) coordinates
-
-    Returns:
-        (3, 3N)-array: Torque condition along rows.
-    """
-    x = x_stacked[:, 0]
-    y = x_stacked[:, 1]
-    z = x_stacked[:, 2]
-    N = len(x)
-    torque_arr = np.zeros((3, 3*N))
-    torque_arr[0, N: 2*N] = -z
-    torque_arr[0, 2*N: 3*N] = y
-    torque_arr[1, : N] = z
-    torque_arr[1, 2*N: 3*N] = -x
-    torque_arr[2, : N] = -y
-    torque_arr[2, N: 2*N] = x
-    return torque_arr
 
 
 def oseen_tensor_surface_two_objects(x_1, x_2, x1_center, x2_center, dA, regularization_offset, viscosity):
@@ -59,7 +23,7 @@ def oseen_tensor_surface_two_objects(x_1, x_2, x1_center, x2_center, dA, regular
     N2 = len(x_2)
 
     # Difference vectors, first object 1 to 1, then 2 to 2 and then 1 to 2
-    dx12, dy12, dz12 = difference_vectors(x_1 + x1_center, x_2 + x2_center)
+    dx12, dy12, dz12 = bem.difference_vectors(x_1 + x1_center, x_2 + x2_center)
     r12 = np.sqrt(dx12 ** 2 + dy12 ** 2 + dz12 ** 2)
     r12_eps_cube = np.sqrt(r12 ** 2 + eps ** 2) ** 3
     
@@ -73,8 +37,8 @@ def oseen_tensor_surface_two_objects(x_1, x_2, x1_center, x2_center, dA, regular
     # Lower right (3*N2, 3*N2) is Object 2 to itself
     
     # Upper left and lower right can be found using previously defined functions
-    S[: 3*N1, : 3*N1] = bem.oseen_tensor(eps, dA, viscosity, x_1)[:-6, :-6]  # Cut off last 6 rows and columns from force=0=torque condition
-    S[3*N1: 3*(N1+N2), 3*N1: 3*(N1+N2)] = bem.oseen_tensor(eps, dA, viscosity, x_2)[:-6, :-6]
+    S[: 3*N1, : 3*N1] = bem.oseen_tensor_surface(x_1, dA, eps, viscosity)[:-6, :-6]  # Cut off last 6 rows and columns from force=0=torque condition
+    S[3*N1: 3*(N1+N2), 3*N1: 3*(N1+N2)] = bem.oseen_tensor_surface(x_2, dA, eps, viscosity)[:-6, :-6]
     
     # Upper right and lower left
     S_12 = np.zeros((3*N1, 3*N2))
@@ -115,11 +79,11 @@ def oseen_tensor_surface_two_objects(x_1, x_2, x1_center, x2_center, dA, regular
     
     # Torque
     # Object 1 row then column
-    torque_obj1 = torque_condition(x_1)
+    torque_obj1 = bem.torque_condition(x_1)
     S[-9: -6, : 3*N1] = torque_obj1
     S[:3*N1, -9: -6] = torque_obj1.T
     # Object 2 row then column
-    torque_obj2 = torque_condition(x_2)  # Distance from center to surface, not the center-shifted data
+    torque_obj2 = bem.torque_condition(x_2)  # Distance from center to surface, not the center-shifted data
     S[-3: , 3*N1: 3*(N1+N2)] = torque_obj2
     S[3*N1: 3*(N1+N2), -3:] = torque_obj2.T
     
@@ -145,8 +109,8 @@ def oseen_tensor_two_objects(x_1, x_2, x_eval, x1_center, x2_center, dA, regular
     N_eval = len(x_eval)
     
     S = np.zeros((3*N_eval, 3*(N1+N2)))
-    S[:, : 3*N1] = bem.oseen_tensor(regularization_offset, dA, viscosity, evaluation_points=x_eval, source_points=x_1+x1_center)[:-6, :-6]  # Remove Force=0=Torque rows and columns
-    S[:, 3*N1 : 3*(N1+N2)] = bem.oseen_tensor(regularization_offset, dA, viscosity, evaluation_points=x_eval, source_points=x_2+x2_center)[:-6, :-6] 
+    S[:, : 3*N1] = bem.oseen_tensor(x_1+x1_center, x_eval, regularization_offset, dA, viscosity)[:-6, :-6]  # Remove Force=0=Torque rows and columns
+    S[:, 3*N1 : 3*(N1+N2)] = bem.oseen_tensor(x_2+x2_center, x_eval, regularization_offset, dA, viscosity)[:-6, :-6] 
     return S
     
 
@@ -193,8 +157,6 @@ def force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_cen
         return force_arr, x1_stacked, x2_stacked
     return force_arr 
 
-
-
         
 def average_change_direction(N, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, mode_array, regularization_offset, viscosity, noise=0.2):
     # Force difference
@@ -221,6 +183,7 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     from matplotlib.pyplot import Line2D
     from matplotlib.animation import FuncAnimation
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
 
     # -- Test functions --
     def test_2obj_point():
@@ -369,73 +332,14 @@ if __name__ == "__main__":
         plt.show()
         video_name = f"fluid/images/squirmer_force_field_radius{radius_obj2}.gif"
         anim.save(video_name, writer="Pillow")
-        
-
-    def spherical_harmonic_test(radius_obj2, ml_pair):
-        import spherical_harmonics as sh
-        # Choose parameters
-        eps = 0.1
-        viscosity = 1
-        N1 = 200
-        max_mode = 3
-        squirmer_radius = 1.1
-        tot_radius = squirmer_radius + radius_obj2
-        x1_center = np.array([0, 0, 0])
-        x2_center_values = np.arange(tot_radius+0.1, 4*tot_radius, tot_radius/4)
-        # Modes
-        B = np.zeros((max_mode+1, max_mode+1))
-        B_tilde = np.zeros_like(B)
-        C = np.zeros_like(B)
-        C_tilde = np.zeros_like(B)
-        B[1, 1] = 1    
-        mode_array = np.array([B, B_tilde, C, C_tilde])
-        
-        # Calculate force to get the expansion coefficients
-        f_ml = np.empty((len(ml_pair), len(x2_center_values)))
-        
-        # Loop through each target position distance
-        for i, x2_center_y in enumerate(x2_center_values):  
-            x2_center = np.array([0.2, x2_center_y, 0])
-            
-            # Force    
-            force_with_condition, x1_surface, _ = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, mode_array, eps, viscosity, lab_frame=True, return_points=True)
-            force = force_with_condition[: 3*N1]        
-            force_magnitude = np.sqrt(force[: N1]**2 + force[N1: 2*N1]**2 + force[2*N1: 3*N1]**2)
-
-            # Get angular coordinates
-            x = x1_surface[:, 0]
-            y = x1_surface[:, 1]
-            z = x1_surface[:, 2]
-            theta = np.arccos(z / squirmer_radius)  # [0, pi]
-            phi = np.arctan2(y, x)  # [0, 2*pi]
-            
-            # Get expansion coefficients for each ml value at this target position
-            for j, ml in enumerate(ml_pair):
-                print("")
-                print(f"ml = {ml}")
-                print(sh.expansion_coefficient_ml(ml[0], ml[1], force_magnitude, phi, theta))
-                f_ml[j, i] = sh.expansion_coefficient_ml(ml[0], ml[1], force_magnitude, phi, theta)
-
-        # Plot
-        fig, ax = plt.subplots(dpi=150, figsize=(6, 6))
-        ax.plot(x2_center_values, f_ml.T, ".")
-        ax.set(xlabel="Target y position", ylabel="f_ml coefficient", title="First five expansion coefficients against y-position")
-        
-        # legend
-        ml_str = []
-        for ml in ml_pair:
-            ml_val_str = f"m={ml[0]}, l={ml[1]}"
-            ml_str.append(ml_val_str)
-        ax.legend(ml_str)
-        plt.show()
 
     
     def force_difference():
         # Choose parameters
         eps = 0.1
         viscosity = 1
-        N1 = 200
-        max_mode = 2
+        N1 = 80
+        max_mode = 4
         squirmer_radius = 1
         radius_obj2 = 0.8
         total_radius = squirmer_radius+radius_obj2
@@ -446,7 +350,7 @@ if __name__ == "__main__":
         B_tilde = np.zeros_like(B)
         C = np.zeros_like(B)
         C_tilde = np.zeros_like(B)
-        B[0, 1] = 1
+        B[2, 3] = 1
 
         # Force                            
         force_with_condition, x1_surface, _ = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, np.array([B, B_tilde, C, C_tilde]), eps, viscosity, lab_frame=True, return_points=True)
@@ -492,6 +396,6 @@ if __name__ == "__main__":
         plt.show()      
                 
         
-    #force_difference()
-    test_2obj_point()
+    force_difference()
+    #test_2obj_point()
     

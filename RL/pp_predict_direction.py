@@ -35,7 +35,7 @@ def oseen_inverses(N1, squirmer_radius, target_radius, squirmer_position, target
     theta = np.arccos(z1 / squirmer_radius)
     phi = np.arctan2(y1, x1)
     x1_stack = np.stack((x1, y1, z1)).T
-    A_oseen = bem.oseen_tensor(epsilon, dA, viscosity, evaluation_points=x1_stack)
+    A_oseen = bem.oseen_tensor_surface(x1_stack, dA, epsilon, viscosity)
     A_oseen_inv = np.linalg.inv(A_oseen)
     
     # With target
