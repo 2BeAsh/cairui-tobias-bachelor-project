@@ -129,16 +129,17 @@ def field_cartesian(max_mode, r, theta, phi, squirmer_radius, mode_array, lab_fr
     
 if __name__ ==  "__main__":
     import matplotlib.pyplot as plt
-    N_sphere = 10
+    N_sphere = 80
     distance_squirmer = 1
-    max_mode = 4
+    max_mode = 2
     theta = np.array([0, 0.5, 1, 1.5, 2]) * np.pi
     phi = np.array([0, 0.5, 1, 1.5, 2]) * np.pi * 1.5 + 0.1
     squirmer_radius = 1
-    B = np.random.uniform(size=(max_mode+1, max_mode+1))
-    B_tilde = B / 2
-    C = B / 3
-    C_tilde = B / 4
+    B = np.zeros((max_mode+1, max_mode+1))
+    B_tilde = np.zeros_like(B)
+    C = np.zeros_like(B)
+    C_tilde = np.zeros_like(B)
+    B[0, 1] = 1
     mode_array = np.array([B, B_tilde, C, C_tilde])
     
     regularization_offset = 0.05

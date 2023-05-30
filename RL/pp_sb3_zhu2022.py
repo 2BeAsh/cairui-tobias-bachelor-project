@@ -39,15 +39,14 @@ class PredatorPreyEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
 
-    def __init__(self, squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, const_angle=None, lab_frame=True, render_mode=None, scale_canvas=1):
+    def __init__(self, squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle=None, render_mode=None, scale_canvas=1):
         #super().__init__() - ingen anelse om hvorfor jeg havde skrevet det eller hvor det kommer fra?
         # -- Variables --
         # Model
         self.squirmer_radius = squirmer_radius 
         self.spawn_radius = spawn_radius  # Max distance the target can be spawned away from the agent
         self.max_mode = max_mode  # Max available legendre mode, max n in B_{mn}
-        self.const_angle = const_angle
-        self.lab_frame = lab_frame  # Choose lab or squirmer frame of reference. If True, in lab frame otherwise in squirmer
+        self.spawn_angle = spawn_angle
         self.viscosity = viscosity
         self.cap_modes = cap_modes
         assert cap_modes in ["uncapped", "constant"]
@@ -56,7 +55,7 @@ class PredatorPreyEnv(gym.Env):
         self.B_max = 1
         self.charac_velocity = 4 * self.B_max / (3 * self.squirmer_radius ** 3)  # Characteristic velocity: Divide velocities by this to remove dimensions
         self.charac_time = 3 * self.squirmer_radius ** 4 / (4 * self.B_max) # characteristic time
-        tau = 1  # Seconds per iteration. 
+        tau = 0.3 # Seconds per iteration. 
         self.dt = tau / self.charac_time
         self.epsilon = 0.1  # Width of regularization blobs
         self.extra_catch_radius = 0.1
@@ -116,7 +115,7 @@ class PredatorPreyEnv(gym.Env):
 
     def _reward_time_optimized(self):
         r = self._get_dist()
-        d0 = np.linalg.norm(self.initial_target_position, ord=2)  # Time it takes to move from initial position to target if travelling in a straight line, in time units
+        #d0 = np.linalg.norm(self.initial_target_position, ord=2)  # Time it takes to move from initial position to target if travelling in a straight line, in time units
         too_far_away = r > self.spawn_radius
         captured = r < self.catch_radius
         done = False
@@ -125,7 +124,8 @@ class PredatorPreyEnv(gym.Env):
             gamma = -1000
             done = True
         elif captured:  # Believe there is a problem with self.time - d0, as sometimes get massive negative reward when catches - NOTE THIS IS PROBABLY JUST BECAUSE LAST POINT IS FIRST IN NEXT VECTORIZED ENV
-            gamma = 200 / (self.time - d0)  # beta_T approx equal d0, where beta_T approximates the time needed to capture the target, which is the time it takes to move in a straight line
+            #gamma = 200 / (self.time - d0)  # beta_T approx equal d0, where beta_T approximates the time needed to capture the target, which is the time it takes to move in a straight line
+            gamma = 1000
             done = True
         else:
             gamma = 0
@@ -142,7 +142,7 @@ class PredatorPreyEnv(gym.Env):
         self._target_velocity = self._array_float([0, 0])
 
         # Target starts random location not too close to agent
-        if self.const_angle is None:
+        if self.spawn_angle is None:
             self._target_position = self._agent_position  
             dist = self._get_dist()
             while dist <= 2 * self.catch_radius:  # While distance between target and agent is too small, find a new initial position for the target
@@ -153,7 +153,7 @@ class PredatorPreyEnv(gym.Env):
         
         # In case wants specific starting location
         else:  
-            self._target_position = self._array_float([self.spawn_radius * np.sin(self.const_angle), self.spawn_radius * np.cos(self.const_angle)])
+            self._target_position = self._array_float([self.spawn_radius * np.sin(self.spawn_angle), self.spawn_radius * np.cos(self.spawn_angle)])
 
         self.initial_target_position = 1 * self._target_position  # Needed for reward calculation
 
@@ -189,16 +189,15 @@ class PredatorPreyEnv(gym.Env):
         _, velocity_y, velocity_z = field_velocity.field_cartesian(max_mode=self.max_mode, r=r, 
                                                                     theta=[theta], phi=[np.pi/2],
                                                                     squirmer_radius=self.squirmer_radius, 
-                                                                    mode_array=mode_array, lab_frame=self.lab_frame)
-        velocity = self._array_float([velocity_y, velocity_z]) / self.charac_velocity
-        self._target_position = self._target_position + velocity * self.dt 
+                                                                    mode_array=mode_array, lab_frame=True)
+        target_velocity = self._array_float([velocity_y, velocity_z]) / self.charac_velocity
+        self._target_position = self._target_position + target_velocity * self.dt 
 
         B_01 = mode_array[0, 0, 1]
         B_tilde_11 = mode_array[1, 1, 1]
         mode_info = [B_01, B_tilde_11]        
-        if self.lab_frame:
-            squirmer_velocity = np.array([B_tilde_11, -B_01], dtype=np.float32) 
-            self._agent_position = self._agent_position + squirmer_velocity * self.dt 
+        squirmer_velocity = np.array([B_tilde_11, -B_01], dtype=np.float32) 
+        self._agent_position = self._agent_position + squirmer_velocity * self.dt 
             
         # -- Reward --
         reward, done = self._reward_time_optimized()
@@ -278,8 +277,8 @@ class PredatorPreyEnv(gym.Env):
             pygame.quit()
 
 
-def check_model(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, const_angle, lab_frame, render_mode, scale_canvas):
-    env = PredatorPreyEnv(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, const_angle, lab_frame, render_mode, scale_canvas)
+def check_model(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, render_mode, scale_canvas):
+    env = PredatorPreyEnv(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, render_mode, scale_canvas)
     print("-- SB3 CHECK ENV: --")
     if check_env(env) == None:
         print("   The Environment is compatible with SB3")
@@ -287,15 +286,15 @@ def check_model(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, c
         print(check_env(env))
 
 
-def train(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, const_angle, lab_frame, train_total_steps):
+def train(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, train_total_steps):
     log_path = os.path.join("RL", "Training", "Logs_zhu")
-    env = PredatorPreyEnv(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, const_angle, lab_frame, render_mode=None)
+    env = PredatorPreyEnv(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, render_mode=None)
     env = make_vec_env(lambda: env, n_envs=1) #wrapper_class=SubprocVecEnv)
     
     #env = make_vec_env(PredatorPreyEnv, n_envs=1, , #monitor_dir=log_path, 
     #                   env_kwargs={"squirmer_radius": squirmer_radius, "spawn_radius": spawn_radius, 
     #                               "max_mode": max_mode, "viscosity": viscosity, "cap_modes": cap_modes,
-    #                               "const_angle": const_angle, "lab_frame": lab_frame, "render_mode": None},)
+    #                               "spawn_angle": spawn_angle, "render_mode": None},)
                         
     
     # Train with SB3
@@ -308,29 +307,33 @@ def train(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, const_a
     file_path = os.path.join(log_path, "system_parameters.csv")
     with open(file_path, mode="w") as file:
         writer = csv.writer(file, delimiter=",")
-        writer.writerow([" Squirmer Radius ", " Spawn Radius", " Max Mode", " Viscosity", 
-                         " Mode Capping", " Spawn angle ", " lab frame", " Train Steps"])
-        writer.writerow([squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, const_angle, lab_frame, train_total_steps])
+        writer.writerow(["squirmer_radius", "spawn_radius", "max_mode", "viscosity", 
+                         "mode_cap", "spawn_angle", "train_steps"])
+        writer.writerow([squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, train_total_steps])
 
 
 def path_mode_value_plot(PPO_list):
-    # For each entry in PPO_list, find the squirmer and target positions, and modes values over time
+    # ---- NOTE TO DO ----
+    # One legend for each row, placed to the right
+    # Fix reward such that matches zhu2022
+    
+    # For each entry in PPO_list, find the squirmer and target positions, and modes values over time. Plot them on seperate axis
+    xy_width = 5
     
     def run_model(PPO_number):
         # Load parameters and model, create environment
         parameters_path = f"RL/Training/Logs_zhu/PPO_{PPO_number}/system_parameters.csv"
-        parameters = np.genfromtxt(parameters_path, delimiter=",", skip_header=1)
-        squirmer_radius = parameters[0]
-        spawn_radius = parameters[1]
-        max_mode = parameters[2]
-        viscosity = parameters[3]
-        cap_modes = parameters[4]
-        const_angle = parameters[5]
-        lab_frame = parameters[6]
-        model_path = f"RL/Training/Logs_zhu/PPO_{PPO_number}/predict_direction"
+        parameters = np.genfromtxt(parameters_path, delimiter=",", names=True, dtype=None, encoding='UTF-8') #=[np.float32, np.float32, int, np.float32, str, np.float32, bool, int])
+        squirmer_radius = parameters["squirmer_radius"]
+        spawn_radius = parameters["spawn_radius"]
+        max_mode = parameters["max_mode"]
+        viscosity = parameters["viscosity"]
+        cap_modes = parameters["mode_cap"]
+        spawn_angle = parameters["spawn_angle"]
+        model_path = f"RL/Training/Logs_zhu/PPO_{PPO_number}/ppo_predator_prey"
         
         model = PPO.load(model_path)
-        env = PredatorPreyEnv(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, const_angle, lab_frame, render_mode=None, scale_canvas=1)
+        env = PredatorPreyEnv(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, render_mode=None)
         
         # Empty arrays for loop
         B_vals = []    
@@ -361,46 +364,56 @@ def path_mode_value_plot(PPO_list):
         
         # Plot agent
         for i in range(len(coord_agent)):
-            circle = plt.Circle(coord_agent[i, :], squirmer_radius, facecolor="none", edgecolor=color_agent[i], fill=False, label="Squirmer")
+            pass
+            circle = plt.Circle(coord_agent[i, :], squirmer_radius, facecolor="none", edgecolor=color_agent[i], fill=False)
             axis.add_patch(circle)
         # Plot target
-        plt.scatter(coord_target[:, 0], coord_target[:, 1], cmap=color_target, label="Target")            
-            
-        axis.set(xlim=(-spawn_radius, spawn_radius), ylim=(-spawn_radius, spawn_radius))
+        axis.scatter(coord_target[:, 0], coord_target[:, 1], s=2, c=color_target)            
+        
+        axis.set(xlabel=r"$y$", yticks=[], xlim=(-xy_width, xy_width), ylim=(-xy_width, xy_width))# xlim=(0, 5), ylim=(-3, 2))
         # Making a good looking legend
-        agent_legend_marker = mlines.Line2D(xdata=[], ydata=[], marker=".", markersize=12, linestyle="none", fillstyle="none", color=color_agent[-1], label="Agent")
-        target_legend_marker = mlines.Line2D(xdata=[], ydata=[], marker=".", markersize=12, linestyle="none", fillstyle="none", color=color_target[-1], label="Target")
-        axis.legend(handles=[agent_legend_marker, target_legend_marker])
+        agent_legend_marker = mlines.Line2D(xdata=[], ydata=[], marker=".", markersize=12, linestyle="none", fillstyle="none", color=color_agent[-1], label="Squirmer")
+        target_legend_marker = mlines.Line2D(xdata=[], ydata=[], marker=".", markersize=12, linestyle="none", color=color_target[-2], label="Target")
+        axis.legend(handles=[agent_legend_marker, target_legend_marker], fontsize=6)
     
     
     def fill_mode_axis(axis, time, B, Bt):
-        axis.plot(time, B, "--.", label=r"B_{01}", color="green")
-        axis.plot(time, Bt, "--.", label=r"B_{01}", color="blue")
+        axis.plot(time, B, "--.", label=r"$B_{01}$", color="green")
+        axis.plot(time, Bt, "--.", label=r"$\tilde{B}_{11}$", color="blue")
+        axis.legend(fontsize=6)
+        axis.set(xlabel="Time", ylim=(-1.1, 1.1), yticks=[])
+        
         
     fig, ax = plt.subplots(nrows=2, ncols=len(PPO_list), dpi=200)        
     for i in range(len(PPO_list)):
         B, Bt, time, agent_coord, target_coord = run_model(PPO_list[i])
         fill_position_axis(ax[0, i], agent_coord, target_coord)
-        fill_mode_axis(ax[1, i], B, Bt)        
-        
+        fill_mode_axis(ax[1, i], time, B, Bt)      
+    
+    ax[0, 0].set(ylabel=r"$z$")
+    ax[0, 0].set_yticks(ticks=np.arange(-xy_width, xy_width+1, 4))
+    ax[1, 0].set(ylabel=r"Mode Values")
+    ax[1, 0].set_yticks(ticks=[-1, 0, 1])
+
+          
+    fig.tight_layout()
     plt.show()
 
 
 def animation(PPO_number, render_mode, scale_canvas):
     # Load model and create environment
     parameters_path = f"RL/Training/Logs_zhu/PPO_{PPO_number}/system_parameters.csv"
-    parameters = np.genfromtxt(parameters_path, delimiter=",", skip_header=1)
-    squirmer_radius = parameters[0]
-    spawn_radius = parameters[1]
-    max_mode = int(parameters[2])
-    viscosity = parameters[3]
-    cap_modes = parameters[4]
-    spawn_angle = parameters[5]
-    lab_frame = parameters[6]
+    parameters = np.genfromtxt(parameters_path, delimiter=",", names=True, dtype=None, encoding='UTF-8') #=[np.float32, np.float32, int, np.float32, str, np.float32, bool, int])
+    squirmer_radius = parameters["squirmer_radius"]
+    spawn_radius = parameters["spawn_radius"]
+    max_mode = parameters["max_mode"]
+    viscosity = parameters["viscosity"]
+    cap_modes = parameters["mode_cap"]
+    spawn_angle = parameters["spawn_angle"]
+    model_path = f"RL/Training/Logs_zhu/PPO_{PPO_number}/ppo_predator_prey"
     
-    model_path = os.path.join("RL", "Training", "Logs_zhu", f"PPO_{PPO_number}", "ppo_predator_prey")
     model = PPO.load(model_path)
-    env = PredatorPreyEnv(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, lab_frame, render_mode, scale_canvas)
+    env = PredatorPreyEnv(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, render_mode=render_mode, scale_canvas=scale_canvas)
 
     # Run and render model
     obs = env.reset()
@@ -418,7 +431,7 @@ def plot_info(PPO_number):
     """Arguments should match that of the loaded model for correct results"""
     # Load model and create environment
     model = PPO.load("ppo_predator_prey")
-    env = PredatorPreyEnv(squirmer_radius, spawn_radius, max_mode, viscosity, const_angle, lab_frame, render_mode, scale_canvas)
+    env = PredatorPreyEnv(squirmer_radius, spawn_radius, max_mode, viscosity, spawn_angle, render_mode, scale_canvas)
 
     # Run and render model
     obs = env.reset()
@@ -481,25 +494,25 @@ def plot_info(PPO_number):
 # -- Run the code --
 # Parameters
 squirmer_radius = 1
-spawn_radius = 3
+spawn_radius = 4.5
 max_mode = 2 
 viscosity = 1
 cap_modes = "uncapped"  # Options: "uncapped", "constant",
-const_angle = np.pi/ 2
-lab_frame = True
+spawn_angle = - np.pi / 4
 
 render_mode = "human"
 scale_canvas = 1.4  # Makes everything on the canvas a factor smaller / zoomed out
 
-PPO_number = 2
-train_total_steps = int(2e5)
+PPO_number = 4
+PPO_list = [1, 2, 3, 4]
+train_total_steps = int(3.5e5)
 
 if __name__ == "__main__":  # Required for SubprocVecEnv
-    #check_model(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, const_angle, lab_frame, render_mode, scale_canvas)
-    train(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, const_angle, lab_frame, train_total_steps)
-    #show_result(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame, render_mode)
-    #plot_info(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes, lab_frame)
-
+    #check_model(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, render_mode, scale_canvas)
+    #train(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, train_total_steps)
+    #animation(PPO_number, render_mode, scale_canvas)
+    #plot_info(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes)
+    path_mode_value_plot(PPO_list)
 
 # If wants to see reward over time, write the following in cmd in the log directory
 # tensorboard --logdir=.

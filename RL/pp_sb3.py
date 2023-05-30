@@ -57,7 +57,7 @@ class PredatorPreyEnv(gym.Env):
         self.B_max = 1
         self.charac_velocity = 4 * self.B_max / (3 * self.squirmer_radius ** 3)  # Characteristic velocity: Divide velocities by this to remove dimensions
         self.charac_time = 3 * self.squirmer_radius ** 4 / (4 * self.B_max) # characteristic time
-        tau = 1  # Seconds per iteration. 
+        tau = 0.5  # Seconds per iteration. 
         self.dt = tau / self.charac_time
         self.epsilon = 0.1  # Width of regularization blobs
         self.extra_catch_radius = 0.1
@@ -110,7 +110,7 @@ class PredatorPreyEnv(gym.Env):
         # Calculate Oseen tensors
         A_oseen_two_objects = bem_two_objects.oseen_tensor_surface_two_objects(self.x1_stack, self.x2_stack, agent_center, target_center, 
                                                                                self.dA, self.epsilon, self.viscosity)
-        A_oseen_one_object = bem.oseen_tensor(self.epsilon, self.dA, self.viscosity, evaluation_points=self.x1_stack)
+        A_oseen_one_object = bem.oseen_tensor_surface(self.x1_stack, self.epsilon, self.dA, self.viscosity)
         
         # Squirmer surface velocity
         ux1, uy1, uz1 = field_velocity.field_cartesian(self.max_mode, r=self.squirmer_radius, 
@@ -487,24 +487,24 @@ def plot_info(PPO_number):
 # Parameters
 N_surface_points = 80
 squirmer_radius = 1
-target_radius = 0.8
+target_radius = 0.3
 tot_radius = squirmer_radius + target_radius
-spawn_radius = 3 * tot_radius
+spawn_radius = 4.5 # 3 * tot_radius
 max_mode = 2  
-sensor_noise = 0.1
+sensor_noise = 0.25  
 viscosity = 1
 spawn_angle = np.pi / 4
 lab_frame = True
 render_mode = "human"
 scale_canvas = 1.4  # Makes everything on the canvas a factor smaller / zoomed out
 
-PPO_number = 9
-train_total_steps = int(1.5e5)
+PPO_number = 11
+train_total_steps = int(4e5)
 
 if __name__ == "__main__":  # Required for SubprocVecEnv
     #check_model(N_surface_points, squirmer_radius, target_radius, spawn_radius, max_mode, sensor_noise, viscosity, spawn_angle, lab_frame, render_mode, scale_canvas)
     #train(N_surface_points, squirmer_radius, target_radius, spawn_radius, max_mode, sensor_noise, viscosity, spawn_angle, lab_frame, train_total_steps)
-    #animation(PPO_number, N_surface_points, squirmer_radius, target_radius, spawn_radius, max_mode, sensor_noise, viscosity, spawn_angle, lab_frame, render_mode, scale_canvas)
+    #animation(PPO_number, lab_frame, render_mode="human", scale_canvas=scale_canvas)
     plot_info(PPO_number)
 
 
