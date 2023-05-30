@@ -148,7 +148,7 @@ def oseen_tensor(x_sphere, x_eval, regularization_offset, dA, viscosity):
     eps = regularization_offset 
     oseen_factor = dA / (8 * np.pi * viscosity)
     
-    dx, dy, dz = difference_vectors(x_sphere, x_eval)
+    dx, dy, dz = difference_vectors(x_eval, x_sphere)
     r = np.sqrt(dx ** 2 + dy ** 2 + dz ** 2)
     r_epsilon_cubed = np.sqrt(r ** 2 + eps ** 2) ** 3
     
@@ -230,7 +230,7 @@ if __name__ == "__main__":
 
     def test_oseen_field_cartesian():
         # Parametre
-        N = 200
+        N = 100
         r = 1.
         eps = 0.01
         viscosity = 1
@@ -244,7 +244,6 @@ if __name__ == "__main__":
         
         # x og v
         x, y, z, dA = canonical_fibonacci_lattice(N, r)
-        print("Area: ", dA)
         x_surface = np.stack((x, y, z)).T
         theta = np.arccos(z / r)
         phi = np.arctan2(y, x)
@@ -255,11 +254,9 @@ if __name__ == "__main__":
         v = np.append(v, np.zeros(6))
 
         # Få Oseen matrix på overfladen og løs for kræfterne
-        import time
-        t1 = time.time()
-        A = oseen_tensor_surface(x_surface, np.array([0, 0, 0]), dA, regularization_offset=eps)
+        A = oseen_tensor_surface(x_surface, dA, eps, viscosity)
+        #A[:-6, :-6] *= N
         F = np.linalg.solve(A, v)
-        #print(time.time() - t1)
         U = F[-6:-3]  # Skal vises i plot
         ang_freq = F[-3:]
         
@@ -273,6 +270,7 @@ if __name__ == "__main__":
         
         # Get Oseen and solve for velocities using earlier force
         A_e = oseen_tensor(x_surface, x_e, eps, dA, viscosity)
+        #A_e[:-6, :-6] *= N
         v_e = A_e @ F
         v_e = v_e[:-6]  # Remove Forces
         v_e = np.reshape(v_e, (len(v_e)//3, 3), order="F")
@@ -314,8 +312,12 @@ if __name__ == "__main__":
         ax_oseen.set(xlabel="x", ylabel="y", title=r"With Conditions, Squirmer field, lab frame, $\tilde{B}_{11}$")
         text_min = np.min(x_e)
         text_max = np.max(x_e)
-        ax_oseen.text(text_min, text_max, s=f"U={np.round(U, 6)}", fontsize=12)
+        ax_oseen.text(text_min, text_max, s=f"U_n={np.round(U, 6)}", fontsize=12)
         ax_oseen.text(text_min, text_max-0.3, s=fr"$U_a$={np.round(U_anal, 6)}", fontsize=12)
+        U_anal_size = np.linalg.norm(U_anal, ord=2)
+        U_num_size = np.linalg.norm(U, ord=2)
+        ax_oseen.text(text_min, text_max-0.6, s=fr"U factor difference={np.round(U_anal_size / U_num_size, 2)}", fontsize=12)
+        
         ax_oseen.legend()
         #ax_field.quiver(Y_field, Z_field, uy_field, uz_field, color="blue", label="Original Field")
         #ax_field.set(xlabel="y", ylabel="z")
