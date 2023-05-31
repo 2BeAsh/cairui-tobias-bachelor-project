@@ -131,12 +131,12 @@ def oseen_tensor_surface(coord, dA, regularization_offset, viscosity):  # Mangle
     for i in range(3):
         force_arr[i, i*N: (i+1)*N] = 1  # -1
     S[-6: -3, : 3*N] = force_arr
-    S[: 3*N, -6: -3] = force_arr.T
+    S[: 3*N, -6: -3] = -force_arr.T
     
     # Torque
     torque_arr = torque_condition(coord)
     S[-3:, : 3*N] = torque_arr
-    S[: 3*N, -3:] = torque_arr.T
+    S[: 3*N, -3:] = -torque_arr.T
     
     return S 
 
@@ -212,11 +212,7 @@ def force_on_sphere(N_sphere, max_mode, squirmer_radius, mode_array, regularizat
     x_e = np.stack((x_sphere, y_sphere, z_sphere)).T 
     A_oseen = oseen_tensor_surface(x_e, dA, regularization_offset, viscosity)
     # Get velocities in each of the points
-    u_x, u_y, u_z = fv.field_cartesian(max_mode, r=squirmer_radius, 
-                                       theta=theta_sphere, phi=phi_sphere, 
-                                       squirmer_radius=squirmer_radius,
-                                       mode_array=mode_array,
-                                       lab_frame=lab_frame)    
+    u_x, u_y, u_z = fv.field_cartesian_squirmer(max_mode, r=squirmer_radius, theta=theta_sphere, phi=phi_sphere, squirmer_radius=squirmer_radius, mode_array=mode_array)
     u_comb = np.array([u_x, u_y, u_z]).ravel()  # 6 zeros from Forces=0=Torque
     u_comb = np.append(u_comb, np.zeros(6))
     
@@ -240,21 +236,21 @@ if __name__ == "__main__":
         C = np.zeros_like(B)
         C_tilde = np.zeros_like(B)
         B[1, 1] = 1
-        B_tilde[1, 1] = 1
+        B_tilde[1, 1] = 0
         
         # x og v
         x, y, z, dA = canonical_fibonacci_lattice(N, r)
         x_surface = np.stack((x, y, z)).T
         theta = np.arccos(z / r)
         phi = np.arctan2(y, x)
-        u_x, u_y, u_z = fv.field_cartesian(max_mode, r, theta, phi, r, np.array([B, B_tilde, C, C_tilde]))
-
+        u_x, u_y, u_z = fv.field_cartesian_squirmer(max_mode, r, theta, phi, r, np.array([B, B_tilde, C, C_tilde]))
         v = np.stack((u_x, u_y, u_z)).T
         v = np.reshape(v, -1, order="F")
         v = np.append(v, np.zeros(6))
 
         # Få Oseen matrix på overfladen og løs for kræfterne
         A = oseen_tensor_surface(x_surface, dA, eps, viscosity)
+        #print(A[:, [-6, -5, -4]])
         #A[:-6, :-6] *= N
         F = np.linalg.solve(A, v)
         U = F[-6:-3]  # Skal vises i plot
@@ -288,8 +284,7 @@ if __name__ == "__main__":
         Theta = np.arctan2(Y_field, Z_field) + np.pi
         Phi = np.ones(np.shape(Theta)) * np.pi/2
 
-        ux_field, uy_field, uz_field = fv.field_cartesian(max_mode, R_field.flatten(), Theta.flatten(), Phi.flatten(), 
-                                                    r, np.array([B, B_tilde, C, C_tilde]), lab_frame=True)
+        ux_field, uy_field, uz_field = fv.field_cartesian_squirmer(max_mode, R_field.flatten(), Theta.flatten(), Phi.flatten(), r, np.array([B, B_tilde, C, C_tilde]))
         ux_field = ux_field.reshape(np.shape(R_field))
         uy_field = uy_field.reshape(np.shape(R_field))
         uz_field = uz_field.reshape(np.shape(R_field))

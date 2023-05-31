@@ -104,11 +104,8 @@ class PredatorPreyEnv(gym.Env):
 
     def _average_force_difference(self, mode_array):
         # Find forces with and without target
-        ux1, uy1, uz1 = field_velocity.field_cartesian(self.max_mode, r=self.squirmer_radius, 
-                                                       theta=self.theta, phi=self.phi, 
-                                                       squirmer_radius=self.squirmer_radius, 
-                                                       mode_array=mode_array,
-                                                       lab_frame=self.lab_frame)
+        ux1, uy1, uz1 = field_velocity.field_cartesian_squirmer(self.max_mode, r=self.squirmer_radius, theta=self.theta, phi=self.phi, 
+                                                                squirmer_radius=self.squirmer_radius, mode_array=mode_array,)
         u_comb = np.array([ux1, uy1, uz1]).ravel()
         u_comb_without = np.append(u_comb, np.zeros(6))  # No target
         u_comb_with = np.append(u_comb, np.zeros(12+3*self.N2))

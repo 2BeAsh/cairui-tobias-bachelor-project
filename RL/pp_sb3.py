@@ -113,11 +113,8 @@ class PredatorPreyEnv(gym.Env):
         A_oseen_one_object = bem.oseen_tensor_surface(self.x1_stack, self.epsilon, self.dA, self.viscosity)
         
         # Squirmer surface velocity
-        ux1, uy1, uz1 = field_velocity.field_cartesian(self.max_mode, r=self.squirmer_radius, 
-                                                       theta=self.theta1, phi=self.phi1, 
-                                                       squirmer_radius=self.squirmer_radius, 
-                                                       mode_array=mode_array,
-                                                       lab_frame=self.lab_frame)
+        ux1, uy1, uz1 = field_velocity.field_cartesian_squirmer(self.max_mode, r=self.squirmer_radius, theta=self.theta1, phi=self.phi1, 
+                                                                squirmer_radius=self.squirmer_radius, mode_array=mode_array)
         u_stack = np.array([ux1, uy1, uz1]).ravel()
         u_one_object = np.append(u_stack, np.zeros(6))  # No target
         u_two_objects = np.append(u_stack, np.zeros(12+3*self.N2))

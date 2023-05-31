@@ -186,10 +186,7 @@ class PredatorPreyEnv(gym.Env):
         # -- Movement --
         # Convert to polar coordinates and get the cartesian velocity of the flow.
         r, theta = self._cartesian_to_polar()
-        _, velocity_y, velocity_z = field_velocity.field_cartesian(max_mode=self.max_mode, r=r, 
-                                                                    theta=[theta], phi=[np.pi/2],
-                                                                    squirmer_radius=self.squirmer_radius, 
-                                                                    mode_array=mode_array, lab_frame=True)
+        _, velocity_y, velocity_z = field_velocity.field_cartesian(max_mode=self.max_mode, r=r, theta=theta, phi=np.pi/2, squirmer_radius=self.squirmer_radius, mode_array=mode_array)
         target_velocity = self._array_float([velocity_y, velocity_z]) / self.charac_velocity
         self._target_position = self._target_position + target_velocity * self.dt 
 
