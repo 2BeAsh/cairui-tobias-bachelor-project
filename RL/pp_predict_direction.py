@@ -256,7 +256,7 @@ def mode_iteration(N_iter, PPO_number, mode_lengths):
     target_z = parameters[6]
     viscosity = parameters[8]
     coord_plane = parameters[9]
-    model_path = f"RL/Training/Logs_direction/Noise/PPO_{PPO_number}/predict_direction"
+    model_path = f"RL/Training/Logs_direction/PPO_{PPO_number}/predict_direction"
     
     if coord_plane not in ["xy", "yz", "xz", None]:  # Backwards compatability when only yz plane was allowed
         coord_plane = "yz"
@@ -408,8 +408,8 @@ def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter, plot_
             changed_parameter_list[i] = parameters[7]  # Distance between the two centers
             xlabel = "Center-center distance"
         else:
-            x = parameters[2] / (parameters[7] * parameters[4])
-            changed_parameter_list[i] = 1/(1+ 5*np.exp(x))
+            x = parameters[7]/(parameters[1]+ parameters[2])
+            changed_parameter_list[i] = x
             xlabel = "else"
             
 
@@ -462,24 +462,24 @@ def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter, plot_
 # Model Parameters
 N_surface_points = 80
 squirmer_radius = 1
-target_radius = 0.754
+target_radius = 0.45
 tot_radius = squirmer_radius + target_radius
-target_initial_position = [2.5, 2.5] / np.sqrt(2)
+target_initial_position = [2, 2] / np.sqrt(2)
 max_mode = 2
 viscosity = 1
 sensor_noise = 0.05
 coord_plane = "yz"
-train_total_steps = int(8e5)
+train_total_steps = int(7.5e5)
 
 # Plotting parameters
 N_iter = 11
 PPO_number = 5 # For which model to load when plotting, after training
-PPO_list = [ 4, 5, 8, 9, 10, 11,   14, 15, 16]
+PPO_list = [1,  2, 3, 4, 22, 23, 25, 26]
 
 #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, coord_plane)
-#train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, coord_plane, train_total_steps)
+train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, coord_plane, train_total_steps)
 #plot_mode_choice(N_iter, PPO_number)
-plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="target_radius")
+#plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="else")
 #"target_radius", "noise", "position", "angle", "else"
 # If wants to see reward over time, write the following in cmd in the log directory
 # tensorboard --logdir=.

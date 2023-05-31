@@ -1,2 +1,2 @@
 Surface Points ,Squirmer Radius ,Target Radius ,Max Mode ,Sensor Noise ,Target x1 ,Target x2 ,Centers Distance ,viscosity , Coordinate plane,Train Steps 
-80,1,0.7,2,0.05,1.414213562373095,1.414213562373095,1.9999999999999998,1,yz,800000
+80,1,0.343,2,0.05,1.7677669529663687,1.7677669529663687,2.5,1,yz,1500000
