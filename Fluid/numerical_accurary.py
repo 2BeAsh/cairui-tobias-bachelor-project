@@ -24,7 +24,7 @@ Bt11 = mode_array[1, 1, 1]
 def velocity_difference(N_surface_points, regularization_offset):
     """Calculate procentwise difference between analytical center of mass velocity and numerical center of mass found with the Oseen tensor"""
     # Analytical center of mass velocity
-    u_anal = -4 / (3 * squirmer_radius ** 3) * np.array([B11, Bt11, -B01]) 
+    u_anal = 4 / (3 * squirmer_radius ** 3) * np.array([B11, Bt11, -B01]) 
     
     # Numerical center of mass velocity
     force = bem.force_on_sphere(N_surface_points, max_mode, squirmer_radius, mode_array, regularization_offset, viscosity, lab_frame=True)
