@@ -210,11 +210,12 @@ def force_on_sphere(N_sphere, max_mode, squirmer_radius, mode_array, regularizat
     theta_sphere = np.arccos(z_sphere / squirmer_radius) 
     phi_sphere = np.arctan2(y_sphere, x_sphere)
     x_e = np.stack((x_sphere, y_sphere, z_sphere)).T 
+    
     A_oseen = oseen_tensor_surface(x_e, dA, regularization_offset, viscosity)
     # Get velocities in each of the points
     u_x, u_y, u_z = fv.field_cartesian_squirmer(max_mode, r=squirmer_radius, theta=theta_sphere, phi=phi_sphere, squirmer_radius=squirmer_radius, mode_array=mode_array)
-    u_comb = np.array([u_x, u_y, u_z]).ravel()  # 6 zeros from Forces=0=Torque
-    u_comb = np.append(u_comb, np.zeros(6))
+    u_comb = np.stack([u_x, u_y, u_z])  # 6 zeros from Forces=0=Torque
+    u_comb = np.append(u_comb, np.zeros(6)).T
     
     # Solve for the forces, A_oseen @ forces = u_comb
     force_arr = np.linalg.solve(A_oseen, u_comb)
