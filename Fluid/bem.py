@@ -170,19 +170,20 @@ def oseen_tensor(x_sphere, x_eval, regularization_offset, dA, viscosity):
     
     S *= oseen_factor
     
-    # Forces = 0, U and torque
-    # Forces
-    force_eval = np.zeros((3*N_eval, 3))
-    force_sphere = np.zeros((3, 3*N_sphere))
-    for i in range(3):
-        force_eval[i*N_eval: (i+1)*N_eval, i] = -1 
-        force_sphere[i, i*N_sphere: (i+1)*N_sphere] = 1     
-    S[-6: -3, : 3*N_sphere] = force_sphere
-    S[: 3*N_eval, -6: -3] = force_eval
+    # NEDENFOR KAN BARE SLETTES
+    # # Forces = 0, U and torque
+    # # Forces
+    # force_eval = np.zeros((3*N_eval, 3))
+    # force_sphere = np.zeros((3, 3*N_sphere))
+    # for i in range(3):
+    #     force_eval[i*N_eval: (i+1)*N_eval, i] = -1 
+    #     force_sphere[i, i*N_sphere: (i+1)*N_sphere] = 1     
+    # S[-6: -3, : 3*N_sphere] = force_sphere
+    # S[: 3*N_eval, -6: -3] = force_eval
     
-    # Torque
-    S[-3: , :3*N_sphere] = torque_condition(x_sphere)
-    S[:3*N_eval, -3:] = -torque_condition(x_eval).T
+    # # Torque
+    # S[-3: , :3*N_sphere] = torque_condition(x_sphere)
+    # S[:3*N_eval, -3:] = -torque_condition(x_eval).T
         
     return S 
 
@@ -330,7 +331,7 @@ if __name__ == "__main__":
         # -- Parametre --
         a = 1  # Squirmer radius
         N = 500  # Punkter på overflade
-        eps = 0.1
+        eps = 0.05
         viscosity = 1
         max_mode = 2
         B = np.zeros((max_mode+1, max_mode+1))
@@ -377,19 +378,19 @@ if __name__ == "__main__":
         u_point = np.reshape(u_point, (len(u_point)//3, 3), order="F")
 
         # Convert to lab frame:
-        lab_frame = True
-        if lab_frame:
-            u_point += U_num
-            title = "Lab Frame"
+        squirmer_frame = True
+        if squirmer_frame:
+            u_point -= U_num
+            title = "Squirmer Frame"
             # Analytical field 
             theta_point = np.arctan2(np.sqrt(X ** 2 + Y ** 2), Z)
             phi_point = np.arctan2(Y, X)
-            u_anal_x, u_anal_y, u_anal_z = fv.field_cartesian(max_mode, np.sqrt(r2), theta_point, phi_point, a, mode_array)
+            u_anal_x, u_anal_y, u_anal_z = fv.field_cartesian_squirmer(max_mode, np.sqrt(r2), theta_point, phi_point, a, mode_array)
             u_anal_x[r2 < a ** 2] = 0
             u_anal_y[r2 < a ** 2] = 0
             
         else:
-            title = "Squirmer Frame"            
+            title = "Lab Frame"            
             
         title += f", Reg. offset = {eps}, N surface points = {N}"
         
@@ -402,9 +403,13 @@ if __name__ == "__main__":
         
         # Plot
         fig, ax = plt.subplots(dpi=200, figsize=(8, 8))
-        ax.quiver(X_mesh, Y_mesh, u_point[:, 0], u_point[:, 1], label="Numerical")
-        #ax.quiver(X_mesh, Y_mesh, u_anal_x, u_anal_y, color="red", label="Analytical", scale=5)
+        # Numerical
+        ax.quiver(X_mesh, Y_mesh, u_point[:, 0], u_point[:, 1], label="Numerical", units="inches", scale_units="inches", angles="uv")
+        # Analytical
+        ax.quiver(X_mesh, Y_mesh, u_anal_x, u_anal_y, color="red", label="Analytical", units="inches", scale_units="inches", angles="uv")
+        # Difference field
         #ax.quiver(X_mesh, Y_mesh, u_anal_x-u_point[:, 0], u_anal_y-u_point[:, 1])
+        # Streamplot
         #ax.streamplot(X_mesh, Y_mesh, u_point[:, 0].reshape(X_mesh.shape), u_point[:, 1].reshape(Y_mesh.shape))
         
         ax.set(xlabel="x", ylabel="y", title=title)
