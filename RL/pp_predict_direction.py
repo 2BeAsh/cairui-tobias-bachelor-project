@@ -302,10 +302,10 @@ def plot_mode_choice(N_iter, PPO_number):
     mode_lengths = [len(B_names), len(B_tilde_names), len(C_names), len(C_tilde_names)]
     B_actions, B_tilde_actions, C_actions, C_tilde_actions, rewards, guessed_angles, parameters = mode_iteration(N_iter, PPO_number, mode_lengths)
     
-    target_y = parameters[5]
-    target_z = parameters[6]
+    target_x1 = parameters["target_x1"]
+    target_x2 = parameters["target_x2"]
     guessed_angles = guessed_angles * 180 / np.pi
-    angle = np.arctan2(target_y, target_z)
+    angle = np.arctan2(target_x1, target_x2)
     
     # Plot
     def fill_axis(axis, y, marker, label, title):        
@@ -343,7 +343,7 @@ def plot_mode_choice(N_iter, PPO_number):
     fig.tight_layout()
     
     # Save and show
-    figname = f"noise{parameters[4]}_maxmode{parameters[3]}_targetradius{parameters[2]}_distance{parameters[6]}_trainingsteps{parameters[-1]}.png"            
+    figname = f"noise{parameters['sensor_noise']}_maxmode{parameters['max_mode']}_targetradius{parameters['target_radius']}_distance{parameters['centers_distance']}_trainingsteps{parameters['train_steps']}.png"            
     plt.savefig("RL/Recordings/Images/" + figname)
     plt.show()
 
@@ -386,19 +386,19 @@ def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter, plot_
         reward_std[i] = np.std(rewards) / np.sqrt(N_model_runs - 1)
         
         if changed_parameter == "target_radius":
-            changed_parameter_list[i] = parameters[2]  # Target radius
+            changed_parameter_list[i] = parameters["target_radius"]  # Target radius
             xlabel = "Target Radius"
         elif changed_parameter == "noise":
-            changed_parameter_list[i] = parameters[4]  # Sensor noise
+            changed_parameter_list[i] = parameters["sensor_noise"]  # Sensor noise
             xlabel = "Sensor Noise"
         elif changed_parameter == "angle":
-            changed_parameter_list[i] = np.arctan2(parameters[5], parameters[6]) * 180 / np.pi  # arcan ( target y / target z ). Unit: Degrees
+            changed_parameter_list[i] = np.arctan2(parameters["target_x1"], parameters["target_x2"]) * 180 / np.pi  # arcan ( target y / target z ). Unit: Degrees
             xlabel = "Angle"
         elif changed_parameter == "position":  # Target initial position
-            changed_parameter_list[i] = parameters[7]  # Distance between the two centers
+            changed_parameter_list[i] = parameters["centers_distance"]  # Distance between the two centers
             xlabel = "Center-center distance"
         else:
-            x = parameters[7]/(parameters[1]+ parameters[2])
+            x = parameters["centers_distance"]/(parameters["target_radius"]+ parameters["squirmer_radius"])
             changed_parameter_list[i] = x
             xlabel = "else"
             
@@ -464,14 +464,14 @@ train_total_steps = int(7.5e5)
 
 # Plotting parameters
 N_iter = 11
-PPO_number = 5 # For which model to load when plotting, after training
-PPO_list = [1,  2, 3, 4, 22, 23, 25, 26]
+PPO_number = 1 # For which model to load when plotting, after training
+PPO_list = [1]
 
 if __name__ == "__main__":
     #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane)
-    train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane, train_total_steps)
-    #plot_mode_choice(N_iter, PPO_number)
-    #plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="else")
+    #train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane, train_total_steps)
+    plot_mode_choice(N_iter, PPO_number)
+    plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="else")
 #"target_radius", "noise", "position", "angle", "else"
 # If wants to see reward over time, write the following in cmd in the log directory
 # tensorboard --logdir=.
