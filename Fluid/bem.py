@@ -236,7 +236,7 @@ if __name__ == "__main__":
         C = np.zeros_like(B)
         C_tilde = np.zeros_like(B)
         B[1, 1] = 1
-        B_tilde[1, 1] = 0
+        #B_tilde[1, 1] = 1
         
         # x og v
         x, y, z, dA = canonical_fibonacci_lattice(N, r)
@@ -244,6 +244,7 @@ if __name__ == "__main__":
         theta = np.arccos(z / r)
         phi = np.arctan2(y, x)
         u_x, u_y, u_z = fv.field_cartesian_squirmer(max_mode, r, theta, phi, r, np.array([B, B_tilde, C, C_tilde]))
+        print(u_x, u_y, u_z)
         v = np.stack((u_x, u_y, u_z)).T
         v = np.reshape(v, -1, order="F")
         v = np.append(v, np.zeros(6))
@@ -262,6 +263,7 @@ if __name__ == "__main__":
         x_e = X.ravel()
         y_e = Y.ravel()
         z_e = 0 * X.ravel()
+        print(len(z_e))
         x_e = np.stack((x_e, y_e, z_e)).T
         
         # Get Oseen and solve for velocities using earlier force
@@ -269,7 +271,9 @@ if __name__ == "__main__":
         #A_e[:-6, :-6] *= N
         v_e = A_e @ F
         v_e = v_e[:-6]  # Remove Forces
+        print(F)
         v_e = np.reshape(v_e, (len(v_e)//3, 3), order="F")
+        
 
         # Remove values inside squirmer
         r2 = np.sum(x_e**2, axis=1)
