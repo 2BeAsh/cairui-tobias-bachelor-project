@@ -22,7 +22,7 @@ from stable_baselines3.common.evaluation import evaluate_policy
 
 # Load custom functions
 sys.path.append('./Fluid')
-import field_velocity
+from Fluid import field_velocity
 import power_consumption
 import bem_two_objects
 import bem
