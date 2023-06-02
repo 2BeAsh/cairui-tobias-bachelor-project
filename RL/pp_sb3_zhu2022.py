@@ -321,7 +321,7 @@ def path_mode_value_plot(PPO_list):
     def run_model(PPO_number):
         # Load parameters and model, create environment
         parameters_path = f"RL/Training/Logs_zhu/PPO_{PPO_number}/system_parameters.csv"
-        parameters = np.genfromtxt(parameters_path, delimiter=",", names=True, dtype=None, encoding='UTF-8') #=[np.float32, np.float32, int, np.float32, str, np.float32, bool, int])
+        parameters = np.genfromtxt(parameters_path, delimiter=",", names=True, dtype=None, encoding='UTF-8')
         squirmer_radius = parameters["squirmer_radius"]
         spawn_radius = parameters["spawn_radius"]
         max_mode = parameters["max_mode"]
