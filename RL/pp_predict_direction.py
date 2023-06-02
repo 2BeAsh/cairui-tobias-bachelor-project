@@ -453,7 +453,7 @@ def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter, plot_
 # Model Parameters
 N_surface_points = 300
 squirmer_radius = 1
-target_radius = 0.45
+target_radius = 0.25
 tot_radius = squirmer_radius + target_radius
 target_initial_position = [2, 2] / np.sqrt(2)
 max_mode = 2
@@ -461,18 +461,18 @@ viscosity = 1
 sensor_noise = 0.05
 reg_offset = 0.05
 coord_plane = "yz"
-train_total_steps = int(7.5e5)
+train_total_steps = int(3e5)
 
 # Plotting parameters
 N_iter = 11
 PPO_number = 1 # For which model to load when plotting, after training
-PPO_list = [1]
+PPO_list = [2, 3]
 
 if __name__ == "__main__":
     #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane)
-    #train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane, train_total_steps)
+    train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane, train_total_steps)
     #plot_mode_choice(N_iter, PPO_number)
-    plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="else")
+    #plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="else")
 #"target_radius", "noise", "position", "angle", "else"
 # If wants to see reward over time, write the following in cmd in the log directory
 # tensorboard --logdir=.

@@ -13,9 +13,9 @@ B = np.zeros((max_mode+1, max_mode+1))
 Bt = np.zeros_like(B)
 C = np.zeros_like(B)
 Ct = np.zeros_like(B)
-B[0, 1] = 1 / np.sqrt(2)
-B[1, 1] = 1 / np.sqrt(2)
-Bt[1, 1] = 1 / np.sqrt(2)
+B[0, 1] = 1
+B[1, 1] = 1
+Bt[1, 1] = 1
 mode_array = np.array([B, Bt, C, Ct])
 B01 = mode_array[0, 0, 1]
 B11 = mode_array[0, 1, 1]
@@ -32,7 +32,8 @@ def velocity_difference(N_surface_points, regularization_offset):
     u_num = force[-6:-3]
     
     # Procentwise difference
-    p_diff = u_num / u_anal 
+    p_diff = np.abs(u_anal - u_num) 
+    print(np.shape(p_diff))
     return p_diff
 
 
@@ -76,7 +77,7 @@ def field_velocity_fractions(N_surface_points, regularization_offset):
         u_point = np.reshape(u_point, (len(u_point)//3, 3), order="F")
 
         # Convert to lab frame:
-        u_point += U_num
+        #u_point += U_num
 
 
         # -- Analytical field --
@@ -108,15 +109,17 @@ def field_velocity_fractions(N_surface_points, regularization_offset):
         std_frac_arr = np.stack((std_frac_x, std_frac_y)).T
 
         U_anal = 4 / (3 * a ** 3)
-        U_frac = U_num[:2] / U_anal  # Ignore z
+        U_frac = np.abs(U_num[:2] - U_anal ) # Ignore z
+        print(np.shape(U_frac), np.shape(mean_frac_arr), np.shape(std_frac_arr))
         return U_frac, mean_frac_arr, std_frac_arr
     
 
 def plot_N_comparison(N_surface_points_list, regularization_offset):
     # Get data
-    p_diff_arr = np.empty((len(N_surface_points_list), 3))
+    p_diff_arr = np.empty((len(N_surface_points_list), 2))
     for i, N in enumerate(N_surface_points_list):
-        p_diff_arr[i, :] = velocity_difference(N, regularization_offset)
+         p_diff_arr[i, :],_, _= field_velocity_fractions(N, regularization_offset) #velocity_difference(N, regularization_offset) #
+        
 
     # Plot
     fig, ax = plt.subplots(dpi=200)
@@ -176,11 +179,11 @@ if __name__ == "__main__":
     eps_vals = np.linspace(0.01, 0.1, 25) 
     #plot_regularization_comparison(eps_vals, N)
 
-    # Plot field strength fractions
+    #Plot field strength fractions
     #plot_regularization_offset_field_velocity(eps_vals, N)
 
     # Plot N
-    N_values = np.arange(10, 350, 10)
-    reg_offset = 0.01
+    N_values = np.arange(10, 550, 10)
+    reg_offset = 0.2
     plot_N_comparison(N_values, reg_offset)
     
