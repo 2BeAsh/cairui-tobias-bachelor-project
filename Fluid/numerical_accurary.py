@@ -13,7 +13,7 @@ B = np.zeros((max_mode+1, max_mode+1))
 Bt = np.zeros_like(B)
 C = np.zeros_like(B)
 Ct = np.zeros_like(B)
-#B[0, 1] = 1
+B[0, 1] = 1 / np.sqrt(2)
 B[1, 1] = 1 / np.sqrt(2)
 Bt[1, 1] = 1 / np.sqrt(2)
 mode_array = np.array([B, Bt, C, Ct])
@@ -32,7 +32,7 @@ def velocity_difference(N_surface_points, regularization_offset):
     u_num = force[-6:-3]
     
     # Procentwise difference
-    p_diff = (u_num - u_anal) / u_anal * 100
+    p_diff = u_num / u_anal 
     return p_diff
 
 
@@ -139,6 +139,9 @@ def plot_regularization_comparison(regularization_offset_list, N_surface_points)
     ax.plot(regularization_offset_list, p_diff_arr, ".--")
     ax.axhline(y=0, ls="dashed", alpha=0.7, color="grey")
     ax.set(xlabel=r"Regularization offset", ylabel=r"$U_{err} (\%)$", title=f"N = {N_surface_points}, Squirmer radius = {squirmer_radius}, Viscosity = {viscosity}")
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+
     ax.legend(labels=[r"$U_x$", r"$U_y$", r"$U_z$"])
     fig.tight_layout()
     plt.show()
@@ -159,7 +162,7 @@ def plot_regularization_offset_field_velocity(regularization_offset_list, N_surf
     # Plot
     fig, ax = plt.subplots(dpi=200)
     for i in range(2):
-        ax.errorbar(regularization_offset_list, mean_frac_arr[:, i], yerr=std_frac_arr[:, i], fmt=".--")
+        ax.errorbar(regularization_offset_list, mean_frac_arr[:, i], yerr=0, fmt=".--")
     ax.plot(regularization_offset_list, U_arr, "x--", label=r"$U_{num}/U_{anal}$")
     ax.set(xlabel="Regularization offset", ylabel="Percentage of", title=f"N = {N_surface_points}, Squirmer radius = {squirmer_radius}, Viscosity = {viscosity}")
     ax.legend([r"$E(u_{num}^x/u_{anal}^x)$", r"$E(u_{num}^y/u_{anal}^y)$", r"$U_{num}^x/U_{anal}^x$", r"$U_{num}^y/U_{anal}^y$"])
@@ -169,15 +172,15 @@ def plot_regularization_offset_field_velocity(regularization_offset_list, N_surf
     
 if __name__ == "__main__":
     # Plot regu
-    N = 500
-    eps_vals = np.linspace(0.005, 0.3, 15) 
+    N = 300
+    eps_vals = np.linspace(0.01, 0.1, 25) 
     #plot_regularization_comparison(eps_vals, N)
 
     # Plot field strength fractions
-    plot_regularization_offset_field_velocity(eps_vals, N)
+    #plot_regularization_offset_field_velocity(eps_vals, N)
 
     # Plot N
-    N_values = np.arange(50, 200, 40)
+    N_values = np.arange(10, 350, 10)
     reg_offset = 0.01
-    #plot_N_comparison(N_values, reg_offset)
+    plot_N_comparison(N_values, reg_offset)
     
