@@ -55,7 +55,7 @@ class PredatorPreyEnv(gym.Env):
         self.B_max = 1
         self.charac_velocity = 4 * self.B_max / (3 * self.squirmer_radius ** 3)  # Characteristic velocity: Divide velocities by this to remove dimensions
         self.charac_time = 3 * self.squirmer_radius ** 4 / (4 * self.B_max) # characteristic time
-        tau = 0.3 # Seconds per iteration. 
+        tau = 1 # Seconds per iteration. 
         self.dt = tau / self.charac_time
         self.epsilon = 0.1  # Width of regularization blobs
         self.extra_catch_radius = 0.1
@@ -124,8 +124,9 @@ class PredatorPreyEnv(gym.Env):
             gamma = -1000
             done = True
         elif captured:  # Believe there is a problem with self.time - d0, as sometimes get massive negative reward when catches - NOTE THIS IS PROBABLY JUST BECAUSE LAST POINT IS FIRST IN NEXT VECTORIZED ENV
-            #gamma = 200 / (self.time - d0)  # beta_T approx equal d0, where beta_T approximates the time needed to capture the target, which is the time it takes to move in a straight line
-            gamma = 1000
+            gamma = 200 / (self.time - self.shortest_catch_time) 
+            if self.time - self.shortest_catch_time < 0:
+                print("!!!Shortest time negative!!!")
             done = True
         else:
             gamma = 0
@@ -155,7 +156,7 @@ class PredatorPreyEnv(gym.Env):
         else:  
             self._target_position = self._array_float([self.spawn_radius * np.sin(self.spawn_angle), self.spawn_radius * np.cos(self.spawn_angle)])
 
-        self.initial_target_position = 1 * self._target_position  # Needed for reward calculation
+        self.shortest_catch_time = self._target_position / self.charac_velocity  # Needed for reward calculation
 
         # Observation
         observation = self._get_obs()
@@ -194,7 +195,7 @@ class PredatorPreyEnv(gym.Env):
         B_tilde_11 = mode_array[1, 1, 1]
         mode_info = [B_01, B_tilde_11]        
         squirmer_velocity = np.array([B_tilde_11, -B_01], dtype=np.float32) 
-        self._agent_position = self._agent_position + squirmer_velocity * self.dt 
+        self._agent_position = self._agent_position + squirmer_velocity * self.dt / self.charac_velocity
             
         # -- Reward --
         reward, done = self._reward_time_optimized()

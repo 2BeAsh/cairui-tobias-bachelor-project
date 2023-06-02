@@ -175,14 +175,14 @@ def oseen_tensor(x_sphere, x_eval, regularization_offset, dA, viscosity):
     force_eval = np.zeros((3*N_eval, 3))
     force_sphere = np.zeros((3, 3*N_sphere))
     for i in range(3):
-        force_eval[i*N_eval: (i+1)*N_eval, i] = 1 
+        force_eval[i*N_eval: (i+1)*N_eval, i] = -1 
         force_sphere[i, i*N_sphere: (i+1)*N_sphere] = 1     
     S[-6: -3, : 3*N_sphere] = force_sphere
     S[: 3*N_eval, -6: -3] = force_eval
     
     # Torque
     S[-3: , :3*N_sphere] = torque_condition(x_sphere)
-    S[:3*N_eval, -3:] = torque_condition(x_eval).T
+    S[:3*N_eval, -3:] = -torque_condition(x_eval).T
         
     return S 
 
@@ -210,11 +210,12 @@ def force_on_sphere(N_sphere, max_mode, squirmer_radius, mode_array, regularizat
     theta_sphere = np.arccos(z_sphere / squirmer_radius) 
     phi_sphere = np.arctan2(y_sphere, x_sphere)
     x_e = np.stack((x_sphere, y_sphere, z_sphere)).T 
+    
     A_oseen = oseen_tensor_surface(x_e, dA, regularization_offset, viscosity)
     # Get velocities in each of the points
     u_x, u_y, u_z = fv.field_cartesian_squirmer(max_mode, r=squirmer_radius, theta=theta_sphere, phi=phi_sphere, squirmer_radius=squirmer_radius, mode_array=mode_array)
-    u_comb = np.array([u_x, u_y, u_z]).ravel()  # 6 zeros from Forces=0=Torque
-    u_comb = np.append(u_comb, np.zeros(6))
+    u_comb = np.stack([u_x, u_y, u_z])  # 6 zeros from Forces=0=Torque
+    u_comb = np.append(u_comb, np.zeros(6)).T
     
     # Solve for the forces, A_oseen @ forces = u_comb
     force_arr = np.linalg.solve(A_oseen, u_comb)
@@ -325,5 +326,106 @@ if __name__ == "__main__":
         plt.show()
 
 
-    test_oseen_field_cartesian()
+    def plot_only_squirmer_field():
+        # -- Parametre --
+        a = 1  # Squirmer radius
+        N = 500  # Punkter på overflade
+        eps = 0.1
+        viscosity = 1
+        max_mode = 2
+        B = np.zeros((max_mode+1, max_mode+1))
+        Bt = np.zeros_like(B)
+        C = np.zeros_like(B)
+        Ct = np.zeros_like(B)
+        B[1, 1] = 1 
+        mode_array = np.array([B, Bt, C, Ct])
+        
+        # Surface points
+        x_surface, y_surface, z_surface, dA = canonical_fibonacci_lattice(N, a)
+        coord_surface = np.stack([x_surface, y_surface, z_surface]).T
+        theta = np.arctan2(np.sqrt(x_surface ** 2 + y_surface ** 2), z_surface)
+        phi = np.arctan2(y_surface, x_surface)
+        
+        # Surface velocity in squirmer frame
+        u_surface_x, u_surface_y, u_surface_z = fv.field_cartesian_squirmer(max_mode, a, theta, phi, a, mode_array)
+        u_surface = np.stack([u_surface_x, u_surface_y, u_surface_z])
+        u_surface = np.append(u_surface, np.zeros(6)).T  # Add Force = 0 = Torque
+        
+        # Surface forces
+        A_surface = oseen_tensor_surface(coord_surface, dA, eps, viscosity)
+        F_surface = np.linalg.solve(A_surface, u_surface)
+        U_num = F_surface[-6: -3]
+        rot_num = F_surface[-3: ]
+        
+        # Velocity field arbitrary points
+        point_width = 3
+        x_point = np.linspace(-point_width, point_width, 30)
+        y_point = 1 * x_point
+        X_mesh, Y_mesh = np.meshgrid(x_point, y_point)
+        X = X_mesh.ravel()        
+        Y = Y_mesh.ravel()
+        Z = 0 * X
+        coord_eval = np.stack((X, Y, Z)).T
+        r2 = np.sum(coord_eval**2, axis=1)
+        
+        # Oseen tensor 
+        A_point = oseen_tensor(coord_surface, coord_eval, eps, dA, viscosity)
+        
+        # Velocity
+        u_point = A_point @ F_surface
+        u_point = u_point[: -6]
+        u_point = np.reshape(u_point, (len(u_point)//3, 3), order="F")
+
+        # Convert to lab frame:
+        lab_frame = True
+        if lab_frame:
+            u_point += U_num
+            title = "Lab Frame"
+            # Analytical field 
+            theta_point = np.arctan2(np.sqrt(X ** 2 + Y ** 2), Z)
+            phi_point = np.arctan2(Y, X)
+            u_anal_x, u_anal_y, u_anal_z = fv.field_cartesian(max_mode, np.sqrt(r2), theta_point, phi_point, a, mode_array)
+            u_anal_x[r2 < a ** 2] = 0
+            u_anal_y[r2 < a ** 2] = 0
+            
+        else:
+            title = "Squirmer Frame"            
+            
+        title += f", Reg. offset = {eps}, N surface points = {N}"
+        
+        # Remove inside squirmer
+        u_point[r2 < a ** 2, :] = 0
+        
+        u_x_num_non_zero = u_point[:, 0][np.nonzero(u_point[:, 0])]
+        #u_anal_x_non_zero = u_anal_x[np.nonzero(u_anal_x)]
+        #frac_mean = np.mean(u_anal_x_non_zero / u_x_num_non_zero)
+        
+        # Plot
+        fig, ax = plt.subplots(dpi=200, figsize=(8, 8))
+        ax.quiver(X_mesh, Y_mesh, u_point[:, 0], u_point[:, 1], label="Numerical")
+        #ax.quiver(X_mesh, Y_mesh, u_anal_x, u_anal_y, color="red", label="Analytical", scale=5)
+        #ax.quiver(X_mesh, Y_mesh, u_anal_x-u_point[:, 0], u_anal_y-u_point[:, 1])
+        #ax.streamplot(X_mesh, Y_mesh, u_point[:, 0].reshape(X_mesh.shape), u_point[:, 1].reshape(Y_mesh.shape))
+        
+        ax.set(xlabel="x", ylabel="y", title=title)
+        ax.legend()
+        
+        # Text
+        U_anal = 4 / (3 * a ** 3)
+        U_num_str =  r"$U_{num}=$" + str(np.round(U_num, 4))
+        U_anal_str =  r"$U_{anal}=$" + str(np.round(U_anal, 4))
+        U_frac_str = r"$U_{num}/U_{anal}$" + str(np.round(U_num / U_anal, 4))
+        ax.text(x=0.05, y=0.95, s=U_num_str, transform=ax.transAxes, color="blue")
+        ax.text(x=0.05, y=0.90, s=U_anal_str, transform=ax.transAxes, color="blue")
+        ax.text(x=0.05, y=0.85, s=U_frac_str, transform=ax.transAxes, color="blue")
+        plt.show()
+        
+        # print("Mean velocity field fraction")
+        # print(np.mean(u_anal_x_non_zero / u_x_num_non_zero), " +- ", np.std(u_anal_x_non_zero / u_x_num_non_zero))
+        # print("Translational field fraction")
+        # print(U_num / U_anal)
+
+        
+    plot_only_squirmer_field()
+    #test_oseen_field_cartesian()
 

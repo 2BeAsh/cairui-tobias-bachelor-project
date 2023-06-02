@@ -65,27 +65,29 @@ def oseen_tensor_surface_two_objects(x_1, x_2, x1_center, x2_center, dA, regular
     S[3*N1: 3*(N1+N2), : 3*N1] = S_12.T  # Lower left
     
     # -- Conditions --
-    # Force
-    # First define the one-matricies for both objects, then update S according to them
+    # Force for both objects, 
     force_obj1 = np.zeros((3, 3*N1))
     force_obj2 = np.zeros((3, 3*N2))
     for i in range(3):
         force_obj1[i, i*N1: (i+1)*N1] = 1
         force_obj2[i, i*N2: (i+1)*N2] = 1
-    S[-12: -9, : 3*N1] = force_obj1
-    S[: 3*N1, -12: -9] = force_obj1.T
-    S[-6: -3, 3*N1: 3*(N1+N2)] = force_obj2
-    S[3*N1: 3*(N1+N2), -6: -3] = force_obj2.T
-    
-    # Torque
-    # Object 1 row then column
+
     torque_obj1 = bem.torque_condition(x_1)
-    S[-9: -6, : 3*N1] = torque_obj1
-    S[:3*N1, -9: -6] = torque_obj1.T
-    # Object 2 row then column
     torque_obj2 = bem.torque_condition(x_2)  # Distance from center to surface, not the center-shifted data
+    
+    # Rows
+    S[-12: -9, : 3*N1] = force_obj1
+    S[-6: -3, 3*N1: 3*(N1+N2)] = force_obj2
+    S[-9: -6, : 3*N1] = torque_obj1
     S[-3: , 3*N1: 3*(N1+N2)] = torque_obj2
-    S[3*N1: 3*(N1+N2), -3:] = torque_obj2.T
+    
+    # Columns    
+    S[: 3*N1, -12: -9] = -force_obj1.T  
+    S[3*N1: 3*(N1+N2), -6: -3] = force_obj2.T 
+    S[3*N1: 3*(N1+N2), -12: -9] = -force_obj2.T 
+    S[: 3*N1, -9: -6] = -torque_obj1.T  
+    S[3*N1: 3*(N1+N2), -3:] = torque_obj2.T 
+    S[3*N1: 3*(N1+N2), -9: -6] = -bem.torque_condition(x1_center + x_2).T 
     
     return S
     
@@ -114,7 +116,7 @@ def oseen_tensor_two_objects(x_1, x_2, x_eval, x1_center, x2_center, dA, regular
     return S
     
 
-def force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, mode_array, regularization_offset, viscosity, lab_frame=True, return_points=False):
+def force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, mode_array, regularization_offset, viscosity, return_points=False):
     """Calculates the force vectors at N_sphere points on a sphere with radius squirmer_radius. 
 
     Args:
@@ -131,9 +133,9 @@ def force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_cen
     """
     # Get coordinates to points on the two surfaces
     x1, y1, z1, dA = bem.canonical_fibonacci_lattice(N1, squirmer_radius)
-    theta = np.arccos(z1 / squirmer_radius)  # [0, pi]
-    phi = np.arctan2(y1, x1)  # [0, 2*pi]
     x1_stacked = np.stack((x1, y1, z1)).T  
+    theta = np.arctan2(np.sqrt(x1 ** 2 + y1 ** 2), z1)  # [0, pi]
+    phi = np.arctan2(y1, x1)  # [0, 2*pi]
     
     N2 = int(4 * np.pi * radius_obj2 ** 2 / dA)  # Ensures object 1 and 2 has same dA
     x2, y2, z2, _ = bem.canonical_fibonacci_lattice(N2, radius_obj2)
@@ -142,9 +144,10 @@ def force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_cen
     A_oseen = oseen_tensor_surface_two_objects(x1_stacked, x2_stacked, x1_center, x2_center,
                                                dA, regularization_offset, viscosity)
     # Get velocities in each point on squirmer
-    ux1, uy1, uz1 = fv.field_cartesian_squirmer(max_mode, r=squirmer_radius, theta=theta, phi=phi, squirmer_radius=squirmer_radius, mode_array=mode_array,)
-    u_comb = np.array([ux1, uy1, uz1]).ravel()  
-    u_comb = np.append(u_comb, np.zeros(12 + 3*N2))  # 2*6 zeros from Forces=0=Torqus + 3N2 zeros as Object 2 no own velocity
+    ux1, uy1, uz1 = fv.field_cartesian_squirmer(max_mode, r=squirmer_radius, theta=theta, phi=phi, squirmer_radius=squirmer_radius, mode_array=mode_array)
+    #ux1_lab, uy1_lab, uz1_lab = fv.field_cartesian(max_mode, squirmer_radius, theta, phi, squirmer_radius, mode_array)
+    u_comb = np.stack([ux1, uy1, uz1])
+    u_comb = np.append(u_comb, np.zeros(12 + 3*N2)).T  # 2*6 zeros from Forces=0=Torqus + 3N2 zeros as Object 2 no own velocity
     
     # Solve for the forces, A_oseen @ forces = u_comb
     force_arr = np.linalg.solve(A_oseen, u_comb)
@@ -182,34 +185,37 @@ if __name__ == "__main__":
     from mpl_toolkits.axes_grid1 import make_axes_locatable
 
     # -- Test functions --
-    def test_2obj_point():
+    def plot_2_objects_velocity_field():
         import matplotlib.pyplot as plt
         # Choose parameters
-        eps = 0.1
-        viscosity = 1
-        N1 = 200
-        max_mode = 3
         squirmer_radius = 1
         radius_obj2 = 0.5
-        x1_center = np.array([-1, 0, 0])  # NOTE feltet afhænger af hvor man sætter squirmer!
-        x2_center = np.array([2,0, 0])
+        N1 = 300
+        eps = 0.01
+        viscosity = 1
+        max_mode = 2
+        x1_center = np.array([0, 0, 0])  # NOTE feltet afhænger af hvor man sætter squirmer!
+        x2_center = np.array([-1.55, 0.3, 0])
         B = np.zeros((max_mode+1, max_mode+1))
-        B_tilde = np.zeros_like(B)
+        Bt = np.zeros_like(B)
         C = np.zeros_like(B)
-        C_tilde = np.zeros_like(B)
-        B_tilde[1,1] = 1
-        B[1,1]=-1
-        #C[2,2] = 1
-        #B[1,1] = 1
-        # Force
-        force_with_condition, x1_surface, x2_surface = force_surface_two_objects_test(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, np.array([B, B_tilde, C, C_tilde]), eps, viscosity, lab_frame=True, return_points=True)
-        #translation = force_with_condition[-12: -6]
-        #rotation = force_with_condition[-6:]
-        force = force_with_condition[:-6]  # Remove translation and rotation
+        Ct = np.zeros_like(B)
+        B[1,1] = 1
+        mode_array = np.array([B, Bt, C, Ct])
         
+        # Force
+        force_with_condition, x1_surface, x2_surface = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, 
+                                                                                 x2_center, mode_array, eps, viscosity, return_points=True)
+        U_num = force_with_condition[-12: -9]
+        U_num_2 = force_with_condition[-6: -3]
+        print("U 2")
+        print(U_num_2)
+        rot_num = force_with_condition[-9: -6]
+        force = force_with_condition[:-12]  # Remove translation and rotation
+                
         # Evaluation points
-        N_eval = 150
-        evaluation_points = np.linspace(-5, 5, N_eval)
+        N_eval = 30
+        evaluation_points = np.linspace(-3, 3, N_eval)
         X, Y = np.meshgrid(evaluation_points, evaluation_points)
         x_e = X.ravel()
         y_e = Y.ravel()
@@ -224,6 +230,11 @@ if __name__ == "__main__":
         v_e = A_e @ force
         v_e = np.reshape(v_e, (len(v_e)//3, 3), order="F")
         
+        # Lab frame
+        lab_frame = False
+        if lab_frame:
+            v_e += U_num
+        
         # Remove values inside squirmer
         r2_obj1 = np.sum((x_e_stack-x1_center)**2, axis=1)
         r2_obj2 = np.sum((x_e_stack-x2_center)**2, axis=1)
@@ -231,32 +242,34 @@ if __name__ == "__main__":
         v_e[r2_obj2 < radius_obj2 ** 2, :] = 0
         
         # -- Plot --
-        fig, ax = plt.subplots(dpi=150, figsize=(5,6))
+        fig, ax = plt.subplots(dpi=150)
+        ax.set(xlabel="x", ylabel="y")
+
+        # Quiver & Streamplot
+        ax.quiver(x_e_stack[:, 0], x_e_stack[:, 1], v_e[:, 0], v_e[:, 1], color="red")
+        #ax.streamplot(X, Y, v_e[:, 0].reshape((N_eval, N_eval)), v_e[:, 1].reshape((N_eval, N_eval)), density=2)
         
-        # Add arrows
-        #ax.quiver(x_e_stack[:, 0], x_e_stack[:, 1], v_e[:, 0], v_e[:, 1], color="red")
-        ax.streamplot(X, Y, v_e[:, 0].reshape((N_eval, N_eval)), v_e[:, 1].reshape((N_eval, N_eval)), density=2)
+        # Countour plot
         velocity_magnitude = np.sqrt(v_e[:, 0].reshape((N_eval, N_eval))**2 + v_e[:, 1].reshape((N_eval, N_eval))**2)
-        contour_velocity = ax.contourf(X, Y, velocity_magnitude,  vmin=0, vmax=2.5, levels=16, cmap='Blues')
-        ax.set(xlabel="x", ylabel="y", title="Squirmer field two objects")
+        #contour_velocity = ax.contourf(X, Y, velocity_magnitude,  vmin=0, vmax=2.5, levels=16, cmap='Blues')
+        
         # Colorbars  
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.05)
-        cbar = plt.colorbar(contour_velocity, cax=cax)
+       # cbar = plt.colorbar(contour_velocity, cax=cax)
 
         # Add circles
         circle_obj1 = plt.Circle(x1_center[:2], squirmer_radius, color="b", alpha=0.5)  # No need for z component
         circle_obj2 = plt.Circle(x2_center[:2], radius_obj2, color="g", alpha=0.5)
         ax.add_patch(circle_obj1)
         ax.add_patch(circle_obj2)
-        # Write translation and rotation on image
-        text_min = np.min(x_e)
-        text_max = np.max(x_e)
-        #ax.text(text_min, text_max, s=f"U={np.round(translation, 4)}", fontsize=10)
+        
+        # Add text
+        ax.text(x=0.05, y=0.95, s=f"U_n={np.round(U_num, 4)}", fontsize=10, transform=ax.transAxes)
         #ax.text(text_min, text_max-0.3, s=f"$\omega$={np.round(rotation, 4)}", fontsize=10)
         ax.legend(["Squirmer", "Target"], loc="lower right")
         fig.tight_layout()
-        #plt.savefig("fluid/images/nytnavn.png")
+        #plt.savefig("fluid/images/two_objects_velocity_field.png")
         plt.show()
     
     
@@ -392,6 +405,7 @@ if __name__ == "__main__":
         plt.show()      
                 
         
-    force_difference()
+    #force_difference()
+    plot_2_objects_velocity_field()
     #test_2obj_point()
     
