@@ -188,7 +188,7 @@ def oseen_tensor(x_sphere, x_eval, regularization_offset, dA, viscosity):
     return S 
 
 
-def force_on_sphere(N_sphere, max_mode, squirmer_radius, mode_array, regularization_offset, viscosity, lab_frame=True):
+def force_on_sphere(N_sphere, max_mode, squirmer_radius, mode_array, regularization_offset, viscosity, return_points=False):
     """Calculates the force vectors at N_sphere points on a sphere with radius squirmer_radius. 
 
     Args:
@@ -201,7 +201,6 @@ def force_on_sphere(N_sphere, max_mode, squirmer_radius, mode_array, regularizat
         C_tilde ((max_mode, max_mode)-array)): Matrix with the C_tilde mode values
         regularization_offset (float): epsilon that "blobs" the delta function at singularities
         viscosity (float): Viscosity of the fluid.
-        lab_frame (bool, optional): Wheter the velocities are in lab (True) or squirmer frame (False). Defaults to True.
 
     Returns:
         (3N_sphere, 1)-array): Forces on the sphere. First N values are the x part, the next N the y and the last N the z part of the forces.
@@ -220,6 +219,8 @@ def force_on_sphere(N_sphere, max_mode, squirmer_radius, mode_array, regularizat
     
     # Solve for the forces, A_oseen @ forces = u_comb
     force_arr = np.linalg.solve(A_oseen, u_comb)
+    if return_points:
+        return force_arr, x_e
     return force_arr 
 
     
