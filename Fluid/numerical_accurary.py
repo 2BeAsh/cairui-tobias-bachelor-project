@@ -28,7 +28,7 @@ def velocity_difference(N_surface_points, regularization_offset):
     u_anal = 4 / (3 * squirmer_radius ** 3) * np.array([B11, Bt11, -B01]) 
     
     # Numerical center of mass velocity
-    force = bem.force_on_sphere(N_surface_points, max_mode, squirmer_radius, mode_array, regularization_offset, viscosity, lab_frame=True)
+    force = bem.force_on_sphere(N_surface_points, max_mode, squirmer_radius, mode_array, regularization_offset, viscosity)
     u_num = force[-6:-3]
     
     # Procentwise difference
@@ -41,25 +41,12 @@ def field_velocity_fractions(N_surface_points, regularization_offset):
         a = squirmer_radius
         N = N_surface_points  # Punkter på overflade
         eps = regularization_offset
+        dA = 4 * np.pi * a ** 2 / N
                 
-        # Surface points
-        x_surface, y_surface, z_surface, dA = bem.canonical_fibonacci_lattice(N, a)
-        coord_surface = np.stack([x_surface, y_surface, z_surface]).T
-        theta = np.arctan2(np.sqrt(x_surface ** 2 + y_surface ** 2), z_surface)
-        phi = np.arctan2(y_surface, x_surface)
-        
-        # Surface velocity in squirmer frame
-        u_surface_x, u_surface_y, u_surface_z = fv.field_cartesian_squirmer(max_mode, a, theta, phi, a, mode_array)
-        u_surface = np.stack([u_surface_x, u_surface_y, u_surface_z])
-        u_surface = np.append(u_surface, np.zeros(6)).T  # Add Force = 0 = Torque
-        
-        # Surface forces
-        A_surface = bem.oseen_tensor_surface(coord_surface, dA, eps, viscosity)
-        F_surface = np.linalg.solve(A_surface, u_surface)
+        F_surface, coord_surface = bem.force_on_sphere(N_surface_points, max_mode, squirmer_radius, mode_array, eps, viscosity, return_points=True)
         U_num = F_surface[-6: -3]
-        rot_num = F_surface[-3: ]
         
-        # Velocity field arbitrary points
+        # Velocity field in points in xy plane
         point_width = 3
         x_point = np.linspace(-point_width, point_width, 30)
         y_point = 1 * x_point
@@ -68,48 +55,47 @@ def field_velocity_fractions(N_surface_points, regularization_offset):
         Y = Y_mesh.ravel()
         Z = 0 * X
         coord_eval = np.stack((X, Y, Z)).T
-        r2 = np.sum(coord_eval**2, axis=1)
+        r2 = np.sum(coord_eval**2, axis=1)  # For removal of points inside squirmer
         
         A_point = bem.oseen_tensor(coord_surface, coord_eval, eps, dA, viscosity)
         u_point = A_point @ F_surface
         u_point = u_point[: -6]
         u_point = np.reshape(u_point, (len(u_point)//3, 3), order="F")
 
-        # Convert to lab frame:
-        u_point += U_num
-
-
         # -- Analytical field --
         theta_point = np.arctan2(np.sqrt(X ** 2 + Y ** 2), Z)
         phi_point = np.arctan2(Y, X)
         u_anal_x, u_anal_y, u_anal_z = fv.field_cartesian(max_mode, np.sqrt(r2), theta_point, phi_point, a, mode_array)
+
+        # Remove velocities inside squirmer
         u_anal_x[r2 < a ** 2] = 0
         u_anal_y[r2 < a ** 2] = 0
-
-        # Remove inside squirmer
         u_point[r2 < a ** 2, :] = 0
-
+        
         # -- Mean of fractions --
         u_point_x = u_point[:, 0]
         u_point_y = u_point[:, 1]
         
+        # Get non zero velocities
         u_point_x_nz = u_point_x[u_point_x != 0]
         u_point_y_nz = u_point_y[u_point_y != 0]
 
         u_anal_x_nz = u_anal_x[u_anal_x != 0]
         u_anal_y_nz = u_anal_y[u_anal_y != 0]
 
+        # Compute mean of each point's fraction
         mean_frac_x = np.mean(u_point_x_nz / u_anal_x_nz)
         mean_frac_y = np.mean(u_point_y_nz / u_anal_y_nz)
         mean_frac_arr = np.stack((mean_frac_x, mean_frac_y)).T
         
         std_frac_x = np.std(u_point_x_nz / u_anal_x_nz)
         std_frac_y = np.std(u_point_y_nz / u_anal_y_nz)
-        std_frac_arr = np.stack((std_frac_x, std_frac_y)).T
-
-        U_anal = 4 / (3 * a ** 3)
+        std_frac_arr = np.stack((std_frac_x, std_frac_y)).T / np.sqrt(len(u_point_x_nz) - 1)
+        
+        # Compute analytical translatorial velocity
+        U_anal = 4 / (3 * a ** 3) * np.array([B11, Bt11])
         U_frac = U_num[:2] / U_anal  # Ignore z
-        return U_frac, mean_frac_arr, std_frac_arr
+        return U_frac, mean_frac_arr, std_frac_arr 
     
 
 def plot_N_comparison(N_surface_points_list, regularization_offset):
@@ -162,18 +148,20 @@ def plot_regularization_offset_field_velocity(regularization_offset_list, N_surf
     # Plot
     fig, ax = plt.subplots(dpi=200)
     for i in range(2):
-        ax.errorbar(regularization_offset_list, mean_frac_arr[:, i], yerr=0, fmt=".--")
-    ax.plot(regularization_offset_list, U_arr, "x--", label=r"$U_{num}/U_{anal}$")
-    ax.set(xlabel="Regularization offset", ylabel="Percentage of", title=f"N = {N_surface_points}, Squirmer radius = {squirmer_radius}, Viscosity = {viscosity}")
-    ax.legend([r"$E(u_{num}^x/u_{anal}^x)$", r"$E(u_{num}^y/u_{anal}^y)$", r"$U_{num}^x/U_{anal}^x$", r"$U_{num}^y/U_{anal}^y$"])
+        ax.errorbar(regularization_offset_list, mean_frac_arr[:, i], yerr=std_frac_arr[:, i], fmt=".--")
+    ax.plot(regularization_offset_list, U_arr, "x--")
+    ax.set(xlabel="Regularization offset", ylabel="Percentage", title=f"N = {N_surface_points}, Squirmer radius = {squirmer_radius}, Viscosity = {viscosity}")
+    ax.set_xscale("log")
+    ax.legend([r"$U_{num}^x/U_{anal}^x$", r"$U_{num}^y/U_{anal}^y$", r"$E(u_{num}^x/u_{anal}^x)$", r"$E(u_{num}^y/u_{anal}^y)$"])
+    ax.axhline(y=100, ls="dashed", color="grey", alpha=0.5)
     fig.tight_layout()
     plt.show()
     
     
 if __name__ == "__main__":
     # Plot regu
-    N = 300
-    eps_vals = np.linspace(0.01, 0.1, 25) 
+    N = 500
+    eps_vals = np.logspace(-5, 0, 30) 
     #plot_regularization_comparison(eps_vals, N)
 
     # Plot field strength fractions
