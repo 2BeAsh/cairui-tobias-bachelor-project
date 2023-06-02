@@ -83,11 +83,9 @@ def oseen_tensor_surface_two_objects(x_1, x_2, x1_center, x2_center, dA, regular
     
     # Columns    
     S[: 3*N1, -12: -9] = -force_obj1.T  
-    S[3*N1: 3*(N1+N2), -6: -3] = force_obj2.T 
-    S[3*N1: 3*(N1+N2), -12: -9] = -force_obj2.T 
+    S[3*N1: 3*(N1+N2), -6: -3] = -force_obj2.T 
     S[: 3*N1, -9: -6] = -torque_obj1.T  
-    S[3*N1: 3*(N1+N2), -3:] = torque_obj2.T 
-    S[3*N1: 3*(N1+N2), -9: -6] = -bem.torque_condition(x1_center + x_2).T 
+    S[3*N1: 3*(N1+N2), -3:] = -torque_obj2.T 
     
     return S
     
@@ -145,7 +143,6 @@ def force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_cen
                                                dA, regularization_offset, viscosity)
     # Get velocities in each point on squirmer
     ux1, uy1, uz1 = fv.field_cartesian_squirmer(max_mode, r=squirmer_radius, theta=theta, phi=phi, squirmer_radius=squirmer_radius, mode_array=mode_array)
-    #ux1_lab, uy1_lab, uz1_lab = fv.field_cartesian(max_mode, squirmer_radius, theta, phi, squirmer_radius, mode_array)
     u_comb = np.stack([ux1, uy1, uz1])
     u_comb = np.append(u_comb, np.zeros(12 + 3*N2)).T  # 2*6 zeros from Forces=0=Torqus + 3N2 zeros as Object 2 no own velocity
     
@@ -157,7 +154,7 @@ def force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_cen
     return force_arr 
 
         
-def average_change_direction(N, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, mode_array, regularization_offset, viscosity, noise=0.2):
+def average_change_direction(N, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, mode_array, regularization_offset, viscosity, noise):
     # Force difference
     force, x_vec, _ = force_surface_two_objects(N, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, 
                                       mode_array, regularization_offset, viscosity, return_points=True)
@@ -191,7 +188,7 @@ if __name__ == "__main__":
         squirmer_radius = 1
         radius_obj2 = 0.5
         N1 = 300
-        eps = 0.01
+        eps = 0.05
         viscosity = 1
         max_mode = 2
         x1_center = np.array([0, 0, 0])  # NOTE feltet afhænger af hvor man sætter squirmer!
@@ -208,8 +205,6 @@ if __name__ == "__main__":
                                                                                  x2_center, mode_array, eps, viscosity, return_points=True)
         U_num = force_with_condition[-12: -9]
         U_num_2 = force_with_condition[-6: -3]
-        print("U 2")
-        print(U_num_2)
         rot_num = force_with_condition[-9: -6]
         force = force_with_condition[:-12]  # Remove translation and rotation
                 
@@ -231,10 +226,18 @@ if __name__ == "__main__":
         v_e = np.reshape(v_e, (len(v_e)//3, 3), order="F")
         
         # Lab frame
-        lab_frame = False
-        if lab_frame:
-            v_e += U_num
+        squirmer_frame = False
+        target_frame = True
+        if squirmer_frame:
+            v_e -= U_num
+            title = "Squirmer"
+        elif target_frame:
+            v_e -= U_num_2
+            title = "Target "
+        else:  # Lab
+            title = "Lab"
         
+        title += f" frame, N1 = {N1}, Reg. offset = {eps}"
         # Remove values inside squirmer
         r2_obj1 = np.sum((x_e_stack-x1_center)**2, axis=1)
         r2_obj2 = np.sum((x_e_stack-x2_center)**2, axis=1)
@@ -243,7 +246,7 @@ if __name__ == "__main__":
         
         # -- Plot --
         fig, ax = plt.subplots(dpi=150)
-        ax.set(xlabel="x", ylabel="y")
+        ax.set(xlabel="x", ylabel="y", title=title)
 
         # Quiver & Streamplot
         ax.quiver(x_e_stack[:, 0], x_e_stack[:, 1], v_e[:, 0], v_e[:, 1], color="red")
@@ -254,8 +257,8 @@ if __name__ == "__main__":
         #contour_velocity = ax.contourf(X, Y, velocity_magnitude,  vmin=0, vmax=2.5, levels=16, cmap='Blues')
         
         # Colorbars  
-        divider = make_axes_locatable(ax)
-        cax = divider.append_axes("right", size="5%", pad=0.05)
+        #divider = make_axes_locatable(ax)
+        #cax = divider.append_axes("right", size="5%", pad=0.05)
        # cbar = plt.colorbar(contour_velocity, cax=cax)
 
         # Add circles
@@ -265,8 +268,7 @@ if __name__ == "__main__":
         ax.add_patch(circle_obj2)
         
         # Add text
-        ax.text(x=0.05, y=0.95, s=f"U_n={np.round(U_num, 4)}", fontsize=10, transform=ax.transAxes)
-        #ax.text(text_min, text_max-0.3, s=f"$\omega$={np.round(rotation, 4)}", fontsize=10)
+        ax.text(x=0.05, y=0.95, s=f"U_n={np.round(U_num, 4)}", fontsize=10, transform=ax.transAxes, color="blue")
         ax.legend(["Squirmer", "Target"], loc="lower right")
         fig.tight_layout()
         #plt.savefig("fluid/images/two_objects_velocity_field.png")
