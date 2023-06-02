@@ -415,6 +415,7 @@ def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter, plot_
             axis.errorbar(x_sort, y_sort, yerr=sy_sort, fmt=".--", lw=0.75)
         axis.legend(mode_name, fontsize=4, bbox_to_anchor=(1.05, 1), 
                     loc='upper left', borderaxespad=0.)
+        axis.grid()
     
     
     fig, ax = plt.subplots(nrows=2, ncols=2, dpi=200)
@@ -429,9 +430,9 @@ def plot_mode_iteration_average(N_model_runs, PPO_list, changed_parameter, plot_
     fill_axis(axCt, C_tilde_mean, C_tilde_std, C_tilde_names, title=r"$\tilde{C}$ modes")
             
     # General setup
-    axBt.set(yticks=[])
+    axBt.set_yticklabels([])
     axC.set(xlabel=xlabel)
-    axCt.set(xlabel=xlabel, yticks=[])
+    axCt.set(xlabel=xlabel, yticklabels=[])
     fig.suptitle(fr"Average mode values over {xlabel}", fontsize=10)
     fig.tight_layout()
     
@@ -470,7 +471,7 @@ PPO_list = [1]
 if __name__ == "__main__":
     #check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane)
     #train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane, train_total_steps)
-    plot_mode_choice(N_iter, PPO_number)
+    #plot_mode_choice(N_iter, PPO_number)
     plot_mode_iteration_average(N_model_runs=N_iter, PPO_list=PPO_list, changed_parameter="else")
 #"target_radius", "noise", "position", "angle", "else"
 # If wants to see reward over time, write the following in cmd in the log directory
