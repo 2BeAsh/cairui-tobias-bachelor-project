@@ -84,12 +84,12 @@ def field_velocity_fractions(N_surface_points, regularization_offset):
         u_anal_y_nz = u_anal_y[u_anal_y != 0]
 
         # Compute mean of each point's fraction
-        mean_frac_x = np.mean(u_point_x_nz /u_anal_x_nz )
-        mean_frac_y = np.mean( u_anal_y_nz/ u_point_y_nz )
+        mean_frac_x = np.mean(u_point_x_nz / u_anal_x_nz)
+        mean_frac_y = np.mean(u_point_y_nz / u_anal_y_nz)
         mean_frac_arr = np.stack((mean_frac_x, mean_frac_y)).T
         
-        std_frac_x = np.std(u_anal_x_nz/ u_point_x_nz)
-        std_frac_y = np.std(u_anal_y_nz/ u_point_y_nz )
+        std_frac_x = np.std(u_point_x_nz / u_anal_x_nz)
+        std_frac_y = np.std(u_point_y_nz / u_anal_y_nz)
         std_frac_arr = np.stack((std_frac_x, std_frac_y)).T / np.sqrt(len(u_point_x_nz) - 1)
         
         # Compute analytical translatorial velocity
@@ -115,48 +115,62 @@ def plot_N_comparison(N_surface_points_list, regularization_offset):
     plt.show()
     
 
-def plot_regularization_comparison(regularization_offset_list, N_surface_points):
-    # Get data
-    p_diff_arr = np.empty((len(regularization_offset_list), 3))
-    for i, eps in enumerate(regularization_offset_list):
-        p_diff_arr[i, :] = velocity_difference(N_surface_points, eps)
+def plot_regularization_comparison(regularization_offset_list, N_surface_points_list, log=False):
+    # Start plot
+    marker_list = [".", "^", "P", "x", "d"]
+    color_list = ["b", "g", "r", "c", "m"]
 
-    # Plot
     fig, ax = plt.subplots(dpi=200)
-    ax.plot(regularization_offset_list, p_diff_arr, ".--")
-    ax.axhline(y=0, ls="dashed", alpha=0.7, color="grey")
-    ax.set(xlabel=r"Regularization offset", ylabel=r"$U_{err} (\%)$", title=f"N = {N_surface_points}, Squirmer radius = {squirmer_radius}, Viscosity = {viscosity}")
-    ax.set_xscale("log")
-    ax.set_yscale("log")
-
-    ax.legend(labels=[r"$U_x$", r"$U_y$", r"$U_z$"])
-    fig.tight_layout()
-    plt.show()
-
-
-
-def plot_regularization_offset_field_velocity(regularization_offset_list, N_surface_points):
-    mean_frac_arr = np.empty((len(regularization_offset_list), 2))
-    std_frac_arr = np.empty_like(mean_frac_arr)
-    U_arr = np.empty((len(regularization_offset_list), 2))
-
-    for i, eps in enumerate(regularization_offset_list):
-        U, mean, std = field_velocity_fractions(N_surface_points, eps)
-        U_arr[i] = U * 100
-        mean_frac_arr[i, :] = mean * 100
-        std_frac_arr[i, :] = std * 100
+    ax.set(xlabel=r"Regularization offset", ylabel=r"$U_{err}^x (\%)$")
     
+    # Get data
+    for i, N in enumerate(N_surface_points_list):
+        p_diff_arr = np.empty((len(regularization_offset_list), 1))
+        for j, eps in enumerate(regularization_offset_list):
+            p_diff_arr[j], _, _ = velocity_difference(N, eps)
+            
+        ax.plot(regularization_offset_list, p_diff_arr, marker=marker_list[i], color=color_list[i], label=fr"$N = $ {N}")
+        
     # Plot
-    fig, ax = plt.subplots(dpi=200)
-    for i in range(2):
-        ax.errorbar(regularization_offset_list, mean_frac_arr[:, i], yerr=std_frac_arr[:, i], fmt=".--")
-    ax.plot(regularization_offset_list, U_arr, "x--")
-    ax.set(xlabel="Regularization offset", ylabel="Percentage", title=f"N = {N_surface_points}, Squirmer radius = {squirmer_radius}, Viscosity = {viscosity}")
-    ax.set_xscale("log")
-    ax.legend([r"$U_{num}^x/U_{anal}^x$", r"$U_{num}^y/U_{anal}^y$", r"$E(u_{num}^x/u_{anal}^x)$", r"$E(u_{num}^y/u_{anal}^y)$"])
-    ax.axhline(y=100, ls="dashed", color="grey", alpha=0.5)
+    if log:
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+
+    #ax.legend(labels=[r"$U_x$", r"$U_y$", r"$U_z$"])
+    ax.legend()
+    ax.axhline(y=0, ls="dashed", alpha=0.7, color="grey")
     fig.tight_layout()
     plt.show()
+
+
+def plot_field_velocity_average(regularization_offset_list, N_surface_points_list, log=False):
+    # Start figure
+    marker_list = [".", "^", "P", "x", "d"]
+    color_list = ["b", "g", "r", "c", "m"]
+    fig, ax = plt.subplots(dpi=200)
+
+    # Create data
+    for i, N in enumerate(N_surface_points_list):
+        mean_frac_arr = np.empty((len(regularization_offset_list)))
+        std_frac_arr = np.empty_like(mean_frac_arr)
+        U_arr = np.empty((len(regularization_offset_list)))
+        for j, eps in enumerate(regularization_offset_list):
+            U, mean, std = field_velocity_fractions(N, eps)
+            U_arr[j] = U[0]  # x coordinate
+            mean_frac_arr[j] = mean[0]
+            std_frac_arr[j] = std[0]
+        # Plot
+        ax.errorbar(regularization_offset_list, mean_frac_arr, yerr=std_frac_arr, fmt=marker_list[i]+"--", color=color_list[i], label=fr"$N = $ {N}")
+
+    ax.axhline(y=1, ls="dashed", color="grey", alpha=0.5)    
+    ax.set(xlabel="Regularization offset", ylabel=r"E$(u_{num}^x/u_{ana}^x)$", title=r"Average of $u_{num}^x/u_{ana}^x$ in each point")
+    if log:
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+    ax.legend()
+    fig.tight_layout()
+    plt.show()
+    
     
 def cd_plot(N_surface_points_list, regularization_offset_list):
     fig, ax = plt.subplots(dpi=200)
@@ -182,19 +196,24 @@ def cd_plot(N_surface_points_list, regularization_offset_list):
         fig.tight_layout()
     plt.show()
     
+    
 if __name__ == "__main__":
-    # Plot regu
-    N = 500
-    eps_vals = np.logspace(-5, 0, 30) 
-    #plot_regularization_comparison(eps_vals, N)
+    N_vals = np.array([50, 250, 500, 1000])
+    #eps_vals = np.linspace(0.001, 0.1, 30)
+    eps_vals = np.logspace(-4, -0.5, 25) 
+
+    # Plot reg. offset
+    #plot_regularization_comparison(eps_vals, N_vals, log=True)
 
     #Plot field strength fractions
-    #plot_regularization_offset_field_velocity(eps_vals, N)
+    plot_field_velocity_average(eps_vals, N_vals, log=True)
 
     # Plot N
     N_values = np.arange(5, 4280, 80)
     reg_offset = 0.01
     #plot_N_comparison(N_values, reg_offset)
-    eps_vals = np.array([ 0.01, 0.025 , 0.03, 0.05, 0.1])
-    cd_plot(N_values, eps_vals)
+    
+    # CD plot
+    #eps_vals = np.array([ 0.01, 0.025 , 0.03, 0.05, 0.1])
+    #cd_plot(N_values, eps_vals)
     
