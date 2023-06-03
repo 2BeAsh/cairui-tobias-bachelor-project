@@ -143,8 +143,9 @@ def oseen_tensor_surface(coord, dA, regularization_offset, viscosity):  # Mangle
 
 def oseen_tensor(x_sphere, x_eval, regularization_offset, dA, viscosity):    
     # Skal klart opdateres/optimeres. Kan forhåbentlig definere r = x - xi, og ri*rj = r[:, None] * r[None, :]
-    N_eval = np.shape(x_eval)[0]  # Eval is points evaluated outside squirmer
+    N_eval = np.shape(x_eval)[0]   # Eval is points evaluated outside squirmer
     N_sphere = np.shape(x_sphere)[0]
+
     eps = regularization_offset 
     oseen_factor = dA / (8 * np.pi * viscosity)
     
