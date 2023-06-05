@@ -37,7 +37,6 @@ PPO_list_zhu = [1, 2, 3, 4]
 # Model Parameters
 N_surface_points = 700
 target_radius = 0.8
-tot_radius = squirmer_radius + target_radius
 target_initial_position = [2, 2] / np.sqrt(2)
 max_mode_direction = 2
 sensor_noise = 0.18
@@ -47,7 +46,7 @@ train_total_steps_direction = int(1e5)
 
 # Variables
 target_radius_variable = 0.5
-target_initial_position_variable = [1, 0]
+target_initial_position_variable = [2, 2] / np.sqrt(2)
 sensor_noise_variable = 0.1
 
 # - Predict direction functions -
@@ -55,7 +54,7 @@ sensor_noise_variable = 0.1
 #direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, target_initial_position_variable, reg_offset, coord_plane, target_initial_position_direction, subfolder="angle")
 
 # Center distance train
-#direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, target_initial_position_variable, reg_offset, coord_plane, target_initial_position_direction, subfolder="center_distance")
+direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, target_initial_position_variable, reg_offset, coord_plane, target_initial_position_direction, subfolder="center_distance")
 
 # Target Radius train
 #direction.train(N_surface_points, squirmer_radius, target_radius_variable, max_mode_direction, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane, target_initial_position_direction, subfolder="target_radius")
