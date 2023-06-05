@@ -29,16 +29,16 @@ PPO_number_zhu = 4
 PPO_list_zhu = [1, 2, 3, 4]
 
 # - Zhu functions -
-zhu.train(squirmer_radius, spawn_angle_zhu, max_mode_zhu, viscosity, cap_modes_zhu, spawn_angle_zhu, train_total_steps_zhu)
-zhu.pygame_animation(PPO_number_zhu, render_mode, scale_canvas)
-zhu.path_mode_plot(PPO_list_zhu)
+#zhu.train(squirmer_radius, spawn_angle_zhu, max_mode_zhu, viscosity, cap_modes_zhu, spawn_angle_zhu, train_total_steps_zhu)
+#zhu.pygame_animation(PPO_number_zhu, render_mode, scale_canvas)
+#zhu.path_mode_plot(PPO_list_zhu)
 
 # - Predict direction parameters -
 # Model Parameters
-N_surface_points = 1300
+N_surface_points = 700
 target_radius = 0.25
 tot_radius = squirmer_radius + target_radius
-target_initial_position_direction = [2, 2] / np.sqrt(2)
+target_initial_position = [2, 2] / np.sqrt(2)
 max_mode_direction = 2
 sensor_noise = 0.05
 reg_offset = 0.05
@@ -47,16 +47,16 @@ train_total_steps_direction = int(1e5)
 
 # - Predict direction functions -
 # Angle train
-#direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, target_initial_position_direction, reg_offset, coord_plane, target_initial_position_direction, subfolder="angle")
+#direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane, target_initial_position_direction, subfolder="angle")
 
 # Center distance train
-#direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, target_initial_position_direction, reg_offset, coord_plane, target_initial_position_direction, subfolder="center_distance")
+#direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane, target_initial_position_direction, subfolder="center_distance")
 
 # Target Radius train
-#direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, target_initial_position_direction, reg_offset, coord_plane, target_initial_position_direction, subfolder="target_radius")
+#direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane, target_initial_position_direction, subfolder="target_radius")
 
 # Sensor noise train
-#direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, target_initial_position_direction, reg_offset, coord_plane, target_initial_position_direction, subfolder="sensor_noise")
+#direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane, target_initial_position_direction, subfolder="sensor_noise")
 
 #direction.mode_choice_plot(max_mode_direction, N_iter=10, PPO_number=1, subfolder="target_radius")
 #direction.mode_iteration_average_plot(max_mode_direction, N_model_runs=10, PPO_list=[1, 2, 3], changed_parameter="target_radius", plot_reward=True, subfolder="target_radius")
