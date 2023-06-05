@@ -36,13 +36,13 @@ PPO_list_zhu = [1, 2, 3, 4]
 # - Predict direction parameters -
 # Model Parameters
 N_surface_points = 700
-target_radius = 0.8
+target_radius = 0.4
 target_initial_position = [2, 2] / np.sqrt(2)
 max_mode_direction = 2
 sensor_noise = 0.18
 reg_offset = 0.05
 coord_plane = "yz"
-train_total_steps_direction = int(1e5)
+train_total_steps_direction = int(3e5)
 
 # Variables
 target_radius_variable = 0.5
