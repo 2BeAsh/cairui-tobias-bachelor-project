@@ -199,7 +199,7 @@ def check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sens
     
 
 
-def direction_train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane, train_total_steps, subfolder=None):
+def train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane, train_total_steps, subfolder=None):
     env = PredictDirectionEnv(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane)
 
     # Train with SB3
