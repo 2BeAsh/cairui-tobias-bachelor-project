@@ -47,20 +47,20 @@ train_total_steps_direction = int(3e5)
 # Variables
 target_radius_variable = 0.5
 target_initial_position_variable = [2, 2] / np.sqrt(2)
-sensor_noise_variable = 0.1
+sensor_noise_variable = 0.18
 
 # - Predict direction functions -
 # Angle train
 #direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, target_initial_position_variable, reg_offset, coord_plane, train_total_steps_direction, subfolder="angle")
 
-# Center distance train
-direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, target_initial_position_variable, reg_offset, coord_plane, train_total_steps_direction, subfolder="center_distance")
+# Center distance train - Cairui
+#direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, target_initial_position_variable, reg_offset, coord_plane, train_total_steps_direction, subfolder="center_distance")
 
-# Target Radius train
+# Target Radius train - Tobias Stationær
 #direction.train(N_surface_points, squirmer_radius, target_radius_variable, max_mode_direction, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane, train_total_steps_direction, subfolder="target_radius")
 
-# Sensor noise train
-#direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise_variable, viscosity, target_initial_position, reg_offset, coord_plane, train_total_steps_direction, subfolder="sensor_noise")
+# Sensor noise train - Tobias Bærbar
+direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise_variable, viscosity, target_initial_position, reg_offset, coord_plane, train_total_steps_direction, subfolder="sensor_noise")
 
 #direction.mode_choice_plot(max_mode_direction, N_iter=10, PPO_number=1, subfolder="target_radius")
 #direction.mode_iteration_average_plot(max_mode_direction, N_model_runs=10, PPO_list=[1, 2, 3], changed_parameter="target_radius", plot_reward=True, subfolder="target_radius")
