@@ -245,7 +245,7 @@ def mode_names(max_mode):
     return B_names, B_tilde_names, C_names, C_tilde_names
 
 
-def direction_mode_iteration(N_iter, PPO_number, mode_lengths, subfolder=None):
+def mode_iteration(N_iter, PPO_number, mode_lengths, subfolder=None):
     """Run environment N_iter times with training data from PPO_number directory."""
     # Load parameters and model, create environment
     if subfolder != None:
@@ -299,7 +299,7 @@ def direction_mode_iteration(N_iter, PPO_number, mode_lengths, subfolder=None):
     return B_actions, B_tilde_actions, C_actions, C_tilde_actions, rewards, guessed_angles, parameters
 
 
-def direction_mode_choice_plot(max_mode, N_iter, PPO_number, subfolder=None):
+def mode_choice_plot(max_mode, N_iter, PPO_number, subfolder=None):
     """Plot the modes taken at different iterations."""
     # Add more colors
     matplotlib.rcParams["axes.prop_cycle"] = matplotlib.cycler(color=['blue', 'green', 'red', 'cyan', 'magenta', 'yellow', 'black', 
@@ -309,7 +309,7 @@ def direction_mode_choice_plot(max_mode, N_iter, PPO_number, subfolder=None):
     # Names
     B_names, B_tilde_names, C_names, C_tilde_names = mode_names(max_mode)
     mode_lengths = [len(B_names), len(B_tilde_names), len(C_names), len(C_tilde_names)]
-    B_actions, B_tilde_actions, C_actions, C_tilde_actions, rewards, guessed_angles, parameters = direction_mode_iteration(N_iter, PPO_number, mode_lengths, subfolder)
+    B_actions, B_tilde_actions, C_actions, C_tilde_actions, rewards, guessed_angles, parameters = mode_iteration(N_iter, PPO_number, mode_lengths, subfolder)
     
     target_x1 = parameters["target_x1"]
     target_x2 = parameters["target_x2"]
@@ -358,7 +358,7 @@ def direction_mode_choice_plot(max_mode, N_iter, PPO_number, subfolder=None):
     plt.show()
 
 
-def direction_mode_iteration_average_plot(max_mode, N_model_runs, PPO_list, changed_parameter, plot_reward=True, subfolder=None):
+def mode_iteration_average_plot(max_mode, N_model_runs, PPO_list, changed_parameter, plot_reward=True, subfolder=None):
     assert changed_parameter in ["target_radius", "noise", "position", "angle", "else"]
     B_names, B_tilde_names, C_names, C_tilde_names = mode_names(max_mode)
     mode_lengths = [len(B_names), len(B_tilde_names), len(C_names), len(C_tilde_names)]
@@ -380,7 +380,7 @@ def direction_mode_iteration_average_plot(max_mode, N_model_runs, PPO_list, chan
     changed_parameter_list = np.empty(PPO_len)
     
     for i, PPO_val in enumerate(PPO_list):
-        B_actions, B_tilde_actions, C_actions, C_tilde_actions, rewards, _, parameters = direction_mode_iteration(N_model_runs, PPO_val, mode_lengths, subfolder)
+        B_actions, B_tilde_actions, C_actions, C_tilde_actions, rewards, _, parameters = mode_iteration(N_model_runs, PPO_val, mode_lengths, subfolder)
         # Mean and std
         B_mean[i, :] = np.mean(B_actions, axis=0)
         B_tilde_mean[i, :] = np.mean(B_tilde_actions, axis=0)
@@ -457,9 +457,6 @@ def direction_mode_iteration_average_plot(max_mode, N_model_runs, PPO_list, chan
         axr.set(xlabel=xlabel, ylabel="Reward", title="Mean reward")
         figr.tight_layout()
         plt.show()
-
-
-
 
 
 # -- Run the code --
