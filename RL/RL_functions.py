@@ -60,9 +60,11 @@ sensor_noise_variable = 0.18
 #direction.train(N_surface_points, squirmer_radius, target_radius_variable, max_mode_direction, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane, train_total_steps_direction, subfolder="target_radius")
 
 # Sensor noise train - Tobias Bærbar
-direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise_variable, viscosity, target_initial_position, reg_offset, coord_plane, train_total_steps_direction, subfolder="sensor_noise")
+#direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise_variable, viscosity, target_initial_position, reg_offset, coord_plane, train_total_steps_direction, subfolder="sensor_noise")
 
+# - Plot - 
 #direction.mode_choice_plot(max_mode_direction, N_iter=10, PPO_number=1, subfolder="target_radius")
 #direction.mode_iteration_average_plot(max_mode_direction, N_model_runs=10, PPO_list=[1, 2, 3], changed_parameter="target_radius", plot_reward=True, subfolder="target_radius")
 #Changed parameter: "target_radius", "noise", "position", "angle", "else"
+
 # tensorboard --logdir=.
