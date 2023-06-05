@@ -37,7 +37,6 @@ PPO_list_zhu = [1, 2, 3, 4]
 # Model Parameters
 N_surface_points = 700
 target_radius = 0.8
-tot_radius = squirmer_radius + target_radius
 target_initial_position = [2, 2] / np.sqrt(2)
 max_mode_direction = 2
 sensor_noise = 0.18
@@ -47,7 +46,7 @@ train_total_steps_direction = int(1e5)
 
 # Variables
 target_radius_variable = 0.5
-target_initial_position_variable = [1, 0]
+target_initial_position_variable = [2, 2] / np.sqrt(2)
 sensor_noise_variable = 0.1
 
 # - Predict direction functions -
