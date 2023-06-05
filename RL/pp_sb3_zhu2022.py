@@ -4,13 +4,23 @@
 # Imports
 import numpy as np
 import os
+import csv
 import sys
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "1"
 import pygame
 
 import gym
 from gym import spaces
+
+# Stable baselines 3
+from stable_baselines3 import PPO
 from stable_baselines3.common.env_checker import check_env
+
+# Matplotlib
+import matplotlib
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import matplotlib.lines as mlines
 
 # Load custom functions
 sys.path.append('./Fluid')
@@ -261,6 +271,140 @@ class PredatorPreyEnv(gym.Env):
         if self.window is not None:
             pygame.display.quit()
             pygame.quit()
+
+
+def train(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, train_total_steps):
+    log_path = os.path.join("RL", "Training", "Logs_zhu")
+    env = PredatorPreyEnv(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, render_mode=None)
+    #env = make_vec_env(lambda: env, n_envs=1) #wrapper_class=SubprocVecEnv)
+                       
+    # Train with SB3
+    model = PPO("MlpPolicy", env, verbose=1, tensorboard_log=log_path)
+    model.learn(total_timesteps=train_total_steps)
+    model_path = os.path.join(log_path, "ppo_predator_prey")
+    model.save(model_path)
+    
+    # Save parameters in csv file
+    file_path = os.path.join(log_path, "system_parameters.csv")
+    with open(file_path, mode="w") as file:
+        writer = csv.writer(file, delimiter=",")
+        writer.writerow(["squirmer_radius", "spawn_radius", "max_mode", "viscosity", 
+                         "mode_cap", "spawn_angle", "train_steps"])
+        writer.writerow([squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, train_total_steps])
+
+
+def pygame_animation(PPO_number, render_mode, scale_canvas):
+    """Show Pygame animation"""
+    # Load model and create environment
+    parameters_path = f"RL/Training/Logs_zhu/PPO_{PPO_number}/system_parameters.csv"
+    parameters = np.genfromtxt(parameters_path, delimiter=",", names=True, dtype=None, encoding='UTF-8') #=[np.float32, np.float32, int, np.float32, str, np.float32, bool, int])
+    squirmer_radius = parameters["squirmer_radius"]
+    spawn_radius = parameters["spawn_radius"]
+    max_mode = parameters["max_mode"]
+    viscosity = parameters["viscosity"]
+    cap_modes = parameters["mode_cap"]
+    spawn_angle = parameters["spawn_angle"]
+    model_path = f"RL/Training/Logs_zhu/PPO_{PPO_number}/ppo_predator_prey"
+    
+    model = PPO.load(model_path)
+    env = PredatorPreyEnv(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, render_mode=render_mode, scale_canvas=scale_canvas)
+
+    # Run and render model
+    obs = env.reset()
+    done = False
+        
+    while not done:
+        action, _ = model.predict(obs)
+        obs, _, done, _ = env.step(action)
+        env.render()
+        
+    env.close()
+
+
+def path_mode_plot(PPO_list):
+    """Plot path taken by both predator and prey, then in seperate plot show the mode values over time."""
+    # ---- NOTE TO DO ----
+    # One legend for each row, placed to the right
+    
+    # For each entry in PPO_list, find the squirmer and target positions, and modes values over time. Plot them on seperate axis
+    xy_width = 5
+    
+    def run_model(PPO_number):
+        # Load parameters and model, create environment
+        parameters_path = f"RL/Training/Logs_zhu/PPO_{PPO_number}/system_parameters.csv"
+        parameters = np.genfromtxt(parameters_path, delimiter=",", names=True, dtype=None, encoding='UTF-8')
+        squirmer_radius = parameters["squirmer_radius"]
+        spawn_radius = parameters["spawn_radius"]
+        max_mode = parameters["max_mode"]
+        viscosity = parameters["viscosity"]
+        cap_modes = parameters["mode_cap"]
+        spawn_angle = parameters["spawn_angle"]
+        model_path = f"RL/Training/Logs_zhu/PPO_{PPO_number}/ppo_predator_prey"
+        
+        model = PPO.load(model_path)
+        env = PredatorPreyEnv(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, render_mode=None)
+        
+        # Empty arrays for loop
+        B_vals = []    
+        Bt_vals = []
+        time_vals = []
+        agent_coord = []
+        target_coord = []
+        
+        # Run model
+        obs = env.reset()
+        done = False
+        while not done:
+            action, _ = model.predict(obs)
+            obs, reward, done, info = env.step(action)
+            modes = info["modes"]
+            B_vals.append(modes[0])
+            Bt_vals.append(modes[1])
+            time_vals.append(info["time"])
+            agent_coord.append(info["agent"])
+            target_coord.append(info["target"])
+        
+        return np.array(B_vals), np.array(Bt_vals), np.array(time_vals), np.array(agent_coord), np.array(target_coord)
+
+        
+    def fill_position_axis(axis, coord_agent, coord_target):
+        color_target = cm.Reds(np.linspace(0, 1, len(coord_agent[:, 0])))  # Colors gets darker with time. 
+        color_agent = cm.Blues(np.linspace(0, 1, len(coord_agent[:, 0])))
+        
+        # Plot agent
+        for i in range(len(coord_agent)):
+            pass
+            circle = plt.Circle(coord_agent[i, :], squirmer_radius, facecolor="none", edgecolor=color_agent[i], fill=False)
+            axis.add_patch(circle)
+        # Plot target
+        axis.scatter(coord_target[:, 0], coord_target[:, 1], s=2, c=color_target)            
+        
+        axis.set(xlabel=r"$y$", yticks=[], xlim=(-xy_width, xy_width), ylim=(-xy_width, xy_width))# xlim=(0, 5), ylim=(-3, 2))
+        # Making a good looking legend
+        agent_legend_marker = mlines.Line2D(xdata=[], ydata=[], marker=".", markersize=12, linestyle="none", fillstyle="none", color=color_agent[-1], label="Squirmer")
+        target_legend_marker = mlines.Line2D(xdata=[], ydata=[], marker=".", markersize=12, linestyle="none", color=color_target[-2], label="Target")
+        axis.legend(handles=[agent_legend_marker, target_legend_marker], fontsize=6)
+    
+    
+    def fill_mode_axis(axis, time, B, Bt):
+        axis.plot(time, B, "--.", label=r"$B_{01}$", color="green")
+        axis.plot(time, Bt, "--.", label=r"$\tilde{B}_{11}$", color="blue")
+        axis.legend(fontsize=6)
+        axis.set(xlabel="Time", ylim=(-1.1, 1.1), yticks=[])
+        
+        
+    fig, ax = plt.subplots(nrows=2, ncols=len(PPO_list), dpi=200)        
+    for i in range(len(PPO_list)):
+        B, Bt, time, agent_coord, target_coord = run_model(PPO_list[i])
+        fill_position_axis(ax[0, i], agent_coord, target_coord)
+        fill_mode_axis(ax[1, i], time, B, Bt)      
+    
+    ax[0, 0].set(ylabel=r"$z$")
+    ax[0, 0].set_yticks(ticks=np.arange(-xy_width, xy_width+1, 4))
+    ax[1, 0].set(ylabel=r"Mode Values")
+    ax[1, 0].set_yticks(ticks=[-1, 0, 1])
+    fig.tight_layout()
+    plt.show()
 
 
 if __name__ == "__main__":  
