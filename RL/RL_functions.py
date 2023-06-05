@@ -37,6 +37,7 @@ PPO_list_zhu = [1, 2, 3, 4]
 # Model Parameters
 N_surface_points = 700
 target_radius = 0.25
+target_radius_variable = 0.5
 tot_radius = squirmer_radius + target_radius
 target_initial_position = [2, 2] / np.sqrt(2)
 max_mode_direction = 2
