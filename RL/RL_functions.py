@@ -269,7 +269,7 @@ def direction_mode_choice_plot(N_iter, PPO_number, subfolder=None):
                                                         'lime', 'lavender', 'turquoise', 'darkgreen', 'tan', 'salmon', 'gold'])
 
     # Names
-    B_names, B_tilde_names, C_names, C_tilde_names = mode_names(max_mode)
+    B_names, B_tilde_names, C_names, C_tilde_names = mode_names(max_mode_direction)
     mode_lengths = [len(B_names), len(B_tilde_names), len(C_names), len(C_tilde_names)]
     B_actions, B_tilde_actions, C_actions, C_tilde_actions, rewards, guessed_angles, parameters = direction_mode_iteration(N_iter, PPO_number, mode_lengths, subfolder)
     
@@ -322,7 +322,7 @@ def direction_mode_choice_plot(N_iter, PPO_number, subfolder=None):
 
 def direction_mode_iteration_average_plot(N_model_runs, PPO_list, changed_parameter, plot_reward=True, subfolder=None):
     assert changed_parameter in ["target_radius", "noise", "position", "angle", "else"]
-    B_names, B_tilde_names, C_names, C_tilde_names = mode_names(max_mode)
+    B_names, B_tilde_names, C_names, C_tilde_names = mode_names(max_mode_direction)
     mode_lengths = [len(B_names), len(B_tilde_names), len(C_names), len(C_tilde_names)]
     PPO_len = len(PPO_list)
         
@@ -409,7 +409,7 @@ def direction_mode_iteration_average_plot(N_model_runs, PPO_list, changed_parame
     fig.tight_layout()
     
     # Save and show
-    figname = f"average_modes_maxmode{max_mode}_{xlabel}{changed_parameter_list}.png"
+    figname = f"average_modes_maxmode{max_mode_direction}_{xlabel}{changed_parameter_list}.png"
     #plt.savefig("RL/Recordings/Images/" + figname)
     plt.show()
     
