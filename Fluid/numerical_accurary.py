@@ -182,15 +182,16 @@ def cd_plot(N_surface_points_list, regularization_offset_list):
      # Get data
     for j, regularization_offset in enumerate(regularization_offset_list):
         print(j)
-        p_diff_arr = np.empty((len(N_surface_points_list), 1))
+        p_diff_arr = np.empty((len(N_surface_points_list), 2))
         p_er_bar = np.empty((len(N_surface_points_list), 2))
 
         for i, N in enumerate(N_surface_points_list):
-            p_diff_arr[i], _,_= field_velocity_fractions(N, regularization_offset) #velocity_difference(N, regularization_offset) #
+            _, p_diff_arr[:, 0],p_er_bar[i,:]= field_velocity_fractions(N, regularization_offset) #velocity_difference(N, regularization_offset) #
             #print(p_er_bar[i,:])
+            print(p_diff_arr[:, 0])
     # Plot
-        ax.plot(N_surface_points_list, p_diff_arr[:], marker = marker_list[j], color=color_list[j], label = fr"$\epsilon$ = {regularization_offset:.3f}")
-        #ax.errorbar(N_surface_points_list, p_diff_arr[:, 0], yerr=p_er_bar[:, 0],marker = marker_list[j], color=color_list[j], label = fr"$\epsilon$ = {regularization_offset:.3f}")
+        #ax.plot(N_surface_points_list, p_diff_arr[:], marker = marker_list[j], color=color_list[j], label = fr"$\epsilon$ = {regularization_offset:.3f}")
+        ax.errorbar(N_surface_points_list, p_diff_arr[:, 0], yerr=p_er_bar[:, 0],marker = marker_list[j], color=color_list[j], label = fr"$\epsilon$ = {regularization_offset:.3f}")
         ax.legend(fontsize=8) #labels=[r"$U_x$", r"$U_y$", r"$U_z$"]
         ax.set(xlabel=r"$N$", title=fr"")
         ax.set_ylabel(ylabel=r"$u_{err}(\%)$", fontsize=11)
@@ -224,14 +225,15 @@ if __name__ == "__main__":
     #plot_regularization_comparison(eps_vals, N_vals, log=True)
 
     #Plot field strength fractions
-    plot_field_velocity_average(eps_vals, N_vals, log=False)
+    #plot_field_velocity_average(eps_vals, N_vals, log=False)
 
     # Plot N
-    N_values = np.logspace(1.55, 3.1, 36, dtype=np.int32) 
+    N_values = np.array([700])#np.logspace(1.55, 3.1, 36, dtype=np.int32) 
     reg_offset = 0.01
     #plot_N_comparison(N_values, reg_offset)
     
     # CD plot
-    #eps_vals = np.array([ 0.0015, 0.002 , 0.003, 0.005, 0.008])
+    eps_vals = np.array([0.05])
+    print(field_velocity_fractions(700, 0.05) )
     #cd_plot(N_values, eps_vals)
     
