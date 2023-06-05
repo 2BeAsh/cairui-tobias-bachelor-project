@@ -438,7 +438,6 @@ train_total_steps_zhu = int(3.5e5)
 PPO_number_zhu = 4
 PPO_list_zhu = [1, 2, 3, 4]
 
-
 # - Zhu functions -
 #zhu_train(squirmer_radius, spawn_angle_zhu, max_mode_zhu, viscosity, cap_modes_zhu, spawn_angle_zhu, train_total_steps_zhu)
 #zhu_pygame_animation(PPO_number_zhu, render_mode, scale_canvas)
@@ -473,3 +472,4 @@ train_total_steps_direction = int(1e5)
 #direction_mode_choice_plot(N_iter=10, PPO_number=1, subfolder="target_radius")
 #direction_mode_iteration_average_plot(N_model_runs=10, PPO_list=[1, 2, 3], changed_parameter="target_radius", plot_reward=True, subfolder="target_radius")
 #Changed parameter: "target_radius", "noise", "position", "angle", "else"
+# tensorboard --logdir=.
