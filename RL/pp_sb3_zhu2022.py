@@ -5,24 +5,12 @@
 import numpy as np
 import os
 import sys
-import csv
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "1"
 import pygame
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-import matplotlib.lines as mlines
 
 import gym
 from gym import spaces
-#from gym.wrappers import FlattenObservation
-
 from stable_baselines3.common.env_checker import check_env
-from stable_baselines3 import PPO
-from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
-from stable_baselines3.common.env_util import make_vec_env
-#from stable_baselines3.common.vec_env import DummyVecEnv
-#from stable_baselines3.common.evaluation import evaluate_policy
 
 # Load custom functions
 sys.path.append('./Fluid')
@@ -275,242 +263,25 @@ class PredatorPreyEnv(gym.Env):
             pygame.quit()
 
 
-def check_model(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, render_mode, scale_canvas):
-    env = PredatorPreyEnv(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, render_mode, scale_canvas)
-    print("-- SB3 CHECK ENV: --")
-    if check_env(env) == None:
-        print("   The Environment is compatible with SB3")
-    else:
-        print(check_env(env))
-
-
-def train(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, train_total_steps):
-    log_path = os.path.join("RL", "Training", "Logs_zhu")
-    env = PredatorPreyEnv(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, render_mode=None)
-    env = make_vec_env(lambda: env, n_envs=1) #wrapper_class=SubprocVecEnv)
-    
-    #env = make_vec_env(PredatorPreyEnv, n_envs=1, , #monitor_dir=log_path, 
-    #                   env_kwargs={"squirmer_radius": squirmer_radius, "spawn_radius": spawn_radius, 
-    #                               "max_mode": max_mode, "viscosity": viscosity, "cap_modes": cap_modes,
-    #                               "spawn_angle": spawn_angle, "render_mode": None},)
-                        
-    
-    # Train with SB3
-    model = PPO("MlpPolicy", env, verbose=1, tensorboard_log=log_path)
-    model.learn(total_timesteps=train_total_steps)
-    model_path = os.path.join(log_path, "ppo_predator_prey")
-    model.save(model_path)
-    
-    # Save parameters in csv file
-    file_path = os.path.join(log_path, "system_parameters.csv")
-    with open(file_path, mode="w") as file:
-        writer = csv.writer(file, delimiter=",")
-        writer.writerow(["squirmer_radius", "spawn_radius", "max_mode", "viscosity", 
-                         "mode_cap", "spawn_angle", "train_steps"])
-        writer.writerow([squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, train_total_steps])
-
-
-def path_mode_value_plot(PPO_list):
-    # ---- NOTE TO DO ----
-    # One legend for each row, placed to the right
-    # Fix reward such that matches zhu2022
-    
-    # For each entry in PPO_list, find the squirmer and target positions, and modes values over time. Plot them on seperate axis
-    xy_width = 5
-    
-    def run_model(PPO_number):
-        # Load parameters and model, create environment
-        parameters_path = f"RL/Training/Logs_zhu/PPO_{PPO_number}/system_parameters.csv"
-        parameters = np.genfromtxt(parameters_path, delimiter=",", names=True, dtype=None, encoding='UTF-8')
-        squirmer_radius = parameters["squirmer_radius"]
-        spawn_radius = parameters["spawn_radius"]
-        max_mode = parameters["max_mode"]
-        viscosity = parameters["viscosity"]
-        cap_modes = parameters["mode_cap"]
-        spawn_angle = parameters["spawn_angle"]
-        model_path = f"RL/Training/Logs_zhu/PPO_{PPO_number}/ppo_predator_prey"
-        
-        model = PPO.load(model_path)
-        env = PredatorPreyEnv(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, render_mode=None)
-        
-        # Empty arrays for loop
-        B_vals = []    
-        Bt_vals = []
-        time_vals = []
-        agent_coord = []
-        target_coord = []
-        
-        # Run model
-        obs = env.reset()
-        done = False
-        while not done:
-            action, _ = model.predict(obs)
-            obs, reward, done, info = env.step(action)
-            modes = info["modes"]
-            B_vals.append(modes[0])
-            Bt_vals.append(modes[1])
-            time_vals.append(info["time"])
-            agent_coord.append(info["agent"])
-            target_coord.append(info["target"])
-        
-        return np.array(B_vals), np.array(Bt_vals), np.array(time_vals), np.array(agent_coord), np.array(target_coord)
-
-        
-    def fill_position_axis(axis, coord_agent, coord_target):
-        color_target = cm.Reds(np.linspace(0, 1, len(coord_agent[:, 0])))  # Colors gets darker with time. 
-        color_agent = cm.Blues(np.linspace(0, 1, len(coord_agent[:, 0])))
-        
-        # Plot agent
-        for i in range(len(coord_agent)):
-            pass
-            circle = plt.Circle(coord_agent[i, :], squirmer_radius, facecolor="none", edgecolor=color_agent[i], fill=False)
-            axis.add_patch(circle)
-        # Plot target
-        axis.scatter(coord_target[:, 0], coord_target[:, 1], s=2, c=color_target)            
-        
-        axis.set(xlabel=r"$y$", yticks=[], xlim=(-xy_width, xy_width), ylim=(-xy_width, xy_width))# xlim=(0, 5), ylim=(-3, 2))
-        # Making a good looking legend
-        agent_legend_marker = mlines.Line2D(xdata=[], ydata=[], marker=".", markersize=12, linestyle="none", fillstyle="none", color=color_agent[-1], label="Squirmer")
-        target_legend_marker = mlines.Line2D(xdata=[], ydata=[], marker=".", markersize=12, linestyle="none", color=color_target[-2], label="Target")
-        axis.legend(handles=[agent_legend_marker, target_legend_marker], fontsize=6)
+if __name__ == "__main__":  
+    def check_model(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, render_mode, scale_canvas):
+        env = PredatorPreyEnv(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, render_mode, scale_canvas)
+        print("-- SB3 CHECK ENV: --")
+        if check_env(env) == None:
+            print("   The Environment is compatible with SB3")
+        else:
+            print(check_env(env))
     
     
-    def fill_mode_axis(axis, time, B, Bt):
-        axis.plot(time, B, "--.", label=r"$B_{01}$", color="green")
-        axis.plot(time, Bt, "--.", label=r"$\tilde{B}_{11}$", color="blue")
-        axis.legend(fontsize=6)
-        axis.set(xlabel="Time", ylim=(-1.1, 1.1), yticks=[])
-        
-        
-    fig, ax = plt.subplots(nrows=2, ncols=len(PPO_list), dpi=200)        
-    for i in range(len(PPO_list)):
-        B, Bt, time, agent_coord, target_coord = run_model(PPO_list[i])
-        fill_position_axis(ax[0, i], agent_coord, target_coord)
-        fill_mode_axis(ax[1, i], time, B, Bt)      
-    
-    ax[0, 0].set(ylabel=r"$z$")
-    ax[0, 0].set_yticks(ticks=np.arange(-xy_width, xy_width+1, 4))
-    ax[1, 0].set(ylabel=r"Mode Values")
-    ax[1, 0].set_yticks(ticks=[-1, 0, 1])
+    # Parameters
+    squirmer_radius = 1
+    spawn_radius = 4.5
+    max_mode = 2 
+    viscosity = 1
+    cap_modes = "uncapped"  # Options: "uncapped", "constant",
+    spawn_angle = - np.pi / 4
 
-          
-    fig.tight_layout()
-    plt.show()
-
-
-def animation(PPO_number, render_mode, scale_canvas):
-    # Load model and create environment
-    parameters_path = f"RL/Training/Logs_zhu/PPO_{PPO_number}/system_parameters.csv"
-    parameters = np.genfromtxt(parameters_path, delimiter=",", names=True, dtype=None, encoding='UTF-8') #=[np.float32, np.float32, int, np.float32, str, np.float32, bool, int])
-    squirmer_radius = parameters["squirmer_radius"]
-    spawn_radius = parameters["spawn_radius"]
-    max_mode = parameters["max_mode"]
-    viscosity = parameters["viscosity"]
-    cap_modes = parameters["mode_cap"]
-    spawn_angle = parameters["spawn_angle"]
-    model_path = f"RL/Training/Logs_zhu/PPO_{PPO_number}/ppo_predator_prey"
-    
-    model = PPO.load(model_path)
-    env = PredatorPreyEnv(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, render_mode=render_mode, scale_canvas=scale_canvas)
-
-    # Run and render model
-    obs = env.reset()
-    done = False
-        
-    while not done:
-        action, _ = model.predict(obs)
-        obs, _, done, _ = env.step(action)
-        env.render()
-        
-    env.close()
-        
-
-def plot_info(PPO_number):
-    """Arguments should match that of the loaded model for correct results"""
-    # Load model and create environment
-    model = PPO.load("ppo_predator_prey")
-    env = PredatorPreyEnv(squirmer_radius, spawn_radius, max_mode, viscosity, spawn_angle, render_mode, scale_canvas)
-
-    # Run and render model
-    obs = env.reset()
-    done = False
-    
-    mode_list = []
-    time_list = []
-    target_pos_list = []
-    agent_pos_list = []
-    reward_list = []
-    
-    while not done:
-        action, _states = model.predict(obs)
-        obs, reward, done, info = env.step(action)        
-        mode_list.append(info["modes"])
-        time_list.append(info["time"])
-        target_pos_list.append(info["target"])
-        agent_pos_list.append(info["agent"])
-        reward_list.append(reward)
-        
-    modes = np.array(mode_list)
-    time = np.array(time_list)
-    target_pos = np.array(target_pos_list)
-    agent_pos = np.array(agent_pos_list)
-    reward_arr = np.array(reward_list)
-    
-    # Plot mode values over time
-    fig_mode, ax_mode = plt.subplots(dpi=150, figsize=(8, 6))
-    ax_mode.plot(time, modes, "--.")
-    ax_mode.set(xlabel="Time", ylabel="Mode values", title="Mode values against time")
-    ax_mode.legend([r"$B_{01}$", r"$\tilde{B}_{11}$"])
-    fig_mode.tight_layout()
-    plt.show()
-    plt.close()
-    
-    # Plot target and agent position over time
-    fig_pos, ax_pos = plt.subplots(dpi=150, figsize=(3, 6))
-    color_target = cm.Reds(np.linspace(0, 1, len(target_pos[:, 0])))  # Colors gets darker with time. 
-    color_agent = cm.Blues(np.linspace(0, 1, len(agent_pos[:, 0])))
-    ax_pos.scatter(target_pos[:, 0], target_pos[:, 1], s=15, label="Target", facecolor="none", edgecolors=color_target)
-    ax_pos.scatter(agent_pos[:, 0], agent_pos[:, 1], s=8000, label="Agent", facecolor="none", edgecolors=color_agent)
-    ax_pos.set(xlabel="x", ylabel="y", xlim=(-1, 1), title="Agent and target position over time")
-    # Making a good looking legend
-    agent_legend_marker = mlines.Line2D(xdata=[], ydata=[], marker=".", markersize=10, linestyle="none", fillstyle="none", color="navy", label="Agent")
-    target_legend_marker = mlines.Line2D(xdata=[], ydata=[], marker=".", markersize=5, linestyle="none", fillstyle="none", color="firebrick", label="Target")
-    ax_pos.legend(handles=[agent_legend_marker, target_legend_marker])
-    fig_pos.tight_layout()
-    plt.show()
-    plt.close()
-                
-    # Plot reward over time
-    fig_reward, ax_reward = plt.subplots(dpi=150, figsize=(8, 6))
-    ax_reward.plot(time, reward_arr, ".--", label="Reward")
-    ax_reward.set(xlabel="Time", ylabel="Reward", title="Agent Reward against time")
-    ax_reward.legend()
-    
-    fig_reward.tight_layout()     
-    plt.show()
-
-# -- Run the code --
-# Parameters
-squirmer_radius = 1
-spawn_radius = 4.5
-max_mode = 2 
-viscosity = 1
-cap_modes = "uncapped"  # Options: "uncapped", "constant",
-spawn_angle = - np.pi / 4
-
-render_mode = "human"
-scale_canvas = 1.4  # Makes everything on the canvas a factor smaller / zoomed out
-
-PPO_number = 4
-PPO_list = [1, 2, 3, 4]
-train_total_steps = int(3.5e5)
-
-if __name__ == "__main__":  # Required for SubprocVecEnv
-    #check_model(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, render_mode, scale_canvas)
-    #train(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, train_total_steps)
-    #animation(PPO_number, render_mode, scale_canvas)
-    #plot_info(squirmer_radius, spawn_radius, legendre_modes, scale_canvas, start_angle, cap_modes)
-    path_mode_value_plot(PPO_list)
+    check_model(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, render_mode=None, scale_canvas=1)
 
 # If wants to see reward over time, write the following in cmd in the log directory
 # tensorboard --logdir=.
