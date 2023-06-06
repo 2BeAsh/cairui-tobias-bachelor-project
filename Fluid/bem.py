@@ -228,6 +228,21 @@ def force_on_sphere(N_sphere, max_mode, squirmer_radius, mode_array, regularizat
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
+    def sphere_discretization_plot():
+        # Get points
+        N_surface_points = 700
+        radius = 1
+        x, y, z, _ = canonical_fibonacci_lattice(N_surface_points, radius)
+        
+        # Plot
+        fig = plt.figure(dpi=400)
+        ax = fig.add_subplot(projection="3d")
+        ax.set(xticks=[], yticks=[], zticks=[])
+        #ax.axis("off")
+        ax.scatter(x, y, z, s=1)
+        plt.show()
+        
+
     def test_oseen_field_cartesian():
         # Parametre
         N = 100
@@ -437,7 +452,8 @@ if __name__ == "__main__":
         # print("Translational field fraction")
         # print(U_num / U_anal)
 
-        
-    plot_only_squirmer_field()
+     
+    #sphere_discretization_plot()   
+    #plot_only_squirmer_field()
     #test_oseen_field_cartesian()
 
