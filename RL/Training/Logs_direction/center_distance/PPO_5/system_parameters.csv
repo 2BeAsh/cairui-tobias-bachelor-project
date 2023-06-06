@@ -1,0 +1,2 @@
+surface_points,squirmer_radius,target_radius,max_mode ,sensor_noise,target_x1 ,target_x2 ,centers_distance,viscosity,regularization_offset,coordinate_plane,train_steps
+700,1,0.4,2,0.18,1.2727922061357855,1.2727922061357855,1.8,1,0.05,yz,300000
