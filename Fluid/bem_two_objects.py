@@ -347,24 +347,25 @@ if __name__ == "__main__":
     
     def force_difference():
         # Choose parameters
-        eps = 0.1
+        eps = 0.05
         viscosity = 1
-        N1 = 80
-        max_mode = 4
+        N1 = 700
+        max_mode = 2
         squirmer_radius = 1
-        radius_obj2 = 0.8
+        radius_obj2 = 0.4
         total_radius = squirmer_radius+radius_obj2
         x1_center = np.array([0, 0, 0])
-        x2_center = np.array([0, 1.3*total_radius, 0])
+        x2_center = np.array([0, 2, 0])
+        sensor_noise = 0
         # Modes
         B = np.zeros((max_mode+1, max_mode+1))
         B_tilde = np.zeros_like(B)
         C = np.zeros_like(B)
         C_tilde = np.zeros_like(B)
-        B[2, 3] = 1
+        B_tilde[1, 1] = 0.75
 
         # Force                            
-        force_with_condition, x1_surface, _ = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, np.array([B, B_tilde, C, C_tilde]), eps, viscosity, lab_frame=True, return_points=True)
+        force_with_condition, x1_surface, _ = force_surface_two_objects(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, np.array([B, B_tilde, C, C_tilde]), eps, viscosity, return_points=True)
         fx = force_with_condition[:N1].T
         fy = force_with_condition[N1: 2*N1].T
         fz = force_with_condition[2*N1: 3*N1].T        
@@ -379,7 +380,7 @@ if __name__ == "__main__":
         fy_diff = fy - fy_no
         fz_diff = fz - fz_no
         
-        x_change = average_change_direction(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, np.array([B, B_tilde, C, C_tilde]), eps, viscosity)
+        x_change = average_change_direction(N1, max_mode, squirmer_radius, radius_obj2, x1_center, x2_center, np.array([B, B_tilde, C, C_tilde]), eps, viscosity, sensor_noise)
         
         x_quiv = x1_surface[:, 0] + x1_center[0]
         y_quiv = x1_surface[:, 1] + x1_center[1]
@@ -390,13 +391,13 @@ if __name__ == "__main__":
         # Plot
         fig = plt.figure(figsize=(8, 8), dpi=200)
         ax = fig.add_subplot(projection="3d")
-        ax.set(xlabel="x", ylabel="y", zlabel="z")
+        #ax.set(xlabel="x", ylabel="y", zlabel="z")
 
         if difference:
             ax.quiver(x_quiv, y_quiv, z_quiv, fx_diff, fy_diff, fz_diff, color="b")
             ax.quiver(x1_center[0], x1_center[1], x1_center[2],
                       x_change[0], x_change[1], x_change[2], color="green")
-            ax.set(xlim=(-squirmer_radius, squirmer_radius), ylim=(-squirmer_radius, squirmer_radius), zlim=(-squirmer_radius, squirmer_radius))
+            ax.set(xlim=(-squirmer_radius, squirmer_radius), ylim=(-squirmer_radius, squirmer_radius), zlim=(-squirmer_radius, squirmer_radius), xticks=[], yticks=[], zticks=[])
 
         else:
             ax.quiver(x_quiv, y_quiv, z_quiv, fx, fy, fz, color="b", length=0.05)
@@ -407,7 +408,7 @@ if __name__ == "__main__":
         plt.show()      
                 
         
-    #force_difference()
-    plot_2_objects_velocity_field()
+    force_difference()
+    #plot_2_objects_velocity_field()
     #test_2obj_point()
     
