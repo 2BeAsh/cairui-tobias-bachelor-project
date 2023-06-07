@@ -53,7 +53,7 @@ sensor_noise_variable = 0.08
 
 # - Predict direction functions -
 # Angle train
-direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, distance * np.array([np.cos(angle_variable), np.sin(angle_variable)]), reg_offset, coord_plane, train_total_steps_direction, subfolder="angle")
+#direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, distance * np.array([np.cos(angle_variable), np.sin(angle_variable)]), reg_offset, coord_plane, train_total_steps_direction, subfolder="angle")
 
 # Center distance train - Cairui
 #direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, target_initial_position_variable, reg_offset, coord_plane, train_total_steps_direction, subfolder="center_distance")
@@ -66,7 +66,7 @@ direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direc
 
 # - Plot - 
 #direction.mode_choice_plot(max_mode_direction, N_iter=10, PPO_number=1, subfolder="target_radius")
-#direction.mode_iteration_average_plot(max_mode_direction, N_model_runs=10, PPO_list=[1, 2, 3, 4, 5, 6, 7], changed_parameter="sensor_noise", plot_reward=True, subfolder="sensor_noise")
+direction.mode_iteration_average_plot(max_mode_direction, N_model_runs=10, PPO_list=[1, 2,], changed_parameter="angle", plot_reward=True, subfolder="angle")
 #Changed parameter: "target_radius", "sensor_noise", "position", "angle", "else"
 #direction.plot_modes_one_graph(B_idx=[0, 1, 2], Bt_idx=[0, 1], C_idx=[], Ct_idx=[], 
 #                               max_mode=max_mode_direction, N_model_runs=10, PPO_list=[1, 2, 3, 4, 5, 6, 7, 9], 
