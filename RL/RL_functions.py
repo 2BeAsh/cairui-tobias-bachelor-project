@@ -38,20 +38,22 @@ zhu.train(squirmer_radius, spawn_radius_zhu, max_mode_zhu, viscosity, cap_modes_
 N_surface_points = 700
 target_radius = 0.4
 target_initial_position = [2, 2] / np.sqrt(2)
+distance = 2
 max_mode_direction = 2
-sensor_noise = 0.18
+sensor_noise = 0.28
 reg_offset = 0.05
-coord_plane = "yz"
-train_total_steps_direction = int(3e5)
+coord_plane = "xy"
+train_total_steps_direction = int(8e5)
 
 # Variables
 target_radius_variable = 0.5
 target_initial_position_variable = [1.7, 1.7] / np.sqrt(2)
-sensor_noise_variable = 0.18
+angle_variable = np.pi / 2
+sensor_noise_variable = 0.08
 
 # - Predict direction functions -
 # Angle train
-#direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, target_initial_position_variable, reg_offset, coord_plane, train_total_steps_direction, subfolder="angle")
+direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, distance * np.array([np.cos(angle_variable), np.sin(angle_variable)]), reg_offset, coord_plane, train_total_steps_direction, subfolder="angle")
 
 # Center distance train - Cairui
 #direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, target_initial_position_variable, reg_offset, coord_plane, train_total_steps_direction, subfolder="center_distance")
@@ -59,7 +61,7 @@ sensor_noise_variable = 0.18
 # Target Radius train - Tobias Stationær
 #direction.train(N_surface_points, squirmer_radius, target_radius_variable, max_mode_direction, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane, train_total_steps_direction, subfolder="target_radius")
 
-# Sensor noise train - Tobias Bærbar
+# Sensor noise train -cx Tobias Bærbar
 #direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise_variable, viscosity, target_initial_position, reg_offset, coord_plane, train_total_steps_direction, subfolder="sensor_noise")
 
 # - Plot - 
