@@ -408,7 +408,7 @@ if __name__ == "__main__":
         plt.show()      
                 
         
-    force_difference()
+    #force_difference()
     #plot_2_objects_velocity_field()
     #test_2obj_point()
     
