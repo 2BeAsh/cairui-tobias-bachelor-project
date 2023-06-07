@@ -48,7 +48,7 @@ train_total_steps_direction = int(8e5)
 # Variables
 target_radius_variable = 0.5
 target_initial_position_variable = [1.7, 1.7] / np.sqrt(2)
-angle_variable = np.pi/4
+angle_variable = np.pi / 2
 sensor_noise_variable = 0.08
 
 # - Predict direction functions -
@@ -68,8 +68,8 @@ direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direc
 #direction.mode_choice_plot(max_mode_direction, N_iter=10, PPO_number=1, subfolder="target_radius")
 #direction.mode_iteration_average_plot(max_mode_direction, N_model_runs=10, PPO_list=[1, 2, 3, 4, 5, 6, 7], changed_parameter="sensor_noise", plot_reward=True, subfolder="sensor_noise")
 #Changed parameter: "target_radius", "sensor_noise", "position", "angle", "else"
-direction.plot_modes_one_graph(B_idx=[0, 1, 2], Bt_idx=[0, 1], C_idx=[], Ct_idx=[], 
-                               max_mode=max_mode_direction, N_model_runs=10, PPO_list=[1, 2, 3, 4, 5, 6, 7, 9], 
-                               changed_parameter="sensor_noise", subfolder="sensor_noise")
+#direction.plot_modes_one_graph(B_idx=[0, 1, 2], Bt_idx=[0, 1], C_idx=[], Ct_idx=[], 
+#                               max_mode=max_mode_direction, N_model_runs=10, PPO_list=[1, 2, 3, 4, 5, 6, 7, 9], 
+#                               changed_parameter="sensor_noise", subfolder="sensor_noise")
 
 # tensorboard --logdir=.
