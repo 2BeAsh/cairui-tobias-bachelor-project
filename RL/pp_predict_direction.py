@@ -359,7 +359,7 @@ def mode_choice_plot(max_mode, N_iter, PPO_number, subfolder=None):
 
 
 def mode_iteration_average_plot(max_mode, N_model_runs, PPO_list, changed_parameter, plot_reward=True, subfolder=None):
-    assert changed_parameter in ["target_radius", "noise", "position", "angle", "else"]
+    assert changed_parameter in ["target_radius", "sensor_noise", "position", "angle", "else"]
     B_names, B_tilde_names, C_names, C_tilde_names = mode_names(max_mode)
     mode_lengths = [len(B_names), len(B_tilde_names), len(C_names), len(C_tilde_names)]
     PPO_len = len(PPO_list)
@@ -398,7 +398,7 @@ def mode_iteration_average_plot(max_mode, N_model_runs, PPO_list, changed_parame
         if changed_parameter == "target_radius":
             changed_parameter_list[i] = parameters["target_radius"]  # Target radius
             xlabel = "Target Radius"
-        elif changed_parameter == "noise":
+        elif changed_parameter == "sensor_noise":
             changed_parameter_list[i] = parameters["sensor_noise"]  # Sensor noise
             xlabel = "Sensor Noise"
         elif changed_parameter == "angle":
@@ -459,6 +459,103 @@ def mode_iteration_average_plot(max_mode, N_model_runs, PPO_list, changed_parame
         plt.show()
 
 
+def plot_modes_one_graph(B_idx, Bt_idx, C_idx, Ct_idx, max_mode, N_model_runs, PPO_list, changed_parameter, subfolder=None, plot_reward=True):
+    # Kræver at man manuelt specificerer hvilke modes
+
+    assert changed_parameter in ["target_radius", "sensor_noise", "position", "angle", "else"]
+    B_names, B_tilde_names, C_names, C_tilde_names = mode_names(max_mode)
+    mode_lengths = [len(B_names), len(B_tilde_names), len(C_names), len(C_tilde_names)]
+    PPO_len = len(PPO_list)
+        
+    B_mean = np.empty((PPO_len, mode_lengths[0])) 
+    B_tilde_mean = np.empty((PPO_len, mode_lengths[1])) 
+    C_mean = np.empty((PPO_len, mode_lengths[2])) 
+    C_tilde_mean = np.empty((PPO_len, mode_lengths[3])) 
+
+    B_std = np.empty_like(B_mean) 
+    B_tilde_std = np.empty_like(B_tilde_mean)
+    C_std = np.empty_like(C_mean)
+    C_tilde_std = np.empty_like(C_tilde_mean)
+    
+    reward_mean = np.empty(PPO_len)
+    reward_std = np.empty_like(reward_mean)
+    
+    changed_parameter_list = np.empty(PPO_len)
+    
+    for i, PPO_val in enumerate(PPO_list):
+        B_actions, B_tilde_actions, C_actions, C_tilde_actions, rewards, _, parameters = mode_iteration(N_model_runs, PPO_val, mode_lengths, subfolder)
+        # Mean and std
+        B_mean[i, :] = np.mean(B_actions, axis=0)
+        B_tilde_mean[i, :] = np.mean(B_tilde_actions, axis=0)
+        C_mean[i, :] = np.mean(C_actions, axis=0)
+        C_tilde_mean[i, :] = np.mean(C_tilde_actions, axis=0)
+        
+        B_std[i, :] = np.std(B_actions, axis=0) / np.sqrt(N_model_runs - 1)
+        B_tilde_std[i, :] = np.std(B_tilde_actions, axis=0) / np.sqrt(N_model_runs - 1)
+        C_std[i, :] = np.std(C_actions, axis=0) / np.sqrt(N_model_runs - 1)
+        C_tilde_std[i, :] = np.std(C_tilde_actions, axis=0) / np.sqrt(N_model_runs - 1)
+        
+        reward_mean[i] = np.mean(rewards)
+        reward_std[i] = np.std(rewards) / np.sqrt(N_model_runs - 1)
+        
+        if changed_parameter == "target_radius":
+            changed_parameter_list[i] = parameters["target_radius"]  # Target radius
+            xlabel = "Target Radius"
+        elif changed_parameter == "sensor_noise":
+            changed_parameter_list[i] = parameters["sensor_noise"]  # Sensor noise
+            xlabel = "Sensor Noise"
+        elif changed_parameter == "angle":
+            changed_parameter_list[i] = np.arctan2(parameters["target_x1"], parameters["target_x2"]) * 180 / np.pi  # arcan ( target y / target z ). Unit: Degrees
+            xlabel = "Angle"
+        elif changed_parameter == "position":  # Target initial position
+            changed_parameter_list[i] = parameters["centers_distance"]  # Distance between the two centers
+            xlabel = "Center-center distance"
+        else:
+            x = parameters["centers_distance"]/(parameters["target_radius"]+ parameters["squirmer_radius"])
+            changed_parameter_list[i] = x
+            xlabel = "else"
+    
+    # Include only desired plots
+    B_mean_plot = B_mean[:, B_idx]
+    B_std_plot = B_std[:, B_idx]    
+    B_label = [B_names[i] for i in B_idx]
+
+    Bt_mean_plot = B_tilde_mean[:, Bt_idx]
+    Bt_std_plot = B_tilde_std[:, Bt_idx]
+    Bt_label = [B_tilde_names[i] for i in Bt_idx]
+
+    C_mean_plot = C_mean[:, C_idx]
+    C_std_plot = C_std[:, C_idx]    
+    C_label = [C_names[i] for i in C_idx]
+
+    Ct_mean_plot = C_tilde_mean[:, Ct_idx]
+    Ct_std_plot = C_tilde_std[:, Ct_idx]
+    Ct_label = [C_tilde_names[i] for i in Ct_idx]
+    
+    sort_idx = np.argsort(changed_parameter_list)
+    x_sort = changed_parameter_list[sort_idx]
+    # Plot
+    fig, ax = plt.subplots(dpi=200)
+    ax.set(ylim=(0, 0.5), xlabel=xlabel, ylabel="Mode Value")
+    
+    def plot_mode(y, sy, label): 
+       for i in range(np.shape(y)[1]):
+           y_sort = y[:, i][sort_idx]
+           sy_sort = sy[:, i][sort_idx]
+           ax.errorbar(x_sort, np.abs(y_sort), yerr=sy_sort, fmt=".--", lw=0.75, label=label[i])
+    
+    plot_mode(B_mean_plot, B_std_plot, B_label)
+    plot_mode(Bt_mean_plot, Bt_std_plot, Bt_label)
+    plot_mode(C_mean_plot, C_std_plot, C_label)
+    plot_mode(Ct_mean_plot, Ct_std_plot, Ct_label)
+    
+    ax.legend(fontsize=8, bbox_to_anchor=(1.02, 1), 
+                loc='upper left', borderaxespad=0.)
+    
+    ax.grid()    
+    plt.show()
+    
+
 # -- Run the code --
 if __name__ == "__main__":
     # Model Parameters
@@ -474,7 +571,7 @@ if __name__ == "__main__":
     coord_plane = "yz"
 
     check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane)
-
+    
 #"target_radius", "noise", "position", "angle", "else"
 # If wants to see reward over time, write the following in cmd in the log directory
 # tensorboard --logdir=.
