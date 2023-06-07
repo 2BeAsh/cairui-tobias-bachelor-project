@@ -65,6 +65,11 @@ direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direc
 #direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise_variable, viscosity, target_initial_position, reg_offset, coord_plane, train_total_steps_direction, subfolder="sensor_noise")
 
 # - Plot - 
+# Guide til plot:
+    # 1) Vælg hvilken parameter som bruges i changed_parameter. subfolder er altid lig changed_parameter og skal ikke ændres
+    # 2) Vælg hvilke filer skal bruges i PPO_list
+    # 3) Hvis plot_modes_one_graph bruges, skal indices angives. Dette er hvilke grafer der skal plottes, så B_idx=[0, 2] betyder B01 og B02 plottes (fordi B modes er B01, B11, B02 ...)
+
 changed_parameter = "sensor_noise"  #Changed parameter: "target_radius", "sensor_noise", "distance", "angle", "else"
 subfolder = changed_parameter  # Does not work for "else"
 PPO_list = [1, 2, 3, 4, 5, 6, 7, 9,]
