@@ -124,7 +124,7 @@ class PredatorPreyEnv(gym.Env):
         elif captured:  # Believe there is a problem with self.time - d0, as sometimes get massive negative reward when catches - NOTE THIS IS PROBABLY JUST BECAUSE LAST POINT IS FIRST IN NEXT VECTORIZED ENV
             gamma = 200 / (self.time - self.shortest_catch_time) 
             if self.time - self.shortest_catch_time < 0:
-                print("!!!Shortest time negative!!!")
+                print("Time diff: ", self.time - self.shortest_catch_time)
             done = True
         else:
             gamma = 0
@@ -154,7 +154,7 @@ class PredatorPreyEnv(gym.Env):
         else:  
             self._target_position = self._array_float([self.spawn_radius * np.sin(self.spawn_angle), self.spawn_radius * np.cos(self.spawn_angle)])
 
-        self.shortest_catch_time = self._target_position / self.charac_velocity  # Needed for reward calculation
+        self.shortest_catch_time = self._get_dist() / self.charac_velocity  # Needed for reward calculation
 
         # Observation
         observation = self._get_obs()
