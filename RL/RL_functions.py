@@ -29,15 +29,9 @@ PPO_number_zhu = 8
 PPO_list_zhu = [6, 7, 8]
 
 # -- Zhu functions --
-<<<<<<< Updated upstream
 #zhu.train(squirmer_radius, spawn_radius_zhu, max_mode_zhu, viscosity, cap_modes_zhu, spawn_angle_zhu, train_total_steps_zhu)
 #zhu.pygame_animation(PPO_number_zhu, render_mode, scale_canvas)
 #zhu.path_mode_plot(PPO_list_zhu)
-=======
-zhu.train(squirmer_radius, spawn_radius_zhu, max_mode_zhu, viscosity, cap_modes_zhu, spawn_angle_zhu, train_total_steps_zhu)
-#zhu.pygame_animation(PPO_number_zhu, cap_modes_zhu, render_mode, scale_canvas, squirmer_frame=False)
-#zhu.path_mode_plot(PPO_list_zhu, cap_modes_zhu)
->>>>>>> Stashed changes
 
 # -- Predict direction parameters --
 # Model Parameters
@@ -49,12 +43,12 @@ max_mode_direction = 2
 sensor_noise = 0.18
 reg_offset = 0.05
 coord_plane = "yz"
-train_total_steps_direction = int(3.5e5)
-train_total_steps_direction = int(2.8e5)
+train_total_steps_direction = int(5.5e5)
+
 
 # Variables
 target_radius_variable = 0.6
-target_initial_position_variable = [3, 3] / np.sqrt(2)
+target_initial_position_variable = [2.5, 2.5] / np.sqrt(2)
 angle_variable = np.pi / 2
 sensor_noise_variable = 0.14
 
