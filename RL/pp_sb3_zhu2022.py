@@ -274,7 +274,7 @@ class PredatorPreyEnv(gym.Env):
 
 
 def train(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, train_total_steps):
-    log_path = os.path.join("RL", "Training", "Logs_zhu")
+    log_path = os.path.join("RL", "Training", "Logs_zhu", cap_modes)
     env = PredatorPreyEnv(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, render_mode=None)
     #env = make_vec_env(lambda: env, n_envs=1) #wrapper_class=SubprocVecEnv)
                        
