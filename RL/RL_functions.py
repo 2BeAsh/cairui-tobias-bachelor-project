@@ -21,12 +21,12 @@ viscosity = 1
 spawn_radius_zhu = 6
 max_mode_zhu = 1
 cap_modes_zhu = "uncapped"  # Options: "uncapped", "constant",
-spawn_angle_zhu = -np.pi / 4
+spawn_angle_zhu = 0
 render_mode = "human"
 scale_canvas = 1.4  # Makes everything on the canvas a factor smaller / zoomed out
-train_total_steps_zhu = int(3e5)
-PPO_number_zhu = 8
-PPO_list_zhu = [6, 7, 8]
+train_total_steps_zhu = int(2.1e5)
+PPO_number_zhu = 11
+PPO_list_zhu = [6, 7, 8, 9]
 
 # -- Zhu functions --
 #zhu.train(squirmer_radius, spawn_radius_zhu, max_mode_zhu, viscosity, cap_modes_zhu, spawn_angle_zhu, train_total_steps_zhu)
