@@ -36,7 +36,7 @@ PPO_list_zhu = [6, 7, 8]
 # -- Predict direction parameters --
 # Model Parameters
 N_surface_points = 700
-target_radius = 0.4
+target_radius = 0.6
 target_initial_position = [2, 2] / np.sqrt(2)
 distance = 2
 max_mode_direction = 2
