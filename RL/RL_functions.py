@@ -42,7 +42,7 @@ distance = 2
 max_mode_direction = 2
 sensor_noise = 0.28
 reg_offset = 0.05
-coord_plane = "xy"
+coord_plane = "yz"
 train_total_steps_direction = int(4.5e5)
 
 # Variables
@@ -76,7 +76,7 @@ PPO_list = [1, 2,  4, 5, 6, 7, 9,]
 #direction.mode_choice_plot(max_mode_direction, N_iter=10, PPO_number=1, subfolder=subfolder)
 #direction.mode_iteration_average_plot(max_mode_direction, N_model_runs=10, PPO_list=PPO_list, changed_parameter=changed_parameter, plot_reward=True, subfolder=subfolder)
 #direction.plot_modes_one_graph(B_idx=[0, 1, 4], Bt_idx=[0, 1], C_idx=[0], Ct_idx=[], 
-                               max_mode=max_mode_direction, N_model_runs=30, PPO_list=PPO_list, 
-                               changed_parameter=changed_parameter, subfolder=subfolder)
+#                               max_mode=max_mode_direction, N_model_runs=30, PPO_list=PPO_list, 
+ #                              changed_parameter=changed_parameter, subfolder=subfolder)
 
 # tensorboard --logdir=.
