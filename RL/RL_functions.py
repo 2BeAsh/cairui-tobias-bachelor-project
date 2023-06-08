@@ -36,7 +36,7 @@ PPO_list_zhu = [6, 7, 8]
 # -- Predict direction parameters --
 # Model Parameters
 N_surface_points = 700
-target_radius = 0.6
+target_radius = 0.4
 target_initial_position = [2, 2] / np.sqrt(2)
 distance = 2
 max_mode_direction = 2
@@ -54,10 +54,10 @@ sensor_noise_variable = 0.14
 
 # - Predict direction functions -
 # Angle train
-#direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, distance * np.array([np.cos(angle_variable), np.sin(angle_variable)]), reg_offset, coord_plane, train_total_steps_direction, subfolder="angle")
+direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, distance * np.array([np.cos(angle_variable), np.sin(angle_variable)]), reg_offset, coord_plane, train_total_steps_direction, subfolder="angle")
 
 # Center distance train - Cairui
-direction.train(N_surface_points, squirmer_radius, target_radius_variable, max_mode_direction, sensor_noise, viscosity, target_initial_position_variable, reg_offset, coord_plane, train_total_steps_direction, subfolder="center_distance")
+#direction.train(N_surface_points, squirmer_radius, target_radius_variable, max_mode_direction, sensor_noise, viscosity, target_initial_position_variable, reg_offset, coord_plane, train_total_steps_direction, subfolder="center_distance")
 
 # Target Radius train - Tobias Stationær
 #direction.train(N_surface_points, squirmer_radius, target_radius_variable, max_mode_direction, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane, train_total_steps_direction, subfolder="target_radius")
@@ -73,11 +73,11 @@ direction.train(N_surface_points, squirmer_radius, target_radius_variable, max_m
 
 changed_parameter = "center_distance"  #Changed parameter: "target_radius", "sensor_noise", "distance", "angle", "else"
 subfolder = changed_parameter  # Does not work for "else"
-PPO_list = [14]
+PPO_list = [14, 16]
 #direction.mode_choice_plot(max_mode_direction, N_iter=10, PPO_number=1, subfolder=subfolder)
 #direction.mode_iteration_average_plot(max_mode_direction, N_model_runs=10, PPO_list=PPO_list, changed_parameter=changed_parameter, plot_reward=True, subfolder=subfolder)
-direction.plot_modes_one_graph(B_idx=[0, 1, 4], Bt_idx=[0, 1], C_idx=[0], Ct_idx=[], 
-                               max_mode=max_mode_direction, N_model_runs=30, PPO_list=PPO_list, 
-                              changed_parameter=changed_parameter, subfolder=subfolder)
+#direction.plot_modes_one_graph(B_idx=[0, 1, 4], Bt_idx=[0, 1], C_idx=[0], Ct_idx=[], 
+#                               max_mode=max_mode_direction, N_model_runs=30, PPO_list=PPO_list, 
+ #                             changed_parameter=changed_parameter, subfolder=subfolder)
 
 # tensorboard --logdir=.
