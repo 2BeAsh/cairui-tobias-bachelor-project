@@ -43,13 +43,13 @@ max_mode_direction = 2
 sensor_noise = 0.28
 reg_offset = 0.05
 coord_plane = "yz"
-train_total_steps_direction = int(4.5e5)
+train_total_steps_direction = int(0.9e5)
 
 # Variables
 target_radius_variable = 0.5
 target_initial_position_variable = [1.7, 1.7] / np.sqrt(2)
 angle_variable = np.pi / 2
-sensor_noise_variable = 0.24
+sensor_noise_variable = 0.01
 
 # - Predict direction functions -
 # Angle train
@@ -72,7 +72,7 @@ direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direc
 
 changed_parameter = "sensor_noise"  #Changed parameter: "target_radius", "sensor_noise", "distance", "angle", "else"
 subfolder = changed_parameter  # Does not work for "else"
-PPO_list = [1, 2,  4, 5, 6, 7, 9,]
+PPO_list = [1, 2,  4, 5, 6, 7, 9,10]
 #direction.mode_choice_plot(max_mode_direction, N_iter=10, PPO_number=1, subfolder=subfolder)
 #direction.mode_iteration_average_plot(max_mode_direction, N_model_runs=10, PPO_list=PPO_list, changed_parameter=changed_parameter, plot_reward=True, subfolder=subfolder)
 #direction.plot_modes_one_graph(B_idx=[0, 1, 4], Bt_idx=[0, 1], C_idx=[0], Ct_idx=[], 
