@@ -359,7 +359,7 @@ def mode_choice_plot(max_mode, N_iter, PPO_number, subfolder=None):
 
 
 def mode_iteration_average_plot(max_mode, N_model_runs, PPO_list, changed_parameter, plot_reward=True, subfolder=None):
-    assert changed_parameter in ["target_radius", "sensor_noise", "position", "angle", "else"]
+    assert changed_parameter in ["target_radius", "sensor_noise", "center_distance", "angle", "else"]
     B_names, B_tilde_names, C_names, C_tilde_names = mode_names(max_mode)
     mode_lengths = [len(B_names), len(B_tilde_names), len(C_names), len(C_tilde_names)]
     PPO_len = len(PPO_list)
@@ -404,7 +404,7 @@ def mode_iteration_average_plot(max_mode, N_model_runs, PPO_list, changed_parame
         elif changed_parameter == "angle":
             changed_parameter_list[i] = np.arctan2(parameters["target_x1"], parameters["target_x2"]) * 180 / np.pi  # arcan ( target y / target z ). Unit: Degrees
             xlabel = "Angle"
-        elif changed_parameter == "position":  # Target initial position
+        elif changed_parameter == "center_distance":  # Target initial distance
             changed_parameter_list[i] = parameters["centers_distance"]  # Distance between the two centers
             xlabel = "Center-center distance"
         else:
@@ -422,7 +422,7 @@ def mode_iteration_average_plot(max_mode, N_model_runs, PPO_list, changed_parame
         for i in range(y.shape[1]):
             y_sort = y[:, i][sort_idx]
             sy_sort = sy[:, i][sort_idx]
-            axis.errorbar(x_sort, y_sort, yerr=sy_sort, fmt=".--", lw=0.75)
+            axis.errorbar(x_sort, np.abs(y_sort), yerr=sy_sort, fmt=".--", lw=0.75)
         axis.legend(mode_name, fontsize=4, bbox_to_anchor=(1.05, 1), 
                     loc='upper left', borderaxespad=0.)
         axis.grid()
@@ -434,9 +434,9 @@ def mode_iteration_average_plot(max_mode, N_model_runs, PPO_list, changed_parame
     axC = ax[1, 0]
     axCt = ax[1, 1]
     
-    fill_axis(axB, np.abs(B_mean), B_std, B_names, r"$B$ modes")
-    fill_axis(axBt, np.abs(B_tilde_mean), B_tilde_std, B_tilde_names, title=r"$\tilde{B}$ modes")
-    fill_axis(axC, np.abs(C_mean), C_std, C_names, title=r"$C$ modes")
+    fill_axis(axB, B_mean, B_std, B_names, r"$B$ modes")
+    fill_axis(axBt, B_tilde_mean, B_tilde_std, B_tilde_names, title=r"$\tilde{B}$ modes")
+    fill_axis(axC, C_mean, C_std, C_names, title=r"$C$ modes")
     fill_axis(axCt, C_tilde_mean, C_tilde_std, C_tilde_names, title=r"$\tilde{C}$ modes")
             
     # General setup
@@ -459,10 +459,10 @@ def mode_iteration_average_plot(max_mode, N_model_runs, PPO_list, changed_parame
         plt.show()
 
 
-def plot_modes_one_graph(B_idx, Bt_idx, C_idx, Ct_idx, max_mode, N_model_runs, PPO_list, changed_parameter, subfolder=None, plot_reward=True):
+def plot_modes_one_graph(B_idx, Bt_idx, C_idx, Ct_idx, max_mode, N_model_runs, PPO_list, changed_parameter, subfolder=None):
     # Kræver at man manuelt specificerer hvilke modes
 
-    assert changed_parameter in ["target_radius", "sensor_noise", "position", "angle", "else"]
+    assert changed_parameter in ["target_radius", "sensor_noise", "center_distance", "angle", "else"]
     B_names, B_tilde_names, C_names, C_tilde_names = mode_names(max_mode)
     mode_lengths = [len(B_names), len(B_tilde_names), len(C_names), len(C_tilde_names)]
     PPO_len = len(PPO_list)
@@ -507,7 +507,7 @@ def plot_modes_one_graph(B_idx, Bt_idx, C_idx, Ct_idx, max_mode, N_model_runs, P
         elif changed_parameter == "angle":
             changed_parameter_list[i] = np.arctan2(parameters["target_x1"], parameters["target_x2"]) * 180 / np.pi  # arcan ( target y / target z ). Unit: Degrees
             xlabel = "Angle"
-        elif changed_parameter == "position":  # Target initial position
+        elif changed_parameter == "center_distance":  # Target initial distance
             changed_parameter_list[i] = parameters["centers_distance"]  # Distance between the two centers
             xlabel = "Center-center distance"
         else:
@@ -535,14 +535,14 @@ def plot_modes_one_graph(B_idx, Bt_idx, C_idx, Ct_idx, max_mode, N_model_runs, P
     sort_idx = np.argsort(changed_parameter_list)
     x_sort = changed_parameter_list[sort_idx]
     # Plot
-    fig, ax = plt.subplots(dpi=200)
-    ax.set(ylim=(0, 0.5), xlabel=xlabel, ylabel="Mode Value")
+    fig, ax = plt.subplots(figsize=(10, 3))#figsize=(13, 6))
+    ax.set(ylim=(0, 0.5), xlabel=xlabel, ylabel="Absolute Mode Value")
     
     def plot_mode(y, sy, label): 
        for i in range(np.shape(y)[1]):
            y_sort = y[:, i][sort_idx]
            sy_sort = sy[:, i][sort_idx]
-           ax.errorbar(x_sort, np.abs(y_sort), yerr=sy_sort, fmt=".--", lw=0.75, label=label[i])
+           ax.errorbar(x_sort, np.abs(y_sort), yerr=sy_sort, fmt=".--", lw=0.85, markersize=7, label=label[i])
     
     plot_mode(B_mean_plot, B_std_plot, B_label)
     plot_mode(Bt_mean_plot, Bt_std_plot, Bt_label)
@@ -553,6 +553,8 @@ def plot_modes_one_graph(B_idx, Bt_idx, C_idx, Ct_idx, max_mode, N_model_runs, P
                 loc='upper left', borderaxespad=0.)
     
     ax.grid()    
+    figname = "RL/Recordings/Images/" + f"mode_one_graph_{xlabel}.png"
+    plt.savefig(figname, dpi=300, bbox_inches="tight")
     plt.show()
     
 
@@ -572,6 +574,6 @@ if __name__ == "__main__":
 
     check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane)
     
-#"target_radius", "noise", "position", "angle", "else"
+#"target_radius", "noise", "center_distance", "angle", "else"
 # If wants to see reward over time, write the following in cmd in the log directory
 # tensorboard --logdir=.
