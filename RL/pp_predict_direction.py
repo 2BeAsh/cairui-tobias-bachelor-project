@@ -543,7 +543,7 @@ def plot_modes_one_graph(B_idx, Bt_idx, C_idx, Ct_idx, max_mode, N_model_runs, P
         for i in range(np.shape(y)[1]):
             y_sort = y[:, i][sort_idx]
             sy_sort = sy[:, i][sort_idx]
-            ax.errorbar(x_sort, np.abs(y_sort), yerr=sy_sort, fmt=".--", marker=marker_list[i], lw=0.85, markersize=10, label=label[i])
+            ax.errorbar(x_sort, np.abs(y_sort), yerr=sy_sort, marker=marker_list[i], lw=0.85, markersize=10, label=label[i])
     
     plot_mode(B_mean_plot, B_std_plot, B_label)
     plot_mode(Bt_mean_plot, Bt_std_plot, Bt_label)
