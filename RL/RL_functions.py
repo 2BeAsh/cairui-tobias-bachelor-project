@@ -18,20 +18,20 @@ squirmer_radius = 1
 viscosity = 1
 
 # -- Zhu parameters --
-spawn_radius_zhu = 6
+spawn_radius_zhu = 8
 max_mode_zhu = 1
 cap_modes_zhu = "uncapped"  # Options: "uncapped", "constant",
 spawn_angle_zhu = 0
 render_mode = "human"
 scale_canvas = 1.4  # Makes everything on the canvas a factor smaller / zoomed out
-train_total_steps_zhu = int(2.1e5)
-PPO_number_zhu = 11
-PPO_list_zhu = [6, 7, 8, 9]
+train_total_steps_zhu = int(2.8e5)
+PPO_number_zhu = 35
+PPO_list_zhu = [6, 7, 35, 9]
 
 # -- Zhu functions --
-#zhu.train(squirmer_radius, spawn_radius_zhu, max_mode_zhu, viscosity, cap_modes_zhu, spawn_angle_zhu, train_total_steps_zhu)
-#zhu.pygame_animation(PPO_number_zhu, render_mode, scale_canvas)
-#zhu.path_mode_plot(PPO_list_zhu)
+zhu.train(squirmer_radius, spawn_radius_zhu, max_mode_zhu, viscosity, cap_modes_zhu, spawn_angle_zhu, train_total_steps_zhu, squirmer_frame=False)
+zhu.pygame_animation(PPO_number_zhu, cap_modes_zhu, render_mode, scale_canvas)
+zhu.path_mode_plot(PPO_list_zhu, cap_modes_zhu)
 
 # -- Predict direction parameters --
 # Model Parameters
@@ -45,7 +45,6 @@ reg_offset = 0.05
 coord_plane = "yz"
 train_total_steps_direction = int(5.5e5)
 
-
 # Variables
 target_radius_variable = 0.6
 target_initial_position_variable = [2.5, 2.5] / np.sqrt(2)
@@ -57,7 +56,7 @@ sensor_noise_variable = 0.14
 #direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, distance * np.array([np.cos(angle_variable), np.sin(angle_variable)]), reg_offset, coord_plane, train_total_steps_direction, subfolder="angle")
 
 # Center distance train - Cairui
-direction.train(N_surface_points, squirmer_radius, target_radius_variable, max_mode_direction, sensor_noise, viscosity, target_initial_position_variable, reg_offset, coord_plane, train_total_steps_direction, subfolder="center_distance")
+#direction.train(N_surface_points, squirmer_radius, target_radius_variable, max_mode_direction, sensor_noise, viscosity, target_initial_position_variable, reg_offset, coord_plane, train_total_steps_direction, subfolder="center_distance")
 
 # Target Radius train - Tobias Stationær
 #direction.train(N_surface_points, squirmer_radius, target_radius_variable, max_mode_direction, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane, train_total_steps_direction, subfolder="target_radius")
@@ -76,8 +75,8 @@ subfolder = changed_parameter  # Does not work for "else"
 PPO_list = [1, 2,  4, 5, 6, 7, 8, 9,10, 11, 12,13]
 #direction.mode_choice_plot(max_mode_direction, N_iter=10, PPO_number=1, subfolder=subfolder)
 #direction.mode_iteration_average_plot(max_mode_direction, N_model_runs=10, PPO_list=PPO_list, changed_parameter=changed_parameter, plot_reward=True, subfolder=subfolder)
-direction.plot_modes_one_graph(B_idx=[0, 1, 4], Bt_idx=[0, 1], C_idx=[0], Ct_idx=[], 
-                               max_mode=max_mode_direction, N_model_runs=30, PPO_list=PPO_list, 
-                              changed_parameter=changed_parameter, subfolder=subfolder)
+#direction.plot_modes_one_graph(B_idx=[0, 1, 4], Bt_idx=[0, 1], C_idx=[0], Ct_idx=[], 
+#                               max_mode=max_mode_direction, N_model_runs=30, PPO_list=PPO_list, 
+#                               changed_parameter=changed_parameter, subfolder=subfolder)
 
 # tensorboard --logdir=.
