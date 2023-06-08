@@ -29,7 +29,7 @@ PPO_number_zhu = 1
 PPO_list_zhu = [1, 2, 3, 4]
 
 # -- Zhu functions --
-zhu.train(squirmer_radius, spawn_radius_zhu, max_mode_zhu, viscosity, cap_modes_zhu, spawn_angle_zhu, train_total_steps_zhu)
+#zhu.train(squirmer_radius, spawn_radius_zhu, max_mode_zhu, viscosity, cap_modes_zhu, spawn_angle_zhu, train_total_steps_zhu)
 #zhu.pygame_animation(PPO_number_zhu, render_mode, scale_canvas)
 #zhu.path_mode_plot(PPO_list_zhu)
 
@@ -72,11 +72,11 @@ sensor_noise_variable = 0.08
 
 changed_parameter = "sensor_noise"  #Changed parameter: "target_radius", "sensor_noise", "distance", "angle", "else"
 subfolder = changed_parameter  # Does not work for "else"
-PPO_list = [1, 2, 3, 4, 5, 6, 7, 9,]
+PPO_list = [1, 2,  4, 5, 6, 7, 9,]
 #direction.mode_choice_plot(max_mode_direction, N_iter=10, PPO_number=1, subfolder=subfolder)
 #direction.mode_iteration_average_plot(max_mode_direction, N_model_runs=10, PPO_list=PPO_list, changed_parameter=changed_parameter, plot_reward=True, subfolder=subfolder)
-#direction.plot_modes_one_graph(B_idx=[0, 1, 4], Bt_idx=[0, 1], C_idx=[0], Ct_idx=[], 
-#                               max_mode=max_mode_direction, N_model_runs=30, PPO_list=PPO_list, 
-#                               changed_parameter=changed_parameter, subfolder=subfolder)
+direction.plot_modes_one_graph(B_idx=[0, 1, 4], Bt_idx=[0, 1], C_idx=[0], Ct_idx=[], 
+                               max_mode=max_mode_direction, N_model_runs=30, PPO_list=PPO_list, 
+                               changed_parameter=changed_parameter, subfolder=subfolder)
 
 # tensorboard --logdir=.
