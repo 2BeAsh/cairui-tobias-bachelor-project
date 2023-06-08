@@ -54,9 +54,9 @@ class PredatorPreyEnv(gym.Env):
         self.B_max = 1
         self.charac_velocity = 4 * self.B_max / (3 * self.squirmer_radius ** 3)  # Characteristic velocity: Divide velocities by this to remove dimensions
         self.charac_time = 3 * self.squirmer_radius ** 4 / (4 * self.B_max) # characteristic time
-        tau = 1 # Seconds per iteration. 
+        tau = 1 / 3 # Seconds per iteration. 
         self.dt = tau #/ self.charac_time
-        self.extra_catch_radius = 0.1
+        self.extra_catch_radius = 0.2
         self.catch_radius = self.squirmer_radius + self.extra_catch_radius
         
         # Rendering
@@ -328,7 +328,7 @@ def pygame_animation(PPO_number, cap_modes, render_mode, scale_canvas, squirmer_
 def path_mode_plot(PPO_list, cap_modes):
     """Plot path taken by both predator and prey, then in seperate plot show the mode values over time."""    
     # For each entry in PPO_list, find the squirmer and target positions, and modes values over time. Plot them on seperate axis
-    xy_width = 5
+    xy_width = 8
     
     def run_model(PPO_number):
         # Load parameters and model, create environment
