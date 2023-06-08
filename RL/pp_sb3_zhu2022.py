@@ -54,9 +54,9 @@ class PredatorPreyEnv(gym.Env):
         self.B_max = 1
         self.charac_velocity = 4 * self.B_max / (3 * self.squirmer_radius ** 3)  # Characteristic velocity: Divide velocities by this to remove dimensions
         self.charac_time = 3 * self.squirmer_radius ** 4 / (4 * self.B_max) # characteristic time
-        tau = 1 / 3 # Seconds per iteration. 
+        tau = 0.6 # Seconds per iteration. 
         self.dt = tau #/ self.charac_time
-        self.extra_catch_radius = 0.2
+        self.extra_catch_radius = 0.1
         self.catch_radius = self.squirmer_radius + self.extra_catch_radius
         
         # Rendering
@@ -126,7 +126,7 @@ class PredatorPreyEnv(gym.Env):
                 reward = 3000
             done = True
         else:
-            reward = -r
+            reward = -r  # When moving slower, penalize less for being far away
         return float(reward), done
 
 
@@ -153,7 +153,7 @@ class PredatorPreyEnv(gym.Env):
         else:  
             self._target_position = self._array_float([self.spawn_radius * np.sin(self.spawn_angle), self.spawn_radius * np.cos(self.spawn_angle)])
 
-        self.d0 = (self._get_dist() - self.catch_radius) / 1   # Shortest distance between squirmer surface and target. Because can move faster than allowed when uncapped, reward can become negative, thus makes d0 smaller by arbitrary factor (here 1.3)
+        self.d0 = self._get_dist() - self.catch_radius   # Shortest distance between squirmer surface and target. Because can move faster than allowed when uncapped, reward can become negative, thus makes d0 smaller by arbitrary factor (here 1.3)
 
         # Observation
         observation = self._get_obs()
@@ -277,9 +277,9 @@ class PredatorPreyEnv(gym.Env):
             pygame.quit()
 
 
-def train(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, train_total_steps):
+def train(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, train_total_steps, squirmer_frame=True):
     log_path = os.path.join("RL", "Training", "Logs_zhu", cap_modes)
-    env = PredatorPreyEnv(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, render_mode=None)
+    env = PredatorPreyEnv(squirmer_radius, spawn_radius, max_mode, viscosity, cap_modes, spawn_angle, squirmer_frame=squirmer_frame, render_mode=None)
     #env = make_vec_env(lambda: env, n_envs=1) #wrapper_class=SubprocVecEnv)
                        
     # Train with SB3
