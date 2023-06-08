@@ -17,23 +17,29 @@ import bem
 squirmer_radius = 1
 viscosity = 1
 
-# - Zhu parameters - 
-spawn_radius_zhu = 10
+# -- Zhu parameters --
+spawn_radius_zhu = 6
 max_mode_zhu = 1
 cap_modes_zhu = "uncapped"  # Options: "uncapped", "constant",
-spawn_angle_zhu = 0
+spawn_angle_zhu = -np.pi / 4
 render_mode = "human"
 scale_canvas = 1.4  # Makes everything on the canvas a factor smaller / zoomed out
-train_total_steps_zhu = int(2e5)
-PPO_number_zhu = 1
-PPO_list_zhu = [1, 2, 3, 4]
+train_total_steps_zhu = int(3e5)
+PPO_number_zhu = 8
+PPO_list_zhu = [6, 7, 8]
 
 # -- Zhu functions --
+<<<<<<< Updated upstream
 #zhu.train(squirmer_radius, spawn_radius_zhu, max_mode_zhu, viscosity, cap_modes_zhu, spawn_angle_zhu, train_total_steps_zhu)
 #zhu.pygame_animation(PPO_number_zhu, render_mode, scale_canvas)
 #zhu.path_mode_plot(PPO_list_zhu)
+=======
+zhu.train(squirmer_radius, spawn_radius_zhu, max_mode_zhu, viscosity, cap_modes_zhu, spawn_angle_zhu, train_total_steps_zhu)
+#zhu.pygame_animation(PPO_number_zhu, cap_modes_zhu, render_mode, scale_canvas, squirmer_frame=False)
+#zhu.path_mode_plot(PPO_list_zhu, cap_modes_zhu)
+>>>>>>> Stashed changes
 
-# - Predict direction parameters -
+# -- Predict direction parameters --
 # Model Parameters
 N_surface_points = 700
 target_radius = 0.4
