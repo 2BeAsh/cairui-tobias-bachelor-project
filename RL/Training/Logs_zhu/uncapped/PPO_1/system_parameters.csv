@@ -1,2 +1,2 @@
 squirmer_radius,spawn_radius,max_mode,viscosity,mode_cap,spawn_angle,train_steps
-1,10,1,1,uncapped,0,200000
+1,5,1,1,uncapped,1.5707963267948966,200000
