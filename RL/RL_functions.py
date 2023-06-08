@@ -40,14 +40,14 @@ target_radius = 0.4
 target_initial_position = [2, 2] / np.sqrt(2)
 distance = 2
 max_mode_direction = 2
-sensor_noise = 0.28
+sensor_noise = 0.18
 reg_offset = 0.05
 coord_plane = "yz"
-train_total_steps_direction = int(0.9e5)
+train_total_steps_direction = int(3.5e5)
 
 # Variables
-target_radius_variable = 0.5
-target_initial_position_variable = [1.7, 1.7] / np.sqrt(2)
+target_radius_variable = 0.6
+target_initial_position_variable = [3, 3] / np.sqrt(2)
 angle_variable = np.pi / 2
 sensor_noise_variable = 0.01
 
@@ -56,13 +56,13 @@ sensor_noise_variable = 0.01
 #direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, distance * np.array([np.cos(angle_variable), np.sin(angle_variable)]), reg_offset, coord_plane, train_total_steps_direction, subfolder="angle")
 
 # Center distance train - Cairui
-#direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, target_initial_position_variable, reg_offset, coord_plane, train_total_steps_direction, subfolder="center_distance")
+direction.train(N_surface_points, squirmer_radius, target_radius_variable, max_mode_direction, sensor_noise, viscosity, target_initial_position_variable, reg_offset, coord_plane, train_total_steps_direction, subfolder="center_distance")
 
 # Target Radius train - Tobias Stationær
 #direction.train(N_surface_points, squirmer_radius, target_radius_variable, max_mode_direction, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane, train_total_steps_direction, subfolder="target_radius")
 
 # Sensor noise train -cx Tobias Bærbar
-direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise_variable, viscosity, target_initial_position, reg_offset, coord_plane, train_total_steps_direction, subfolder="sensor_noise")
+#direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise_variable, viscosity, target_initial_position, reg_offset, coord_plane, train_total_steps_direction, subfolder="sensor_noise")
 
 # - Plot - 
 # Guide til plot:
@@ -70,9 +70,9 @@ direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direc
     # 2) Vælg hvilke filer skal bruges i PPO_list
     # 3) Hvis plot_modes_one_graph bruges, skal indices angives. Dette er hvilke grafer der skal plottes, så B_idx=[0, 2] betyder B01 og B02 plottes (fordi B modes er B01, B11, B02 ...)
 
-changed_parameter = "sensor_noise"  #Changed parameter: "target_radius", "sensor_noise", "distance", "angle", "else"
+changed_parameter = "center_distance"  #Changed parameter: "target_radius", "sensor_noise", "distance", "angle", "else"
 subfolder = changed_parameter  # Does not work for "else"
-PPO_list = [1, 2,  4, 5, 6, 7, 9,10]
+PPO_list = [13]
 #direction.mode_choice_plot(max_mode_direction, N_iter=10, PPO_number=1, subfolder=subfolder)
 #direction.mode_iteration_average_plot(max_mode_direction, N_model_runs=10, PPO_list=PPO_list, changed_parameter=changed_parameter, plot_reward=True, subfolder=subfolder)
 #direction.plot_modes_one_graph(B_idx=[0, 1, 4], Bt_idx=[0, 1], C_idx=[0], Ct_idx=[], 
