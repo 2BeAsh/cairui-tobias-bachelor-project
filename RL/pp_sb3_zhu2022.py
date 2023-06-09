@@ -387,29 +387,50 @@ def path_mode_plot(PPO_list, cap_modes):
     def fill_mode_axis(axis, time, B, Bt):
         axis.plot(time, B, "--.", label=r"$B_{01}$", color="green")
         axis.plot(time, Bt, "--.", label=r"$\tilde{B}_{11}$", color="blue")
-        axis.set(xlabel="Time", ylim=(-1.1, 1.1), yticks=[])
-        axis.set_xticks(ticks=np.linspace(time[0], time[-1], 3))
+        axis.set(xlabel="Time", ylim=(-1.1, 1.1))
+        axis.set_yticklabels([])
+        axis.set_xticks(ticks=np.linspace(time[0], time[-1], 5))
+        axis.grid()
 
 
     # -- Figure --        
     fig, ax = plt.subplots(nrows=2, ncols=len(PPO_list), figsize=(10, 4), gridspec_kw={'height_ratios': [2, 1]})
     for i in range(len(PPO_list)):
         B, Bt, time, agent_coord, target_coord = run_model(PPO_list[i])
-        fill_position_axis(ax[0, i], agent_coord, target_coord)
-        fill_mode_axis(ax[1, i], time, B, Bt)      
-    
-    ax[0, 0].set(ylabel=r"$z$")
-    ax[0, 0].set_yticks(ticks=[-6, 0, 6])
-    ax[1, 0].set(ylabel=r"Mode Values")
-    ax[1, 0].set_yticks(ticks=[-1, 0, 1])
-
+        if len(PPO_list) > 1:
+            fill_position_axis(ax[0, i], agent_coord, target_coord)
+            fill_mode_axis(ax[1, i], time, B, Bt)      
+        else:
+            fill_position_axis(ax[0], agent_coord, target_coord)
+            fill_mode_axis(ax[1], time, B, Bt)      
+            
     # Making a good looking legend    
     agent_legend_marker = mlines.Line2D(xdata=[], ydata=[], marker=".", markersize=12, linestyle="none", fillstyle="none", color="darkblue", label="Squirmer")
     target_legend_marker = mlines.Line2D(xdata=[], ydata=[], marker=".", markersize=12, linestyle="none", color="darkred", label="Target")
     B01_legend_marker = mlines.Line2D([], [], marker=".", markersize=8, linestyle="none", color="green", label=r"$B_{01}$")
     Bt11_legend_marker = mlines.Line2D([], [], marker=".", markersize=8, linestyle="none", color="blue", label=r"$\tilde{B}_{11}$")
-    ax[0, -1].legend(handles=[agent_legend_marker, target_legend_marker], fontsize=9, loc="upper left", bbox_to_anchor=(1.05, 1), borderaxespad=0.)
-    ax[1, -1].legend(handles=[B01_legend_marker, Bt11_legend_marker], fontsize=9, loc="upper left", bbox_to_anchor=(1.05, 1), borderaxespad=0.)
+    
+    # Labels and ticks, legend show
+    if len(PPO_list) > 1:
+        ax[0, 0].set(ylabel=r"$z$")
+        ax[0, 0].set_yticks(ticks=[-6, 0, 6])
+        ax[1, 0].set(ylabel=r"Mode Values")
+        ax[1, 0].set_yticks(ticks=[-1, 0, 1])
+        ax[1, 0].set_yticklabels([r"$-1$", r"$0$", r"$1$"])
+        
+        ax[0, -1].legend(handles=[agent_legend_marker, target_legend_marker], fontsize=9, loc="upper left", bbox_to_anchor=(1.05, 1), borderaxespad=0.)
+        ax[1, -1].legend(handles=[B01_legend_marker, Bt11_legend_marker], fontsize=9, loc="upper left", bbox_to_anchor=(1.05, 1), borderaxespad=0.)
+
+    else:
+        ax[0].set(ylabel=r"$z$")
+        ax[0].set_yticks(ticks=[-6, 0, 6])
+        ax[1].set(ylabel=r"Mode Values")
+        ax[1].set_yticks(ticks=[-1, 0, 1])
+        ax[1].set_yticklabels([r"$-1$", r"$0$", r"$1$"])
+
+        ax[0].legend(handles=[agent_legend_marker, target_legend_marker], fontsize=9, loc="upper left", bbox_to_anchor=(1.05, 1), borderaxespad=0.)
+        ax[1].legend(handles=[B01_legend_marker, Bt11_legend_marker], fontsize=9, loc="upper left", bbox_to_anchor=(1.05, 1), borderaxespad=0.)
+
     fig.tight_layout()
     figname = "RL/Recordings/Images/" + f"zhu_path_mode_values.png"
     plt.savefig(figname, dpi=300, bbox_inches="tight")
