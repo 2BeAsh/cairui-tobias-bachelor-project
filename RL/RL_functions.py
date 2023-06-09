@@ -18,15 +18,15 @@ squirmer_radius = 1
 viscosity = 1
 
 # -- Zhu parameters --
-spawn_radius_zhu = 8
+spawn_radius_zhu = 6
 max_mode_zhu = 1
-cap_modes_zhu = "uncapped"  # Options: "uncapped", "constant",
-spawn_angle_zhu = 0
+cap_modes_zhu = "constant"  # Options: "uncapped", "constant",
+spawn_angle_zhu = - np.pi / 4
 render_mode = "human"
 scale_canvas = 1.4  # Makes everything on the canvas a factor smaller / zoomed out
-train_total_steps_zhu = int(2.8e5)
-PPO_number_zhu = 35
-PPO_list_zhu = [35, 9, 6, 7]
+train_total_steps_zhu = int(4e5)
+PPO_number_zhu = 2
+PPO_list_zhu = [4, 3, 1, 2]
 
 # -- Zhu functions --
 #zhu.train(squirmer_radius, spawn_radius_zhu, max_mode_zhu, viscosity, cap_modes_zhu, spawn_angle_zhu, train_total_steps_zhu, squirmer_frame=False)
@@ -48,12 +48,12 @@ train_total_steps_direction = int(3.5e5)
 # Variables
 target_radius_variable = 0.6
 target_initial_position_variable = [2.2, 2.2] / np.sqrt(2)
-angle_variable = 0
+angle_variable = np.pi/4 
 sensor_noise_variable = 0.14
 
 # - Predict direction functions -
 # Angle train
-direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, distance * np.array([np.sin(angle_variable), np.cos(angle_variable)]), reg_offset, coord_plane, train_total_steps_direction, subfolder="angle")
+direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, distance * np.array([np.cos(angle_variable), np.sin(angle_variable)]), reg_offset, coord_plane, train_total_steps_direction, subfolder="angle")
 
 # Center distance train - Cairui
 #direction.train(N_surface_points, squirmer_radius, target_radius_variable, max_mode_direction, sensor_noise, viscosity, target_initial_position_variable, reg_offset, coord_plane, train_total_steps_direction, subfolder="center_distance")
@@ -73,11 +73,11 @@ direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direc
 
 changed_parameter = "angle"  #Changed parameter: "target_radius", "sensor_noise", "distance", "angle", "else"
 subfolder = changed_parameter  # Does not work for "else"
-PPO_list = [1,2,3,4,5,6,7,8,11]
+PPO_list = [1,2,3,4]
 #direction.mode_choice_plot(max_mode_direction, N_iter=10, PPO_number=1, subfolder=subfolder)
-direction.mode_iteration_average_plot(max_mode_direction, N_model_runs=10, PPO_list=PPO_list, changed_parameter=changed_parameter, plot_reward=True, subfolder=subfolder)
-direction.plot_modes_one_graph(B_idx=[0, 1, 4], Bt_idx=[0, 1], C_idx=[0], Ct_idx=[], 
-                              max_mode=max_mode_direction, N_model_runs=10, PPO_list=PPO_list, 
-                               changed_parameter=changed_parameter, subfolder=subfolder)
+#direction.mode_iteration_average_plot(max_mode_direction, N_model_runs=10, PPO_list=PPO_list, changed_parameter=changed_parameter, plot_reward=True, subfolder=subfolder)
+#direction.plot_modes_one_graph(B_idx=[0, 1, 4], Bt_idx=[0, 1], C_idx=[0], Ct_idx=[], 
+#                               max_mode=max_mode_direction, N_model_runs=30, PPO_list=PPO_list, 
+#                               changed_parameter=changed_parameter, subfolder=subfolder)
 
 # tensorboard --logdir=.
