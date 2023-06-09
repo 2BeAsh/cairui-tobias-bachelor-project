@@ -59,7 +59,7 @@ class PredatorPreyEnv(gym.Env):
         self.charac_time = 3 * self.squirmer_radius ** 4 / (4 * self.B_max) # characteristic time
         tau = 0.5  # Seconds per iteration. 
         self.dt = tau / self.charac_time
-        self.epsilon = 0.1  # Width of regularization blobs
+        self.epsilon = 0.05  # Width of regularization blobs
         self.extra_catch_radius = 0.1
 
         # Rendering
