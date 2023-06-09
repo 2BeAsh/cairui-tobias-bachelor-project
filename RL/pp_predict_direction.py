@@ -27,7 +27,7 @@ import bem_two_objects
 import bem
 
 
-def oseen_inverses(N1, squirmer_radius, target_radius, squirmer_position, target_position, epsilon, viscosity):
+def oseen_inverses(N1, squirmer_radius, target_radius, squirmer_position, target_position, epsilon, viscosity, coord_plane):
     """Calculate Oseen tensor inverses"""
     # Without target
     x1, y1, z1, dA = bem.canonical_fibonacci_lattice(N1, squirmer_radius)
@@ -41,8 +41,16 @@ def oseen_inverses(N1, squirmer_radius, target_radius, squirmer_position, target
     N2 = int(4 * np.pi * target_radius ** 2 / dA)
     x2, y2, z2, _ = bem.canonical_fibonacci_lattice(N2, target_radius)
     x2_stack = np.stack((x2, y2, z2)).T
-    squirmer_position = np.append([0], squirmer_position)  # RL is 2d, Oseen i 3d with x plane zero
-    target_position = np.append([0], target_position)
+    if coord_plane == "xy":  # RL is 2d, Oseen i 3d 
+        squirmer_position = np.append(squirmer_position, [0])
+        target_position = np.append(target_position, [0])
+    elif coord_plane == "yz":
+        squirmer_position = np.append([0], squirmer_position)  
+        target_position = np.append([0], target_position)
+    elif coord_plane == "xz":
+        squirmer_position = np.array([squirmer_position[0], 0, squirmer_position[1]])
+        target_position = np.array([target_position[0], 0, target_position[1]])
+        
     A_oseen_with = bem_two_objects.oseen_tensor_surface_two_objects(x1_stack, x2_stack, squirmer_position, target_position, dA, epsilon, viscosity)
     A_oseen_with_inv = np.linalg.inv(A_oseen_with)
     
@@ -63,14 +71,10 @@ class PredictDirectionEnv(gym.Env):
         self.target_radius = target_radius
         self.max_mode = max_mode # Max available legendre modes. 
         self.sensor_noise = sensor_noise
-        self.target_initial_position = target_initial_position
         self.coord_plane = coord_plane
         assert coord_plane in ["xy", "xz", "yz", None]
         self.epsilon = reg_offset  # Width of delta function blobs.
         self.viscosity = viscosity
-        
-        # Parameters
-        self.catch_radius = self.squirmer_radius + self.epsilon
         
         # -- Define action and observation space --
         # Actions: Strength of Legendre Modes
@@ -89,10 +93,10 @@ class PredictDirectionEnv(gym.Env):
         # -- Calculate Oseen inverses --
         # Initial Positions
         self._agent_position = self._array_float([0, 0], shape=(2,))  # Agent in center
-        self._target_position = self._array_float(self.target_initial_position, shape=(2,))
+        self._target_position = self._array_float(target_initial_position, shape=(2,))
 
-        self.x1_stack, self.N2, self.theta, self.phi, self.A_oseen_inv, self.A_oseen_with_inv = oseen_inverses(self.N_surface_points, self.squirmer_radius, self.target_radius, 
-                                                                                                               self._agent_position, self._target_position, self.epsilon, self.viscosity)
+        self.x1_stack, self.N2, self.theta, self.phi, self.A_oseen_inv, self.A_oseen_with_inv = oseen_inverses(self.N_surface_points, self.squirmer_radius, self.target_radius, self._agent_position, 
+                                                                                                               self._target_position, self.epsilon, self.viscosity, coord_plane)
         
 
     def _array_float(self, x, shape):  # Kan ændres til at shap bare tager x.shape
@@ -142,8 +146,8 @@ class PredictDirectionEnv(gym.Env):
 
         agent_target_vec = self._target_position - self._agent_position  # Vector pointing from target to agent
         if self.coord_plane == "xz":
-            angle = np.arctan2(agent_target_vec[0], agent_target_vec[1])
-            angle_largest_change = np.arctan2(change_direction[0], change_direction[2])
+            angle = np.arctan2(agent_target_vec[0], agent_target_vec[1])  # Actual angle
+            angle_largest_change = np.arctan2(change_direction[0], change_direction[2]) # Guess angle
         elif self.coord_plane == "xy":
             angle = np.arctan2(agent_target_vec[1], agent_target_vec[0])
             angle_largest_change = np.arctan2(change_direction[1], change_direction[0])
@@ -160,11 +164,7 @@ class PredictDirectionEnv(gym.Env):
     def reset(self, seed=None):
         # Fix seed and reset values
         super().reset(seed=seed)
-                
-        # Initial positions
-        self._agent_position = self._array_float([0, 0], shape=(2,))  # Agent in center
-        self._target_position = self._array_float(self.target_initial_position, shape=(2,))
-                
+                                
         # Initial observation is no field
         observation = self._array_float([0, 0, 0], shape=(3,))
 
