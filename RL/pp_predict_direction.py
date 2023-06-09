@@ -187,18 +187,7 @@ class PredictDirectionEnv(gym.Env):
         
         return observation, reward, done, info
 
-
-def check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane):
-    env = PredictDirectionEnv(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane)
-    print("-- SB3 CHECK ENV: --")
-    if check_env(env) == None:
-        print("   The Environment is compatible with SB3")
-    else:
-        print(check_env(env))
-
     
-
-
 def train(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane, train_total_steps, subfolder=None):
     env = PredictDirectionEnv(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane)
 
@@ -573,6 +562,16 @@ if __name__ == "__main__":
     reg_offset = 0.05
     coord_plane = "yz"
 
+    
+    def check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane):
+        env = PredictDirectionEnv(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane)
+        print("-- SB3 CHECK ENV: --")
+        if check_env(env) == None:
+            print("   The Environment is compatible with SB3")
+        else:
+            print(check_env(env))
+
+    
     check_model(N_surface_points, squirmer_radius, target_radius, max_mode, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane)
     
 #"target_radius", "noise", "center_distance", "angle", "else"
