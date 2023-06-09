@@ -4,10 +4,10 @@ import associated_legendre_polynomials as alp
 
 def field_polar_squirmer(max_mode, r, theta, phi, squirmer_radius, mode_array):
     a = squirmer_radius
-    # Determine which angle is variable by looking at type, and expand the other    
+    # Determine if an angle is variable by looking at type and expand it
     if isinstance(phi, float):
         phi = np.array([phi])[None, :]
-    else:
+    elif isinstance(theta, float):
         theta = np.array([theta])[:, None]
 
     # Unpack modes and expand dimensions for proper multiplication
@@ -209,4 +209,4 @@ if __name__ ==  "__main__":
 
     #print(field_cartesian(max_mode, distance_squirmer, theta, phi, squirmer_radius, mode_array))    
     print(field_polar_squirmer(max_mode, distance_squirmer, theta, phi, squirmer_radius, mode_array))
-    print(field_cartesian_squirmer(max_mode, distance_squirmer, theta, phi, squirmer_radius, mode_array))
+    #print(field_cartesian_squirmer(max_mode, distance_squirmer, theta, phi, squirmer_radius, mode_array))
