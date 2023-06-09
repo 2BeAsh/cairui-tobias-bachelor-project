@@ -29,7 +29,7 @@ PPO_number_zhu = 2
 PPO_list_zhu = [4, 3, 1, 2]
 
 # -- Zhu functions --
-zhu.train(squirmer_radius, spawn_radius_zhu, max_mode_zhu, viscosity, cap_modes_zhu, spawn_angle_zhu, train_total_steps_zhu, squirmer_frame=False)
+#zhu.train(squirmer_radius, spawn_radius_zhu, max_mode_zhu, viscosity, cap_modes_zhu, spawn_angle_zhu, train_total_steps_zhu, squirmer_frame=False)
 #zhu.pygame_animation(PPO_number_zhu, cap_modes_zhu, render_mode, scale_canvas)
 #zhu.path_mode_plot(PPO_list_zhu, cap_modes_zhu)
 
@@ -42,18 +42,18 @@ distance = 2
 max_mode_direction = 2
 sensor_noise = 0.18
 reg_offset = 0.05
-coord_plane = "yz"
-train_total_steps_direction = int(3e5)
+coord_plane = "xy"
+train_total_steps_direction = int(3.5e5)
 
 # Variables
 target_radius_variable = 0.6
 target_initial_position_variable = [2.2, 2.2] / np.sqrt(2)
-angle_variable = 5*np.pi/4 
+angle_variable = np.pi/4 
 sensor_noise_variable = 0.14
 
 # - Predict direction functions -
 # Angle train
-#direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, distance * np.array([np.cos(angle_variable), np.sin(angle_variable)]), reg_offset, coord_plane, train_total_steps_direction, subfolder="angle")
+direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, distance * np.array([np.cos(angle_variable), np.sin(angle_variable)]), reg_offset, coord_plane, train_total_steps_direction, subfolder="angle")
 
 # Center distance train - Cairui
 #direction.train(N_surface_points, squirmer_radius, target_radius_variable, max_mode_direction, sensor_noise, viscosity, target_initial_position_variable, reg_offset, coord_plane, train_total_steps_direction, subfolder="center_distance")
