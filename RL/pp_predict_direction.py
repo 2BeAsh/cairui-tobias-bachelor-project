@@ -348,7 +348,19 @@ def mode_choice_plot(max_mode, N_iter, PPO_number, subfolder=None):
 
 
 def mode_iteration_average_plot(max_mode, N_model_runs, PPO_list, changed_parameter, plot_reward=True, subfolder=None):
+    """Plot the mode values average over N_model_runs on same training data against a variaed parameter determined by changed_parameter
+
+    Args:
+        max_mode (_type_): _description_
+        N_model_runs (_type_): _description_
+        PPO_list (_type_): _description_
+        changed_parameter (_type_): _description_
+        plot_reward (bool, optional): _description_. Defaults to True.
+        subfolder (_type_, optional): _description_. Defaults to None.
+    """
     assert changed_parameter in ["target_radius", "sensor_noise", "center_distance", "angle", "else"]
+
+    # -- Data setup --
     B_names, B_tilde_names, C_names, C_tilde_names = mode_names(max_mode)
     mode_lengths = [len(B_names), len(B_tilde_names), len(C_names), len(C_tilde_names)]
     PPO_len = len(PPO_list)
@@ -384,6 +396,7 @@ def mode_iteration_average_plot(max_mode, N_model_runs, PPO_list, changed_parame
         reward_mean[i] = np.mean(rewards)
         reward_std[i] = np.std(rewards) / np.sqrt(N_model_runs - 1)
         
+        new_ticks = False
         if changed_parameter == "target_radius":
             changed_parameter_list[i] = parameters["target_radius"]  # Target radius
             xlabel = "Target Radius"
@@ -391,8 +404,17 @@ def mode_iteration_average_plot(max_mode, N_model_runs, PPO_list, changed_parame
             changed_parameter_list[i] = parameters["sensor_noise"]  # Sensor noise
             xlabel = "Sensor Noise"
         elif changed_parameter == "angle":
-            changed_parameter_list[i] = np.arctan2(parameters["target_x1"], parameters["target_x2"]) * 180 / np.pi  # arcan ( target y / target z ). Unit: Degrees
-            xlabel = "Angle"
+            coordinate_plane = parameters["coordinate_plane"]
+            if coordinate_plane == "xy":
+                xlabel = r"Initial angle $\phi_0$" 
+                changed_parameter_list[i] = np.arctan2(parameters["target_x2"], parameters["target_x1"])  # arctan ( target x / target y ).
+            elif coordinate_plane == "yz":
+                xlabel = r"Initial angle $\theta_0$"
+                changed_parameter_list[i] = np.arctan2(parameters["target_x1"], parameters["target_x2"])  # arctan ( target y / target z ).
+            new_ticks = True
+            xticks = np.arange(0, (2+1/4)*np.pi, np.pi/4)
+            x_tick_labels = [r"$0$", r"$\pi/4$", r"$\pi/2$", r"$3\pi/4$",r"$\pi/2$", 
+                      r"$5\pi/4$", r"3$\pi/2$", r"$7\pi/4$", r"$2\pi/4$",]
         elif changed_parameter == "center_distance":  # Target initial distance
             changed_parameter_list[i] = parameters["centers_distance"]  # Distance between the two centers
             xlabel = "Center-center distance"
@@ -415,8 +437,12 @@ def mode_iteration_average_plot(max_mode, N_model_runs, PPO_list, changed_parame
         axis.legend(mode_name, fontsize=4, bbox_to_anchor=(1.05, 1), 
                     loc='upper left', borderaxespad=0.)
         axis.grid()
+        if new_ticks == True:
+            axis.set_xticks(ticks=xticks)
+            axis.set_xticklabels(x_tick_labels)
+
     
-    
+    # -- Figure and axis setup --
     fig, ax = plt.subplots(nrows=2, ncols=2, dpi=200)
     axB = ax[0, 0]
     axBt = ax[0, 1]
@@ -471,6 +497,7 @@ def plot_modes_one_graph(B_idx, Bt_idx, C_idx, Ct_idx, max_mode, N_model_runs, P
     
     changed_parameter_list = np.empty(PPO_len)
     
+    # Fill out the data arrays
     for i, PPO_val in enumerate(PPO_list):
         B_actions, B_tilde_actions, C_actions, C_tilde_actions, rewards, _, parameters = mode_iteration(N_model_runs, PPO_val, mode_lengths, subfolder)
         # Mean and std
@@ -487,6 +514,7 @@ def plot_modes_one_graph(B_idx, Bt_idx, C_idx, Ct_idx, max_mode, N_model_runs, P
         reward_mean[i] = np.mean(rewards)
         reward_std[i] = np.std(rewards) / np.sqrt(N_model_runs - 1)
         
+        new_ticks = False
         if changed_parameter == "target_radius":
             changed_parameter_list[i] = parameters["target_radius"]  # Target radius
             xlabel = "Target Radius"
@@ -494,8 +522,21 @@ def plot_modes_one_graph(B_idx, Bt_idx, C_idx, Ct_idx, max_mode, N_model_runs, P
             changed_parameter_list[i] = parameters["sensor_noise"]  # Sensor noise
             xlabel = "Sensor Noise"
         elif changed_parameter == "angle":
-            changed_parameter_list[i] = np.arctan2(parameters["target_x1"], parameters["target_x2"]) * 180 / np.pi  # arcan ( target y / target z ). Unit: Degrees
-            xlabel = "Angle"
+            coordinate_plane = parameters["coordinate_plane"]
+            if coordinate_plane == "xy":
+                xlabel = r"Initial angle $\phi_0$" 
+                changed_parameter_list[i] = np.arctan2(parameters["target_x2"], parameters["target_x1"])  # arctan ( target x / target y ).
+            elif coordinate_plane == "yz":
+                xlabel = r"Initial angle $\theta_0$"
+                changed_parameter_list[i] = np.arctan2(parameters["target_x1"], parameters["target_x2"])  # arctan ( target y / target z ).
+            new_ticks = True
+            xticks = np.arange(-np.pi, (5/4)*np.pi, np.pi/4)
+            x_tick_labels = [r"$-\pi$", r"$\frac{-3\pi}{4}$", r"$\frac{-\pi}{2}$", r"$\frac{-\pi}{4}$", r"$0$", r"$\frac{\pi}{4}$", r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$", r"$\pi$"]  # [-pi, pi]
+            #x_tick_labels = [r"$0$", r"$\frac{\pi}{4}$", r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$",r"$\frac{\pi}{2}$",   # [0, 2pi]
+            #          r"$\frac{5\pi}{4}$", r"$\frac{3\pi}{2}$", r"$\frac{7\pi}{4}$", r"$\frac{2\pi}{4}$",]
+        elif changed_parameter == "center_distance":  # Target initial distance
+            changed_parameter_list[i] = parameters["centers_distance"]  # Distance between the two centers
+            xlabel = "Center-center distance"
         elif changed_parameter == "center_distance":  # Target initial distance
             changed_parameter_list[i] = parameters["centers_distance"]  # Distance between the two centers
             xlabel = "Center-center distance"
@@ -523,12 +564,29 @@ def plot_modes_one_graph(B_idx, Bt_idx, C_idx, Ct_idx, max_mode, N_model_runs, P
     
     sort_idx = np.argsort(changed_parameter_list)
     x_sort = changed_parameter_list[sort_idx]
-    # Plot
-    fig, ax = plt.subplots(figsize=(10, 3))#figsize=(13, 6))
-    ax.set(ylim=(0, 0.5), xlabel=xlabel, ylabel="Absolute Mode Value")
+    # Add additional point to angle graph
+    if changed_parameter == "angle":
+        x_sort = np.append(x_sort, -x_sort[0])  # add a pi point from -pi
+        sort_idx = np.argsort(x_sort)
+        if np.size(B_mean_plot) > 0: 
+            B_mean_plot = np.concatenate((B_mean_plot, B_mean_plot[0, :][None, :]), axis=0)
+            B_std_plot = np.concatenate((B_std_plot, B_std_plot[0, :][None, :]), axis=0)
+        if np.size(Bt_mean_plot) > 0: 
+            Bt_mean_plot = np.concatenate((Bt_mean_plot, Bt_mean_plot[0, :][None, :]), axis=0)
+            Bt_std_plot = np.concatenate((Bt_std_plot, Bt_std_plot[0, :][None, :]), axis=0)
+        if np.size(C_mean_plot) > 0: 
+            C_mean_plot = np.concatenate((C_mean_plot, C_mean_plot[0, :][None, :]), axis=0) 
+            C_std_plot = np.concatenate((C_std_plot, C_std_plot[0, :][None, :]), axis=0)
+        if np.size(Ct_mean_plot) > 0: 
+            Ct_mean_plot = np.concatenate((Ct_mean_plot, Ct_mean_plot[0, :][None, :]), axis=0)
+            Ct_std_plot = np.concatenate((Ct_std_plot, Ct_std_plot[0, :][None, :]), axis=0)
 
+    # Plot
+    fig, ax = plt.subplots(figsize=(10, 3))
+    ax.set(xlabel=xlabel, ylabel="Absolute Mode Value")
+
+    marker_list = ["o", "^","s", "p", "P", "*","d", "x", "X", ">", "H", "+"]
     def plot_mode(y, sy, label):   
-        marker_list = ["o", "^","s", "p", "P", "*","d", "x", "X", ">", "H", "+"]
         for i in range(np.shape(y)[1]):
             y_sort = y[:, i][sort_idx]
             sy_sort = sy[:, i][sort_idx]
@@ -541,9 +599,11 @@ def plot_modes_one_graph(B_idx, Bt_idx, C_idx, Ct_idx, max_mode, N_model_runs, P
     
     ax.legend(fontsize=8, bbox_to_anchor=(1.02, 1), 
                 loc='upper left', borderaxespad=0.)
-    
+    if new_ticks == True:
+        ax.set_xticks(ticks=xticks)
+        ax.set_xticklabels(x_tick_labels)    
     ax.grid()    
-    figname = "RL/Recordings/Images/" + f"mode_one_graph_{xlabel}.png"
+    figname = "RL/Recordings/Images/" + f"mode_one_graph.png"
     plt.savefig(figname, dpi=300, bbox_inches="tight")
     plt.show()
     
