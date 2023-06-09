@@ -18,20 +18,20 @@ squirmer_radius = 1
 viscosity = 1
 
 # -- Zhu parameters --
-spawn_radius_zhu = 8
+spawn_radius_zhu = 6
 max_mode_zhu = 1
-cap_modes_zhu = "uncapped"  # Options: "uncapped", "constant",
-spawn_angle_zhu = 0
+cap_modes_zhu = "constant"  # Options: "uncapped", "constant",
+spawn_angle_zhu = - np.pi / 4
 render_mode = "human"
 scale_canvas = 1.4  # Makes everything on the canvas a factor smaller / zoomed out
-train_total_steps_zhu = int(2.8e5)
-PPO_number_zhu = 35
-PPO_list_zhu = [35, 9, 6, 7]
+train_total_steps_zhu = int(4e5)
+PPO_number_zhu = 2
+PPO_list_zhu = [4, 3, 1, 2]
 
 # -- Zhu functions --
-#zhu.train(squirmer_radius, spawn_radius_zhu, max_mode_zhu, viscosity, cap_modes_zhu, spawn_angle_zhu, train_total_steps_zhu, squirmer_frame=False)
+zhu.train(squirmer_radius, spawn_radius_zhu, max_mode_zhu, viscosity, cap_modes_zhu, spawn_angle_zhu, train_total_steps_zhu, squirmer_frame=False)
 #zhu.pygame_animation(PPO_number_zhu, cap_modes_zhu, render_mode, scale_canvas)
-zhu.path_mode_plot(PPO_list_zhu, cap_modes_zhu)
+#zhu.path_mode_plot(PPO_list_zhu, cap_modes_zhu)
 
 # -- Predict direction parameters --
 # Model Parameters
