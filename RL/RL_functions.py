@@ -48,7 +48,7 @@ train_total_steps_direction = int(3.5e5)
 # Variables
 target_radius_variable = 0.6
 target_initial_position_variable = [2.2, 2.2] / np.sqrt(2)
-angle_variable = -3*np.pi/4
+angle_variable = 3*np.pi/4
 sensor_noise_variable = 0.14
 
 # - Predict direction functions -
