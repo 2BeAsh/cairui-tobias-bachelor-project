@@ -43,12 +43,12 @@ max_mode_direction = 2
 sensor_noise = 0.18
 reg_offset = 0.05
 coord_plane = "yz"
-train_total_steps_direction = int(7e5)
+train_total_steps_direction = int(1e6)
 
 # Variables
 target_radius_variable = 0.3
-target_initial_position_variable = [1.9, 1.9] / np.sqrt(2)
-angle_variable = 3*np.pi/4
+target_initial_position_variable = [2.1, 2.1] / np.sqrt(2)
+angle_variable = 3 * np.pi / 4
 sensor_noise_variable = 0.14
 
 # - Predict direction functions -
@@ -58,7 +58,6 @@ sensor_noise_variable = 0.14
 
 # Center distance train - Cairui
 direction.train(N_surface_points, squirmer_radius, target_radius_variable, max_mode_direction, sensor_noise, viscosity, target_initial_position_variable, reg_offset, coord_plane, train_total_steps_direction, subfolder="center_distance")
-#direction.train(N_surface_points, squirmer_radius, target_radius_variable, max_mode_direction, sensor_noise, viscosity, target_initial_position_variable, reg_offset, coord_plane, train_total_steps_direction, subfolder="center_distance")
 
 # Target Radius train - Tobias Stationær
 #direction.train(N_surface_points, squirmer_radius, target_radius_variable, max_mode_direction, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane, train_total_steps_direction, subfolder="target_radius")
