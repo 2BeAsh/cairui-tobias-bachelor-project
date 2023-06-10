@@ -517,35 +517,37 @@ def plot_modes_one_graph(B_idx, Bt_idx, C_idx, Ct_idx, max_mode, N_model_runs, P
         new_ticks = False
         if changed_parameter == "target_radius":
             changed_parameter_list[i] = parameters["target_radius"]  # Target radius
-            xlabel = "Target Radius"
+            xlabel = r"$a_{\text{target}}$"
+            title = ""
         elif changed_parameter == "sensor_noise":
             changed_parameter_list[i] = parameters["sensor_noise"]  # Sensor noise
-            xlabel = "Sensor Noise"
+            xlabel = r"\sigma_{\text{noise}}"
+            title = ""
         elif changed_parameter == "angle":
             coordinate_plane = parameters["coordinate_plane"]
+            # Depending on which coordinate plane, angle is calculated differently
             if coordinate_plane == "xy":
-                xlabel = r"Initial angle $\phi_0$" 
-                changed_parameter_list[i] = np.arctan2(parameters["target_x2"], parameters["target_x1"])  # arctan ( target x / target y ).
+                xlabel = r"$\phi_0$" 
+                changed_parameter_list[i] = np.arctan2(parameters["target_x2"], parameters["target_x1"])  # arctan ( target y / target x ).
+                title = r"$xy$-plane"
             elif coordinate_plane == "yz":
-                xlabel = r"Initial angle $\theta_0$"
+                xlabel = r"$\theta_0$"
                 changed_parameter_list[i] = np.arctan2(parameters["target_x1"], parameters["target_x2"])  # arctan ( target y / target z ).
+                title = r"$yz$-plane"
+            else:  # xz
+                xlabel = r"$\theta_0$"
+                changed_parameter_list[i] = np.arctan2(parameters["target_x1"], parameters["target_x2"])  # arctan (target x / target z)
+                title = r"$xz$-plane"
+            # Give specific ticks for angle, radians
             new_ticks = True
             xticks = np.arange(-np.pi, (5/4)*np.pi, np.pi/4)
             x_tick_labels = [r"$-\pi$", r"$\frac{-3\pi}{4}$", r"$\frac{-\pi}{2}$", r"$\frac{-\pi}{4}$", r"$0$", r"$\frac{\pi}{4}$", r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$", r"$\pi$"]  # [-pi, pi]
-            #x_tick_labels = [r"$0$", r"$\frac{\pi}{4}$", r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$",r"$\frac{\pi}{2}$",   # [0, 2pi]
-            #          r"$\frac{5\pi}{4}$", r"$\frac{3\pi}{2}$", r"$\frac{7\pi}{4}$", r"$\frac{2\pi}{4}$",]
         elif changed_parameter == "center_distance":  # Target initial distance
             changed_parameter_list[i] = parameters["centers_distance"]  # Distance between the two centers
-            xlabel = "Center-center distance"
-        elif changed_parameter == "center_distance":  # Target initial distance
-            changed_parameter_list[i] = parameters["centers_distance"]  # Distance between the two centers
-            xlabel = "Center-center distance"
-        else:
-            x = parameters["centers_distance"]/(parameters["target_radius"]+ parameters["squirmer_radius"])
-            changed_parameter_list[i] = x
-            xlabel = "else"
+            xlabel = r"$r_0$"
+            title = ""
     
-    # Include only desired plots
+    # Include only desired modes
     B_mean_plot = B_mean[:, B_idx]
     B_std_plot = B_std[:, B_idx]    
     B_label = [B_names[i] for i in B_idx]
@@ -564,34 +566,35 @@ def plot_modes_one_graph(B_idx, Bt_idx, C_idx, Ct_idx, max_mode, N_model_runs, P
     
     sort_idx = np.argsort(changed_parameter_list)
     x_sort = changed_parameter_list[sort_idx]
-    # Add additional point to angle graph
+    # Add additional point to angle graph, depends on data / coord plane
     if changed_parameter == "angle":
-        x_sort = np.append(x_sort, -x_sort[0])  # add a pi point from -pi
-        sort_idx = np.argsort(x_sort)
-        if np.size(B_mean_plot) > 0: 
-            B_mean_plot = np.concatenate((B_mean_plot, B_mean_plot[0, :][None, :]), axis=0)
-            B_std_plot = np.concatenate((B_std_plot, B_std_plot[0, :][None, :]), axis=0)
-        if np.size(Bt_mean_plot) > 0: 
-            Bt_mean_plot = np.concatenate((Bt_mean_plot, Bt_mean_plot[0, :][None, :]), axis=0)
-            Bt_std_plot = np.concatenate((Bt_std_plot, Bt_std_plot[0, :][None, :]), axis=0)
-        if np.size(C_mean_plot) > 0: 
-            C_mean_plot = np.concatenate((C_mean_plot, C_mean_plot[0, :][None, :]), axis=0) 
-            C_std_plot = np.concatenate((C_std_plot, C_std_plot[0, :][None, :]), axis=0)
-        if np.size(Ct_mean_plot) > 0: 
-            Ct_mean_plot = np.concatenate((Ct_mean_plot, Ct_mean_plot[0, :][None, :]), axis=0)
-            Ct_std_plot = np.concatenate((Ct_std_plot, Ct_std_plot[0, :][None, :]), axis=0)
-
+        if coordinate_plane == "yz":
+            # Add pi to x data, update sort_idx
+            x_sort = np.append(x_sort, -x_sort[0])
+            sort_idx = np.append(sort_idx, sort_idx[0]) 
+        elif coordinate_plane == "xy":
+            # Add -pi
+            x_sort = np.append(-x_sort[-1], x_sort)
+            sort_idx = np.append(sort_idx[-1], sort_idx)
+        else:  # xz
+            # Add pi
+            x_sort = np.append(x_sort, -x_sort[0])
+            sort_idx = np.append(sort_idx, sort_idx[0])             
+        
     # Plot
     fig, ax = plt.subplots(figsize=(10, 3))
-    ax.set(xlabel=xlabel, ylabel="Absolute Mode Value")
-
+    ax.set(xlabel=xlabel, ylabel="Absolute Mode Value", title=title)
     marker_list = ["o", "^","s", "p", "P", "*","d", "x", "X", ">", "H", "+"]
+    
+    
     def plot_mode(y, sy, label):   
         for i in range(np.shape(y)[1]):
             y_sort = y[:, i][sort_idx]
             sy_sort = sy[:, i][sort_idx]
             ax.errorbar(x_sort, np.abs(y_sort), yerr=sy_sort, marker=marker_list[i], lw=0.85, markersize=10, label=label[i])
     
+    
+    # Run the plotting function
     plot_mode(B_mean_plot, B_std_plot, B_label)
     plot_mode(Bt_mean_plot, Bt_std_plot, Bt_label)
     plot_mode(C_mean_plot, C_std_plot, C_label)
@@ -603,7 +606,7 @@ def plot_modes_one_graph(B_idx, Bt_idx, C_idx, Ct_idx, max_mode, N_model_runs, P
         ax.set_xticks(ticks=xticks)
         ax.set_xticklabels(x_tick_labels)    
     ax.grid()    
-    figname = "RL/Recordings/Images/" + f"mode_one_graph.png"
+    figname = "RL/Recordings/Images/" + f"mode_one_graph_{title}.png"
     plt.savefig(figname, dpi=300, bbox_inches="tight")
     plt.show()
     
