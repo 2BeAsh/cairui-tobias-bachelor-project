@@ -43,11 +43,11 @@ max_mode_direction = 2
 sensor_noise = 0.18
 reg_offset = 0.05
 coord_plane = "yz"
-train_total_steps_direction = int(3e5)
+train_total_steps_direction = int(6.3e5)
 
 # Variables
-target_radius_variable = 0.6
-target_initial_position_variable = [2.1, 2.1] / np.sqrt(2)
+target_radius_variable = 0.3
+target_initial_position_variable = [1.7, 1.7] / np.sqrt(2)
 angle_variable = 3 * np.pi / 4
 sensor_noise_variable = 0.14
 
@@ -73,12 +73,12 @@ direction.train(N_surface_points, squirmer_radius, target_radius_variable, max_m
 
 changed_parameter = "center_distance"  #Changed parameter: "target_radius", "sensor_noise", "distance", "angle"
 subfolder = changed_parameter  
-PPO_list_afstand_06 = [13, 15, 16, 17, 18, 20, 30, 32, 35]
-PPO_list_afstand_03 = [23, 24, 25, 26, 27, 28, 29, 31, 34]
+PPO_list_afstand_06 = [13, 15, 16, 17, 18, 20, 30, 32, 35]  # 13 og 33 begge 2.0. 13 bedst
+PPO_list_afstand_03 = [23, 25, 26, 27, 28, 29, 31, 34, 36]
 #direction.mode_choice_plot(max_mode_direction, N_iter=10, PPO_number=1, subfolder=subfolder)
 #direction.mode_iteration_average_plot(max_mode_direction, N_model_runs=10, PPO_list=PPO_list, changed_parameter=changed_parameter, plot_reward=True, subfolder=subfolder)
 direction.plot_modes_one_graph(B_idx=[0, 1, 4], Bt_idx=[0, 1], C_idx=[0], Ct_idx=[], 
-                               max_mode=max_mode_direction, N_model_runs=30, PPO_list=PPO_list_afstand_03, 
+                               max_mode=max_mode_direction, N_model_runs=30, PPO_list=PPO_list_afstand_06, 
                                changed_parameter=changed_parameter, subfolder=subfolder)
 
 # tensorboard --logdir=.
