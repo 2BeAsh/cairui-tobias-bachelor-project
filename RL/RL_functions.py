@@ -43,11 +43,11 @@ max_mode_direction = 2
 sensor_noise = 0.18
 reg_offset = 0.05
 coord_plane = "yz"
-train_total_steps_direction = int(1e6)
+train_total_steps_direction = int(2.5e6)
 
 # Variables
 target_radius_variable = 0.3
-target_initial_position_variable = [2.1, 2.1] / np.sqrt(2)
+target_initial_position_variable = [1.5, 1.5] / np.sqrt(2)
 angle_variable = 3 * np.pi / 4
 sensor_noise_variable = 0.14
 
