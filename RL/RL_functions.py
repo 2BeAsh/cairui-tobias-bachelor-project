@@ -43,11 +43,11 @@ max_mode_direction = 2
 sensor_noise = 0.18
 reg_offset = 0.05
 coord_plane = "yz"
-train_total_steps_direction = int(2.5e6)
+train_total_steps_direction = int(2.5e5)
 
 # Variables
 target_radius_variable = 0.3
-target_initial_position_variable = [1.5, 1.5] / np.sqrt(2)
+target_initial_position_variable = [1.8, 1.8] / np.sqrt(2)
 angle_variable = 3 * np.pi / 4
 sensor_noise_variable = 0.14
 
@@ -71,9 +71,9 @@ direction.train(N_surface_points, squirmer_radius, target_radius_variable, max_m
     # 2) Vælg hvilke filer skal bruges i PPO_list
     # 3) Hvis plot_modes_one_graph bruges, skal indices angives. Dette er hvilke grafer der skal plottes, så B_idx=[0, 2] betyder B01 og B02 plottes (fordi B modes er B01, B11, B02 ...)
 
-changed_parameter = "center_distance"  #Changed parameter: "target_radius", "sensor_noise", "distance", "angle", "else"
-subfolder = changed_parameter  # Does not work for "else"
-PPO_list = [13,15,16,17]
+changed_parameter = "center_distance"  #Changed parameter: "target_radius", "sensor_noise", "distance", "angle"
+subfolder = changed_parameter  
+PPO_list = [19, 12, 13, 14]
 #direction.mode_choice_plot(max_mode_direction, N_iter=10, PPO_number=1, subfolder=subfolder)
 #direction.mode_iteration_average_plot(max_mode_direction, N_model_runs=10, PPO_list=PPO_list, changed_parameter=changed_parameter, plot_reward=True, subfolder=subfolder)
 direction.plot_modes_one_graph(B_idx=[0, 1, 4], Bt_idx=[0, 1], C_idx=[0], Ct_idx=[], 
