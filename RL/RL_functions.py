@@ -71,20 +71,23 @@ sensor_noise_variable = 0.14
     # 2) Vælg hvilke filer skal bruges i PPO_list
     # 3) Hvis plot_modes_one_graph bruges, skal indices angives. Dette er hvilke grafer der skal plottes, så B_idx=[0, 2] betyder B01 og B02 plottes (fordi B modes er B01, B11, B02 ...)
 
-changed_parameter = "center_distance"  #Changed parameter: "target_radius", "sensor_noise", "distance", "angle"
+changed_parameter = "angle"  #Changed parameter: "target_radius", "sensor_noise", "distance", "angle"
 subfolder = changed_parameter  
 
 PPO_list_afstand_radius06 = [13, 15, 16, 17, 18, 20, 30, 32, 35]  # 13 og 33 begge 2.0. 13 bedst
 PPO_list_afstand_radius03 = [23, 25, 26, 27, 28, 29, 31, 34, 36]
 PPO_list_noise = []
-PPO_list_angle_xy = []
-PPO_list_angle_yz = []
-PPO_list_angle_xz = []
+PPO_list_angle_xy = [12, 13, 14, 15, 16, 17, 18, 19, 20, 28]
+PPO_list_angle_yz = [1, 2, 3, 4, 5, 6, 7, 8, 9, 11]
+PPO_list_angle_xz = [4_2, 7_2, 17_2, 20_2, 21, 22, 23, 24, 25, 26]
 
 #direction.mode_choice_plot(max_mode_direction, N_iter=10, PPO_number=1, subfolder=subfolder)
 #direction.mode_iteration_average_plot(max_mode_direction, N_model_runs=10, PPO_list=PPO_list, changed_parameter=changed_parameter, plot_reward=True, subfolder=subfolder)
-direction.plot_modes_one_graph(B_idx=[0, 1, 4], Bt_idx=[0, 1], C_idx=[0], Ct_idx=[], 
-                               max_mode=max_mode_direction, N_model_runs=30, PPO_list=PPO_list_afstand_radius06, 
+direction.plot_modes_one_graph(B_idx=[0, 1, 2, 3, 4], Bt_idx=[0, 1, 2], C_idx=[0, 1, 2], Ct_idx=[0, 1], 
+                               max_mode=max_mode_direction, N_model_runs=30, PPO_list=PPO_list_angle_xy, 
                                changed_parameter=changed_parameter, subfolder=subfolder)
+
+
+# Max modes: B_idx=[0, 1, 2, 3, 4], Bt_idx=[0, 1, 2], C_idx=[0, 1, 2], Ct_idx=[0, 1],
 
 # tensorboard --logdir=.
