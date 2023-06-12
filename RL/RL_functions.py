@@ -71,23 +71,30 @@ sensor_noise_variable = 0.14
     # 2) Vælg hvilke filer skal bruges i PPO_list
     # 3) Hvis plot_modes_one_graph bruges, skal indices angives. Dette er hvilke grafer der skal plottes, så B_idx=[0, 2] betyder B01 og B02 plottes (fordi B modes er B01, B11, B02 ...)
 
-changed_parameter = "angle"  #Changed parameter: "target_radius", "sensor_noise", "distance", "angle"
-subfolder = changed_parameter  
+changed_parameter = "angle"  #Changed parameter: "target_radius", "sensor_noise", "center_distance", "angle", "radii_sum"
+subfolder = "angle"  
 
-PPO_list_afstand_radius06 = [13, 15, 16, 17, 18, 20, 30, 32, 35]  # 13 og 33 begge 2.0. 13 bedst
-PPO_list_afstand_radius03 = [23, 25, 26, 27, 28, 29, 31, 34, 36]
-PPO_list_noise = []
-PPO_list_angle_xy = [13, 14, 15, 16, 17, 18, 19, 20, 28]
+PPO_list_distance_radius06 = [33, 15, 16, 17, 18, 20, 30, 32]  # 13 og 33 begge 2.0. 13 bedst
+PPO_list_distance_radius04 = [1, 4, 5, 6, 7, 8]
+PPO_list_distance_radius03 = [24, 25, 26, 27, 28, 29, 31, 34, ]  # 24 og 36 begge 1.7, 24 bedst
+PPO_list_noise = [1, 2, 4, 5, 6, 7, 9, 12, 13]
+PPO_list_angle_xy = [13, 14, 15, 16, 17, 18, 20, 19]  # 19 og 28 ens, -45 / 3pi/4
 PPO_list_angle_yz = [1, 2, 3, 4, 5, 6, 7, 8]
 PPO_list_angle_xz = [42, 72, 172, 202, 22, 24, 25, 26]
 
 #direction.mode_choice_plot(max_mode_direction, N_iter=10, PPO_number=1, subfolder=subfolder)
 #direction.mode_iteration_average_plot(max_mode_direction, N_model_runs=10, PPO_list=PPO_list, changed_parameter=changed_parameter, plot_reward=True, subfolder=subfolder)
-direction.plot_modes_one_graph(B_idx=[0, 1, 2, 3, 4], Bt_idx=[], C_idx=[], Ct_idx=[], 
-                               max_mode=max_mode_direction, N_model_runs=30, PPO_list=PPO_list_angle_xz, 
+direction.plot_modes_one_graph(B_idx=[0, 1, 4], Bt_idx=[0, 1,], C_idx=[], Ct_idx=[], 
+                               max_mode=max_mode_direction, N_model_runs=30, PPO_list=PPO_list_angle_yz, 
                                changed_parameter=changed_parameter, subfolder=subfolder)
 
 
-# Max modes: B_idx=[0, 1, 2, 3, 4], Bt_idx=[0, 1, 2], C_idx=[0, 1, 2], Ct_idx=[0, 1],
+# All modes: B_idx=[0, 1, 2, 3, 4], Bt_idx=[0, 1, 2], C_idx=[0, 1, 2], Ct_idx=[0, 1],
+# Angle modes xy: B_idx=[1, 2, 4], Bt_idx=[0, 2], C_idx=[], Ct_idx=[],
+# Angle modes xz: B_idx=[0, 1, 2, 3, 4], Bt_idx=[], C_idx=[], Ct_idx=[],
+# Angle modes yz: B_idx=[0, 1, 4], Bt_idx=[0, 1], C_idx=[], Ct_idx=[],
+# Modes distance: B_idx=[0, 1, 4], Bt_idx=[0, 1,], C_idx=[], Ct_idx=[]
+
+# Til noise: Fjern 0.6 punktet
 
 # tensorboard --logdir=.
