@@ -477,7 +477,7 @@ def mode_iteration_average_plot(max_mode, N_model_runs, PPO_list, changed_parame
 def plot_modes_one_graph(B_idx, Bt_idx, C_idx, Ct_idx, max_mode, N_model_runs, PPO_list, changed_parameter, subfolder=None):
     # Kræver at man manuelt specificerer hvilke modes
 
-    assert changed_parameter in ["target_radius", "sensor_noise", "center_distance", "angle", "else"]
+    assert changed_parameter in ["target_radius", "sensor_noise", "center_distance", "angle", "radii_sum"]
     B_names, B_tilde_names, C_names, C_tilde_names = mode_names(max_mode)
     mode_lengths = [len(B_names), len(B_tilde_names), len(C_names), len(C_tilde_names)]
     PPO_len = len(PPO_list)
@@ -515,13 +515,14 @@ def plot_modes_one_graph(B_idx, Bt_idx, C_idx, Ct_idx, max_mode, N_model_runs, P
         reward_std[i] = np.std(rewards) / np.sqrt(N_model_runs - 1)
         
         new_ticks = False
+        new_xlim = False
         if changed_parameter == "target_radius":
             changed_parameter_list[i] = parameters["target_radius"]  # Target radius
-            xlabel = r"$a_{\text{target}}$"
+            xlabel = r"$a_{target}$"
             title = ""
         elif changed_parameter == "sensor_noise":
             changed_parameter_list[i] = parameters["sensor_noise"]  # Sensor noise
-            xlabel = r"\sigma_{\text{noise}}"
+            xlabel = r"$\sigma_{noise}$"
             title = ""
         elif changed_parameter == "angle":
             coordinate_plane = parameters["coordinate_plane"]
@@ -546,6 +547,14 @@ def plot_modes_one_graph(B_idx, Bt_idx, C_idx, Ct_idx, max_mode, N_model_runs, P
             changed_parameter_list[i] = parameters["centers_distance"]  # Distance between the two centers
             xlabel = r"$r_0$"
             title = ""
+            new_xlim = True
+            xlim = (1.35, 2.75)
+        elif changed_parameter == "radii_sum":
+            changed_parameter_list[i] = parameters["centers_distance"] / (parameters["target_radius"] + parameters["squirmer_radius"])
+            xlabel = r"$\beta$"
+            title= r"$a_{target} = $" + str(parameters["target_radius"])
+            new_xlim = True
+            xlim = (1, 1.75)
     
     # Include only desired modes
     B_mean_plot = B_mean[:, B_idx]
@@ -581,24 +590,31 @@ def plot_modes_one_graph(B_idx, Bt_idx, C_idx, Ct_idx, max_mode, N_model_runs, P
             x_sort = np.append(x_sort, -x_sort[0])
             sort_idx = np.append(sort_idx, sort_idx[0])             
         
-    # Plot
+    # -- Start figure --
     fig, ax = plt.subplots(figsize=(10, 3))
     ax.set(xlabel=xlabel, ylabel="Absolute Mode Value", title=title)
-    marker_list = ["o", "^","s", "p", "P", "*","d", "x", "X", ">", "H", "+"]
+    if new_xlim:
+        ax.set(xlim=xlim)
     
-    
+    from itertools import cycle
+    marker_list = ["o", "^", "s", "p", "P", "*","d", "x", "X", ">", "H", "+"]
+    ls_list = ["solid", "dotted", "dashed", "dashdot", (0, (1, 1))]
+    marker_cycle = cycle(marker_list)
+    ls_cycle = cycle(ls_list)
+
+
     def plot_mode(y, sy, label):   
         for i in range(np.shape(y)[1]):
             y_sort = y[:, i][sort_idx]
             sy_sort = sy[:, i][sort_idx]
-            ax.errorbar(x_sort, np.abs(y_sort), yerr=sy_sort, marker=marker_list[i], lw=0.85, markersize=10, label=label[i])
+            ax.errorbar(x_sort, np.abs(y_sort), yerr=sy_sort, lw=0.85, markersize=10, label=label[i], marker=next(marker_cycle),)# linestyle=next(ls_cycle)) #marker=marker_list[i],)
     
     
     # Run the plotting function
-    plot_mode(B_mean_plot, B_std_plot, B_label)
     plot_mode(Bt_mean_plot, Bt_std_plot, Bt_label)
     plot_mode(C_mean_plot, C_std_plot, C_label)
     plot_mode(Ct_mean_plot, Ct_std_plot, Ct_label)
+    plot_mode(B_mean_plot, B_std_plot, B_label)  # HUSK AT SÆTTE TILBAGE!
     
     ax.legend(fontsize=8, bbox_to_anchor=(1.02, 1), 
                 loc='upper left', borderaxespad=0.)
