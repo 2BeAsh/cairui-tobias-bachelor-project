@@ -57,7 +57,7 @@ sensor_noise_variable = 0.14
 #direction.train(N_surface_points, squirmer_radius, target_radius, max_mode_direction, sensor_noise, viscosity, distance * np.array([np.sin(angle_variable), np.cos(angle_variable)]), reg_offset, coord_plane, train_total_steps_direction, subfolder="angle")
 
 # Center distance train - Cairui
-direction.train(N_surface_points, squirmer_radius, target_radius_variable, max_mode_direction, sensor_noise, viscosity, target_initial_position_variable, reg_offset, coord_plane, train_total_steps_direction, subfolder="center_distance")
+#direction.train(N_surface_points, squirmer_radius, target_radius_variable, max_mode_direction, sensor_noise, viscosity, target_initial_position_variable, reg_offset, coord_plane, train_total_steps_direction, subfolder="center_distance")
 
 # Target Radius train - Tobias Stationær
 #direction.train(N_surface_points, squirmer_radius, target_radius_variable, max_mode_direction, sensor_noise, viscosity, target_initial_position, reg_offset, coord_plane, train_total_steps_direction, subfolder="target_radius")
@@ -73,12 +73,18 @@ direction.train(N_surface_points, squirmer_radius, target_radius_variable, max_m
 
 changed_parameter = "center_distance"  #Changed parameter: "target_radius", "sensor_noise", "distance", "angle"
 subfolder = changed_parameter  
-PPO_list_afstand_06 = [13, 15, 16, 17, 18, 20, 30, 32, 35]  # 13 og 33 begge 2.0. 13 bedst
-PPO_list_afstand_03 = [23, 25, 26, 27, 28, 29, 31, 34, 36]
+
+PPO_list_afstand_radius06 = [13, 15, 16, 17, 18, 20, 30, 32, 35]  # 13 og 33 begge 2.0. 13 bedst
+PPO_list_afstand_radius03 = [23, 25, 26, 27, 28, 29, 31, 34, 36]
+PPO_list_noise = []
+PPO_list_angle_xy = []
+PPO_list_angle_yz = []
+PPO_list_angle_xz = []
+
 #direction.mode_choice_plot(max_mode_direction, N_iter=10, PPO_number=1, subfolder=subfolder)
 #direction.mode_iteration_average_plot(max_mode_direction, N_model_runs=10, PPO_list=PPO_list, changed_parameter=changed_parameter, plot_reward=True, subfolder=subfolder)
 direction.plot_modes_one_graph(B_idx=[0, 1, 4], Bt_idx=[0, 1], C_idx=[0], Ct_idx=[], 
-                               max_mode=max_mode_direction, N_model_runs=30, PPO_list=PPO_list_afstand_06, 
+                               max_mode=max_mode_direction, N_model_runs=30, PPO_list=PPO_list_afstand_radius06, 
                                changed_parameter=changed_parameter, subfolder=subfolder)
 
 # tensorboard --logdir=.
